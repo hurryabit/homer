@@ -1,0 +1,64 @@
+{
+    "private": true,
+    "name": "homer-vscode",
+    "description": "Homer VSCode Extension",
+    "author": "Martin Huschenbett <martin.huschenbett@posteo.me>",
+    "publisher": "hurryabit",
+    "license": "Apache-2.0",
+    "version": "0.1.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/hurryabit/homer"
+    },
+    "engines": {
+        "vscode": "^1.43.0"
+    },
+    "activationEvents": [
+        "onLanguage:homer"
+    ],
+    "main": "./out/extension",
+    "contributes": {
+        "languages": [
+            {
+                "id": "homer",
+                "extensions": [
+                    ".homer"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "homer",
+                "scopeName": "source.homer",
+                "path": "./syntaxes/homer.tmGrammar.json"
+            }
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "Homer Configuration",
+            "properties": {
+                "homer.serverExecutable": {
+                    "type": "string",
+                    "default": "homer",
+                    "description": "Path to the Homer Language Server executable"
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -b",
+        "watch": "tsc -b -w"
+    },
+    "dependencies": {
+        "vscode-languageclient": "^6.1.3"
+    },
+    "devDependencies": {
+        "@types/node": "^12.12.0",
+        "@types/vscode": "1.43.0",
+        "@typescript-eslint/parser": "^2.3.0",
+        "eslint": "^6.4.0",
+        "typescript": "^4.0.2"
+    }
+}

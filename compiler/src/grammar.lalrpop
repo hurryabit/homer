@@ -1,0 +1,250 @@
+use std::str::FromStr;
+use lalrpop_util::{lexer, ParseError};
+use crate::syntax::*;
+use crate::location::{Located, ParserLoc, Span};
+
+grammar<'err>(errors: &'err mut Vec<ParseError<ParserLoc, lexer::Token<'input>, &'static str>>);
+
+pub Module: Module = {
+    <decls: Decl*> => Module { decls },
+}
+
+pub Decl: Decl = {
+    TypeDecl => Decl::Type(<>),
+    FuncDecl => Decl::Func(<>),
+}
+
+TypeDecl: TypeDecl = {
+    "type" <name: LTypeVar> <params: TypeParams> "=" <body: LType> =>
+        TypeDecl { name, params, body },
+}
+
+FuncDecl: FuncDecl = {
+    "fn" <name: LExprVar> <type_params: TypeParams> "(" <expr_params: List0<Param<TypeAnn>, ",">> ")" "->" <return_type: LType> <body: LBlockExpr> =>
+        FuncDecl { name, type_params, expr_params, return_type, body },
+}
+
+TypeParams: Vec<LTypeVar> = {
+    => vec![],
+    "<" <List1<LTypeVar, ",">> ">",
+}
+
+pub Type: Type = {
+    TypeVar => Type::Var(<>),
+    "(" <List0<LType, ",">> ")" "->" <Box<LType>> => Type::Fun(<>),
+    <LTypeVar> "<" <List1<LType, ",">> ">" => Type::SynApp(<>),
+    "{" <List0<Param<TypeAnn>, ",">> "}" => Type::Record(<>),
+    "[" <List1<VariantCaseType, "|">> "]" => Type::Variant(<>),
+    ! => { errors.push(<>.error.map_location(ParserLoc::from_usize)); Type::Error },
+}
+
+LType: LType = {
+    Located<Type>
+}
+
+VariantCaseType: (LExprCon, Option<LType>) = {
+    <con: LExprCon> <typ: InParens<LType>> => (con, Some(typ)),
+    <con: LExprCon> => (con, None),
+}
+
+pub Expr: Expr = {
+    SumExpr,
+    BinOp<LSumExpr, CompOp, LSumExpr>,
+    "fn" "(" <List0<Param<OptTypeAnn>, ",">> ")" <Box<LBlockExpr>> => Expr::Lam(<>),
+    "if" <Box<LExpr>> <Box<LBlockExpr>> "else" <Box<LBlockExpr>> => Expr::If(<>),
+    "match" <Box<LExpr>> "{" <Branch*> "}" => Expr::Match(<>),
+}
+
+LExpr: LExpr = {
+    Located<Expr>,
+}
+
+pub BlockExpr: Expr = {
+    "{" <Statements> "}"
+}
+
+// NOTE(MH): We want to take the location insider the curlies.
+LBlockExpr: LExpr = {
+    "{" <LStatements> "}"
+}
+
+Statements: Expr = {
+    Expr,
+    "let" <LExprVar> <OptTypeAnn> "=" <Box<LExpr>> ";" <Box<LStatements>> => Expr::Let(<>),
+    "let" <LExprVar> <OptTypeAnn> "=" <Box<LBlockExpr>> ";" <Box<LStatements>> => Expr::Let(<>),
+}
+
+LStatements: LExpr = {
+    Located<Statements>,
+}
+
+SumExpr: Expr = {
+    BinOp<LSumExpr, SumOp, LProductExpr>,
+    ProductExpr,
+}
+
+LSumExpr: LExpr = {
+    Located<SumExpr>,
+}
+
+ProductExpr: Expr = {
+    BinOp<LProductExpr, ProductOp, LAtomExpr>,
+    AtomExpr,
+}
+
+LProductExpr: LExpr = {
+    Located<ProductExpr>,
+}
+
+AtomExpr: Expr = {
+    InParens<Expr>,
+    ExprVar => Expr::Var(<>),
+    Num => Expr::Num(<>),
+    Bool => Expr::Bool(<>),
+    // TODO(MH): Merge the two rules below.
+    <fun: LExprVar> "(" <args: List0<LExpr, ",">> ")" => Expr::App(Box::new(fun.map(Expr::Var)), args),
+    <Box<Located<FuncInst>>> "(" <List0<LExpr, ",">> ")" => Expr::App(<>),
+    "{" <List0<RecordAssign, ",">> "}" => Expr::Record(<>),
+    <Box<LAtomExpr>> "." <LExprVar> => Expr::Proj(<>),
+    <con: ExprCon> <payload: Box<InParens<LExpr>>?> => Expr::Variant(con, payload),
+    ! => { errors.push(<>.error.map_location(ParserLoc::from_usize)); Expr::Error },
+}
+
+LAtomExpr: LExpr = {
+    Located<AtomExpr>,
+}
+
+// NOTE(MH): Ideally, we would not have the "@" symbol before the angle
+// brackets, but that would make the expression `f(g<a, b>(c))` ambiguous
+// to parse. With `f(g@<a, b>(c))` there's no ambiguity.
+FuncInst: Expr = {
+    <LExprVar> "@" "<" <List0<LType, ",">> ">" => Expr::FuncInst(<>),
+}
+
+TypeAnn: LType = {
+    ":" <LType>,
+}
+
+OptTypeAnn: Option<LType> = {
+    => None,
+    ":" <LType> => Some(<>),
+}
+
+Param<T>: (LExprVar, T) = {
+    LExprVar T => (<>),
+}
+
+RecordAssign: (LExprVar, LExpr) = {
+    <LExprVar> "=" <LExpr> => (<>),
+}
+
+Branch: Branch = {
+    <pattern: Located<Pattern>> "=>" <body: LBlockExpr> => Branch { pattern, body },
+    <pattern: Located<Pattern>> "=>" <body: LExpr> "," => Branch { pattern, body },
+}
+
+Pattern: Pattern = {
+    <constr: ExprCon> <binder: InParens<LExprVar>?> => Pattern { constr, binder },
+}
+
+TypeVar: TypeVar = {
+    ID_UPPER => TypeVar::new(<>),
+}
+
+LTypeVar: LTypeVar = {
+    Located<TypeVar>,
+}
+
+ExprVar: ExprVar = {
+    ID_LOWER => ExprVar::new(<>),
+}
+
+LExprVar: LExprVar = {
+    Located<ExprVar>,
+}
+
+ExprCon: ExprCon = {
+    ID_UPPER => ExprCon::new(<>),
+}
+
+LExprCon: LExprCon = {
+    Located<ExprCon>,
+}
+
+Num: i64 = {
+    NUMBER =>? i64::from_str(<>)
+        .map_err(|_| ParseError::User {
+            error: "number literal is too big"
+        })
+};
+
+Bool: bool = {
+    "false" => false,
+    "true" => true,
+}
+
+SumOp: OpCode = {
+    "+" => OpCode::Add,
+    "-" => OpCode::Sub,
+}
+
+ProductOp: OpCode = {
+    "*" => OpCode::Mul,
+    "/" => OpCode::Div,
+}
+
+CompOp: OpCode = {
+    "==" => OpCode::Equals,
+    "!=" => OpCode::NotEq,
+    "<" => OpCode::Less,
+    "<=" => OpCode::LessEq,
+    ">" => OpCode::Greater,
+    ">=" => OpCode::GreaterEq,
+}
+
+Box<T>: Box<T> = {
+    <T> => Box::new(<>),
+}
+
+List0<T, Sep>: Vec<T> = {
+    => Vec::new(),
+    List1<T, Sep>,
+}
+
+List1<T, Sep>: Vec<T> = {
+    <ts: (<T> Sep)*> <t: T> Sep? => {
+        let mut ts = ts;
+        ts.push(t);
+        ts
+    },
+}
+
+BinOp<X, Op, Y>: Expr = {
+    <x: Box<X>> <op: Op> <y: Box<Y>> => Expr::BinOp(<>),
+}
+
+InParens<X>: X = {
+    "(" <X> ")",
+}
+
+Located<X>: Located<X, ParserLoc> = {
+    <start: @L> <locatee: X> <end: @R> => Located::new(locatee, Span { start: ParserLoc::from_usize(start), end: ParserLoc::from_usize(end) }),
+}
+
+match {
+    "type",
+    "fn",
+    "let",
+    "if",
+    "else",
+    "match",
+    "true",
+    "false",
+    r"[A-Z]\w*" => ID_UPPER,
+    r"[a-z]\w*" => ID_LOWER,
+    r"[0-9]+" => NUMBER,
+    r"\s*" => { }, // The default whitespace skipping is disabled an `ignore pattern` is specified
+    r"//[^\n\r]*[\n\r]*" => { }, // Skip `// comments`
+    r"/\*([^\*]*\*+[^\*/])*([^\*]*\*+|[^\*])*\*/" => { },  // Skip `/* comments */`
+    _
+}
