@@ -16,9 +16,10 @@ lalrpop = { version = "0.19.1", features = ["lexer"] }
 flexi_logger = "0.16.1"
 genawaiter = "0.99.1"
 im = "15.0.0"
-lalrpop-intern = "0.15.1"
 lalrpop-util = "0.19.1"
+lazy_static = "1.4.0"
 log = "0.4.11"
+lasso = { version = "0.3.1", features = ["multi-threaded"] }
 lsp-server = "0.5.0"
 lsp-types = "0.83.1"
 regex = "1.4.2"

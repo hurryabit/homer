@@ -65,7 +65,7 @@ impl Debug for FuncDecl {
 
 impl Debug for TypeVar {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        self.with_name(|name| writer.leaf(name))
+        writer.leaf(self.as_str())
     }
 }
 
@@ -112,13 +112,13 @@ impl Debug for Type {
 
 impl Debug for ExprVar {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        self.with_name(|name| writer.leaf(name))
+        writer.leaf(self.as_str())
     }
 }
 
 impl Debug for ExprCon {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        self.with_name(|name| writer.leaf(name))
+        writer.leaf(self.as_str())
     }
 }
 

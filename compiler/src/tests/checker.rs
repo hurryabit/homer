@@ -27,7 +27,7 @@ fn check_output_type(name: &str, input: &str) -> Type {
         .decls
         .into_iter()
         .find_map(|decl| match decl {
-            Decl::Type(decl) if decl.name.locatee.with_name(|n| n == name) => {
+            Decl::Type(decl) if decl.name.locatee.as_str() == name => {
                 Some(decl.body.locatee)
             }
             _ => None,
@@ -40,7 +40,7 @@ fn check_output_func_decl(name: &str, input: &str) -> FuncDecl {
         .decls
         .into_iter()
         .find_map(|decl| match decl {
-            Decl::Func(decl) if decl.name.locatee.with_name(|n| n == name) => Some(decl),
+            Decl::Func(decl) if decl.name.locatee.as_str() == name => Some(decl),
             _ => None,
         })
         .unwrap()
