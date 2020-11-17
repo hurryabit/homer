@@ -78,8 +78,8 @@ impl CompilerDB {
         }
     }
 
-    pub fn set_input(&mut self, uri: Uri, input: String) {
-        (self as &mut dyn Compiler).set_input(uri, Arc::new(input));
+    pub fn set_input(&mut self, uri: Uri, input: Arc<String>) {
+        (self as &mut dyn Compiler).set_input(uri, input);
     }
 
     pub fn best_module(&self, uri: Uri) -> Arc<Option<Module>> {

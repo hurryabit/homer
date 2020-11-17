@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::sync::Arc;
 
 use log::info;
 use lsp_types::{
@@ -129,7 +130,7 @@ fn validate_document(
 ) -> Result<(), Box<dyn Error + Sync + Send>> {
     let uri = build::Uri::new(lsp_uri.as_str());
     info!("Received text for {:?}", uri);
-    db.set_input(uri, input);
+    db.set_input(uri, Arc::new(input));
     let opt_module = db.best_module(uri);
     if print_module {
         if let Some(module) = opt_module.as_ref() {
@@ -172,28 +173,3 @@ where
 {
     req.extract(R::METHOD)
 }
-
-// impl From<std::io::Error> for Error {
-//     fn from(err: std::io::Error) -> Self {
-//         Self::Io(err)
-//     }
-// }
-
-// impl From<lalrpop_util::ParseError<usize, parser::Token<'_>, &'static str>> for Error {
-//     fn from(err: lalrpop_util::ParseError<usize, parser::Token<'_>, &'static str>) -> Self {
-//         Self::Parse(err.map_token(|t| format!("{}", t)))
-//     }
-// }
-
-// fn main() -> Result<(), Error> {
-//     let path = if let Some(path) = std::env::args().nth(1) {
-//         path
-//     } else {
-//         panic!("usage: {} <filename>", std::env::args().nth(0).unwrap())
-//     };
-//     let input = std::fs::read_to_string(path)?;
-//     let parser = parser::ModuleParser::new();
-//     let ast = parser.parse(&input)?;
-//     serde_yaml::to_writer(std::io::stdout(), &ast)?;
-//     Ok(())
-// }

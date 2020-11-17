@@ -1,10 +1,11 @@
 use crate::build::*;
+use std::sync::Arc;
 
 fn build_output(input: &str) -> String {
     use std::fmt::Write;
     let db = &mut CompilerDB::new();
     let uri = Uri::new("foo.homer");
-    db.set_input(uri, input.to_owned());
+    db.set_input(uri, Arc::new(input.to_owned()));
 
     let mut output = String::new();
     if let Some(module) = db.best_module(uri).as_ref() {
