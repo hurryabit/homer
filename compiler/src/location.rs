@@ -14,13 +14,13 @@ pub struct HumanLoc {
     pub column: u32,
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
 pub struct Span<Loc> {
     pub start: Loc,
     pub end: Loc,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Located<T, Loc> {
     pub locatee: T,
     pub span: Span<Loc>,

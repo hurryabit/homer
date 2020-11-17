@@ -14,8 +14,7 @@ use lsp_types::{
 
 use lsp_server::{Connection, Message, Request, RequestId, Response};
 
-use homer_compiler::location;
-use homer_compiler::syntax::Module;
+use homer_compiler::build;
 
 fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     // Set up logging. Because `stdio_transport` gets a lock on stdout and stdin, we must have
@@ -45,7 +44,8 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     };
     let initialization_params =
         connection.initialize(serde_json::to_value(server_capabilities).unwrap())?;
-    main_loop(&connection, initialization_params)?;
+    let db = &mut build::CompilerDB::new();
+    main_loop(&connection, initialization_params, db)?;
     io_threads.join()?;
 
     // Shut down gracefully.
@@ -56,6 +56,7 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
 fn main_loop(
     connection: &Connection,
     params: serde_json::Value,
+    db: &mut build::CompilerDB,
 ) -> Result<(), Box<dyn Error + Sync + Send>> {
     let _params: InitializeParams = serde_json::from_value(params).unwrap();
     // info!("_params = {:?}", _params);
@@ -93,20 +94,20 @@ fn main_loop(
                     DidOpenTextDocument::METHOD => {
                         let params = cast_notification::<DidOpenTextDocument>(not);
                         let TextDocumentItem { uri, text, .. } = params.text_document;
-                        validate_document(connection, uri, text, true)?;
+                        validate_document(connection, uri, text, true, db)?;
                     }
                     DidChangeTextDocument::METHOD => {
                         let params = cast_notification::<DidChangeTextDocument>(not);
                         let uri = params.text_document.uri;
                         let text = params.content_changes.into_iter().last().unwrap().text;
-                        validate_document(connection, uri, text, false)?;
+                        validate_document(connection, uri, text, false, db)?;
                     }
                     DidSaveTextDocument::METHOD => {
                         let params = cast_notification::<DidSaveTextDocument>(not);
                         let uri = params.text_document.uri;
                         match params.text {
                             Some(text) => {
-                                validate_document(connection, uri, text, true)?;
+                                validate_document(connection, uri, text, true, db)?;
                             }
                             None => {
                                 info!("got save notification without text for {}", uri);
@@ -125,30 +126,29 @@ fn main_loop(
 
 fn validate_document(
     connection: &Connection,
-    uri: Url,
+    lsp_uri: Url,
     input: String,
-    full_validation: bool,
+    print_module: bool,
+    db: &mut build::CompilerDB,
 ) -> Result<(), Box<dyn Error + Sync + Send>> {
-    info!("Received text for {}", &uri);
-    let humanizer = location::Humanizer::new(&input);
-    let (opt_module, mut diagnostics) = Module::parse(&input, &humanizer);
-
-    if full_validation {
-        if let Some(mut module) = opt_module {
-            if let Err(diagnostic) = module.check(&humanizer) {
-                diagnostics.push(diagnostic);
-            }
+    let uri = build::Uri::new(lsp_uri.as_str());
+    info!("Received text for {:?}", uri);
+    db.set_input(uri, input);
+    let opt_module = db.best_module(uri);
+    if print_module {
+        if let Some(module) = opt_module.as_ref() {
             info!("{:?}", module);
         }
     }
 
-    let diagnostics: Vec<_> = diagnostics
-        .into_iter()
-        .map(homer_compiler::diagnostic::Diagnostic::to_lsp)
-        .collect();
+    let diagnostics: Vec<_> = db.with_diagnostics(uri, |diagnostics| {
+        diagnostics
+            .map(homer_compiler::diagnostic::Diagnostic::to_lsp)
+            .collect()
+    });
     info!("Sending {} diagnostics", diagnostics.len());
     let params = PublishDiagnosticsParams {
-        uri,
+        uri: lsp_uri,
         diagnostics,
         version: None,
     };

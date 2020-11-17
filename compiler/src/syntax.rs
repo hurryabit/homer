@@ -10,21 +10,25 @@ mod iter;
 
 type Located<T> = location::Located<T, location::ParserLoc>;
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct Module {
     pub decls: Vec<Decl>,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub enum Decl {
     Type(TypeDecl),
     Func(FuncDecl),
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct TypeDecl {
     pub name: LTypeVar,
     pub params: Vec<LTypeVar>,
     pub body: LType,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct FuncDecl {
     pub name: LExprVar,
     pub type_params: Vec<LTypeVar>,
@@ -33,6 +37,7 @@ pub struct FuncDecl {
     pub body: LExpr,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub enum Type {
     Error,
     Var(TypeVar),
@@ -46,6 +51,7 @@ pub enum Type {
 
 pub type LType = Located<Type>;
 
+#[derive(Clone, Eq, PartialEq)]
 pub enum Expr {
     Error,
     Var(ExprVar),
@@ -65,11 +71,13 @@ pub enum Expr {
 
 pub type LExpr = Located<Expr>;
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct Branch {
     pub pattern: LPattern,
     pub body: LExpr,
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct Pattern {
     pub constr: ExprCon,
     pub binder: Option<LExprVar>,
@@ -77,7 +85,7 @@ pub struct Pattern {
 
 pub type LPattern = Located<Pattern>;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub enum OpCode {
     Add,
     Sub,

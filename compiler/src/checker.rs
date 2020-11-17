@@ -29,13 +29,17 @@ struct Env {
 }
 
 impl Module {
-    pub fn check(&mut self, humanizer: &Humanizer) -> Result<(), Diagnostic> {
-        self.check_impl().map_err(|error| Diagnostic {
-            span: error.span.humanize(humanizer),
-            severity: Severity::Error,
-            source: Source::Checker,
-            message: format!("{}", error.locatee),
-        })
+    pub fn check(&self, humanizer: &Humanizer) -> Result<Self, Diagnostic> {
+        let mut module = self.clone();
+        match module.check_impl() {
+            Ok(()) => Ok(module),
+            Err(error) => Err(Diagnostic {
+                span: error.span.humanize(humanizer),
+                severity: Severity::Error,
+                source: Source::Checker,
+                message: format!("{}", error.locatee),
+            }),
+        }
     }
 
     fn check_impl(&mut self) -> Result<(), LError> {

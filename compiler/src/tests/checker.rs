@@ -12,14 +12,15 @@ fn check_output(input: &str) -> Module {
     let humanizer = location::Humanizer::new(input);
     let (result, diagnostics) = Module::parse(input, &humanizer);
     assert!(diagnostics.is_empty());
-    let mut module = result.unwrap();
-    if let Err(diagnostic) = module.check(&humanizer) {
-        panic!(
-            "Expected module to type check but got error\n{:?}: {}",
-            diagnostic.span, diagnostic.message
-        );
+    let module = result.unwrap();
+    match module.check(&humanizer) {
+        Err(diagnostic) =>
+            panic!(
+                "Expected module to type check but got error\n{:?}: {}",
+                diagnostic.span, diagnostic.message
+            ),
+        Ok(module) => module,
     }
-    module
 }
 
 fn check_output_type(name: &str, input: &str) -> Type {
@@ -58,7 +59,7 @@ fn check_error(input: &str) -> String {
     let humanizer = location::Humanizer::new(input);
     let (result, diagnostics) = Module::parse(input, &humanizer);
     assert!(diagnostics.is_empty());
-    let mut module = result.unwrap();
+    let module = result.unwrap();
     let diagnostic = module.check(&humanizer).unwrap_err();
     diagnostic.layout(input)
 }

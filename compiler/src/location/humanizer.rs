@@ -1,5 +1,6 @@
 use super::*;
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct Humanizer {
     line_starts: Vec<ParserLoc>,
 }

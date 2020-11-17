@@ -1,18 +1,18 @@
 use crate::location::*;
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Severity {
     Warning,
     Error,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Source {
     Parser,
     Checker,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Diagnostic {
     pub span: Span<HumanLoc>,
     pub severity: Severity,
@@ -21,7 +21,7 @@ pub struct Diagnostic {
 }
 
 impl Diagnostic {
-    pub fn to_lsp(self) -> lsp_types::Diagnostic {
+    pub fn to_lsp(&self) -> lsp_types::Diagnostic {
         let Self {
             span,
             severity,
@@ -33,28 +33,28 @@ impl Diagnostic {
             range: span.to_lsp(),
             severity: Some(severity.to_lsp()),
             source: Some(source.to_lsp()),
-            message,
+            message: message.to_owned(),
             ..Diagnostic::default()
         }
     }
 }
 
 impl HumanLoc {
-    fn to_lsp(self) -> lsp_types::Position {
+    fn to_lsp(&self) -> lsp_types::Position {
         let Self { line, column } = self;
-        lsp_types::Position::new(line, column)
+        lsp_types::Position::new(*line, *column)
     }
 }
 
 impl Span<HumanLoc> {
-    fn to_lsp(self) -> lsp_types::Range {
+    fn to_lsp(&self) -> lsp_types::Range {
         let Self { start, end } = self;
         lsp_types::Range::new(start.to_lsp(), end.to_lsp())
     }
 }
 
 impl Severity {
-    fn to_lsp(self) -> lsp_types::DiagnosticSeverity {
+    fn to_lsp(&self) -> lsp_types::DiagnosticSeverity {
         use lsp_types::DiagnosticSeverity;
         match self {
             Severity::Warning => DiagnosticSeverity::Warning,
@@ -64,7 +64,7 @@ impl Severity {
 }
 
 impl Source {
-    fn to_lsp(self) -> String {
+    fn to_lsp(&self) -> String {
         let str = match self {
             Source::Parser => "parser",
             Source::Checker => "checker",
@@ -83,7 +83,10 @@ impl Diagnostic {
                 span.start.line + 1, // NOTE(MH): We're 0-base internal, and 1-based for users.
                 line,
                 " ".repeat((span.start.column + 6) as usize),
-                "~".repeat((span.end.column - span.start.column) as usize),
+                "~".repeat(std::cmp::max(
+                    (span.end.column - span.start.column) as usize,
+                    1,
+                )),
                 message
             )
         } else {
