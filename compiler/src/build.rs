@@ -69,6 +69,7 @@ pub struct CompilerDB {
 impl salsa::Database for CompilerDB {}
 
 impl CompilerDB {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         // NOTE(MH): We force the initialization of the interner to avoid races.
         crate::INTERNER.len();

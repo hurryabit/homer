@@ -1,0 +1,28 @@
+name: Rust
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    - name: Info
+      run: rustup show
+    - name: Build
+      run: cargo build --all-targets --release --locked --verbose
+    # - name: Format
+    #   run: cargo fmt -- --check
+    - name: Clippy
+      run: cargo clippy --all-targets --release --locked --verbose -- --deny warnings
+    - name: Test
+      run: cargo test --all-targets --release --locked --verbose

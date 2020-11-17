@@ -33,7 +33,6 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
             change: Some(TextDocumentSyncKind::Full),
             save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
                 include_text: Some(true),
-                ..SaveOptions::default()
             })),
             ..TextDocumentSyncOptions::default()
         },
@@ -69,21 +68,18 @@ fn main_loop(
                     return Ok(());
                 }
                 info!("got request: {:?}", req);
-                match cast::<GotoDefinition>(req) {
-                    Ok((id, params)) => {
-                        info!("got gotoDefinition request #{}: {:?}", id, params);
-                        let result = Some(GotoDefinitionResponse::Array(Vec::new()));
-                        let result = serde_json::to_value(&result).unwrap();
-                        let resp = Response {
-                            id,
-                            result: Some(result),
-                            error: None,
-                        };
-                        connection.sender.send(Message::Response(resp))?;
-                        continue;
-                    }
-                    Err(_) => (),
-                };
+                if let Ok((id, params)) = cast::<GotoDefinition>(req) {
+                    info!("got gotoDefinition request #{}: {:?}", id, params);
+                    let result = Some(GotoDefinitionResponse::Array(Vec::new()));
+                    let result = serde_json::to_value(&result).unwrap();
+                    let resp = Response {
+                        id,
+                        result: Some(result),
+                        error: None,
+                    };
+                    connection.sender.send(Message::Response(resp))?;
+                    continue;
+                }
                 // ...
             }
             Message::Response(resp) => {

@@ -8,9 +8,9 @@ fn build_output(input: &str) -> String {
 
     let mut output = String::new();
     if let Some(module) = db.best_module(uri).as_ref() {
-        write!(output, "{:?}\n", module).unwrap();
+        writeln!(output, "{:?}", module).unwrap();
     } else {
-        write!(output, "NONE\n").unwrap();
+        writeln!(output, "NONE").unwrap();
     }
     db.with_diagnostics(uri, |diagnostics| {
         for diagnostic in diagnostics {

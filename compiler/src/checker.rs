@@ -355,7 +355,7 @@ impl Expr {
                 } else {
                     Err(Located::new(
                         Error::TypeMismatch {
-                            found: found.clone(),
+                            found,
                             expected: expected.clone(),
                         },
                         span,
@@ -471,7 +471,7 @@ impl Expr {
                 } else if let Some(scheme) = env.func_sigs.get(&var.locatee) {
                     let arity = scheme.params.len();
                     if arity == num_types && num_types > 0 {
-                        let types = types.iter().map(RcType::from_lsyntax).collect();
+                        let types: Vec<_> = types.iter().map(RcType::from_lsyntax).collect();
                         Ok(scheme.instantiate(&types))
                     } else {
                         Err(Located::new(
@@ -641,15 +641,17 @@ fn check_let_bindee(
     }
 }
 
+type TypedBranch<'a> = (Option<(&'a LExprVar, RcType)>, &'a mut LExpr);
+
 fn check_match_patterns<'a>(
     env: &Env,
     scrut: &mut LExpr,
     branches: &'a mut [Branch],
-) -> Result<Vec<(Option<(&'a LExprVar, RcType)>, &'a mut LExpr)>, LError> {
+) -> Result<Vec<TypedBranch<'a>>, LError> {
     let scrut_type = scrut.infer(env)?;
     match scrut_type.weak_normalize_env(env).as_ref() {
         Type::Variant(constrs) => {
-            if branches.len() > 0 {
+            if !branches.is_empty() {
                 branches
                     .iter_mut()
                     .map(|Branch { pattern, body }| {
@@ -682,7 +684,7 @@ fn check_match_patterns<'a>(
     }
 }
 
-fn find_duplicate<'a, T: Eq + Hash, I: Iterator<Item = Located<T>>>(
+fn find_duplicate<T: Eq + Hash, I: Iterator<Item = Located<T>>>(
     iter: I,
 ) -> Option<(Span, Located<T>)> {
     let mut seen = std::collections::HashMap::new();
@@ -696,7 +698,7 @@ fn find_duplicate<'a, T: Eq + Hash, I: Iterator<Item = Located<T>>>(
     None
 }
 
-fn find_by_key<'a, K: Eq, V>(vec: &'a Vec<(K, V)>, key: &K) -> Option<&'a V> {
+fn find_by_key<'a, K: Eq, V>(vec: &'a[(K, V)], key: &K) -> Option<&'a V> {
     vec.iter()
         .find_map(|(k, v)| if k == key { Some(v) } else { None })
 }

@@ -24,9 +24,9 @@ where
     assert!(!diagnostics.is_empty() || result.is_none());
     let mut output = String::new();
     if let Some(ast) = result {
-        write!(output, "{:?}\n", ast).unwrap();
+        writeln!(output, "{:?}", ast).unwrap();
     } else {
-        write!(output, "---").unwrap();
+        writeln!(output, "---").unwrap();
     }
     for diagnostic in diagnostics {
         write!(

@@ -134,7 +134,7 @@ impl RcType {
 impl TypeScheme {
     /// Instantiate a type scheme with the given types. Assumes that the
     /// number of parameters of the scheme and the number of given types match.
-    pub fn instantiate(&self, types: &Vec<RcType>) -> RcType {
+    pub fn instantiate(&self, types: &[RcType]) -> RcType {
         let Self { params, body } = self;
         assert_eq!(params.len(), types.len());
         let mapping = params.iter().zip(types.iter()).collect();
@@ -347,7 +347,7 @@ impl fmt::Display for Type {
             Var(var) => write!(f, "{}", var),
             SynApp(syn, args) => {
                 write!(f, "{}", syn)?;
-                if args.len() > 0 {
+                if !args.is_empty() {
                     write!(f, "<")?;
                     write_list(f, &args, ", ", |f, arg| write!(f, "{}", arg))?;
                     write!(f, ">")?;
