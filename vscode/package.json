@@ -22,7 +22,7 @@
             {
                 "id": "homer",
                 "extensions": [
-                    ".homer"
+                    ".doh"
                 ],
                 "configuration": "./language-configuration.json"
             }
