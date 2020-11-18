@@ -31,9 +31,9 @@ trait Compiler: salsa::Database {
 
     fn humanizer(&self, uri: Uri) -> Arc<Humanizer>;
 
-    fn parsed_module(&self, uri: Uri) -> (Arc<Option<Module>>, Arc<Vec<Diagnostic>>);
+    fn parsed_module(&self, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>);
 
-    fn checked_module(&self, uri: Uri) -> (Arc<Option<Module>>, Arc<Vec<Diagnostic>>);
+    fn checked_module(&self, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>);
 
     fn anf_module(&self, uri: Uri) -> Option<Arc<anf::Module>>;
 }
@@ -43,16 +43,16 @@ fn humanizer(db: &dyn Compiler, uri: Uri) -> Arc<Humanizer> {
     Arc::new(Humanizer::new(&input))
 }
 
-fn parsed_module(db: &dyn Compiler, uri: Uri) -> (Arc<Option<Module>>, Arc<Vec<Diagnostic>>) {
+fn parsed_module(db: &dyn Compiler, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>) {
     let input = db.input(uri);
     let humanizer = db.humanizer(uri);
     let (opt_parsed_module, diagnostics) = Module::parse(&input, &humanizer);
-    (Arc::new(opt_parsed_module), Arc::new(diagnostics))
+    (opt_parsed_module.map(Arc::new), Arc::new(diagnostics))
 }
 
-fn checked_module(db: &dyn Compiler, uri: Uri) -> (Arc<Option<Module>>, Arc<Vec<Diagnostic>>) {
+fn checked_module(db: &dyn Compiler, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>) {
     let humanizer = db.humanizer(uri);
-    let (opt_checked_module, diagnostics) = if let Some(parsed_module) = &*db.parsed_module(uri).0 {
+    let (opt_checked_module, diagnostics) = if let Some(parsed_module) = db.parsed_module(uri).0 {
         match parsed_module.check(&humanizer) {
             Ok(checked_module) => (Some(checked_module), vec![]),
             Err(diagnostic) => (None, vec![diagnostic]),
@@ -60,11 +60,11 @@ fn checked_module(db: &dyn Compiler, uri: Uri) -> (Arc<Option<Module>>, Arc<Vec<
     } else {
         (None, vec![])
     };
-    (Arc::new(opt_checked_module), Arc::new(diagnostics))
+    (opt_checked_module.map(Arc::new), Arc::new(diagnostics))
 }
 
 fn anf_module(db: &dyn Compiler, uri: Uri) -> Option<Arc<anf::Module>> {
-    if let Some(checked_module) = &*db.checked_module(uri).0 {
+    if let Some(checked_module) = db.checked_module(uri).0 {
         Some(Arc::new(checked_module.to_anf()))
     } else {
         None
@@ -90,15 +90,6 @@ impl CompilerDB {
 
     pub fn set_input(&mut self, uri: Uri, input: Arc<String>) {
         (self as &mut dyn Compiler).set_input(uri, input);
-    }
-
-    pub fn best_module(&self, uri: Uri) -> Arc<Option<Module>> {
-        let opt_checked_module = self.checked_module(uri).0;
-        if opt_checked_module.is_some() {
-            opt_checked_module
-        } else {
-            self.parsed_module(uri).0
-        }
     }
 
     pub fn anf_module(&self, uri: Uri) -> Option<Arc<anf::Module>> {
