@@ -240,17 +240,12 @@ impl Env {
     }
 }
 
-derive_debug!(Module);
+derive_fmt_debug!(Module);
 
 impl Debug for Module {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
         let Self { func_decls } = self;
-        writer.node("MODULE", |writer| {
-            for decl in func_decls {
-                writer.child("decl", decl)?;
-            }
-            Ok(())
-        })
+        writer.node("MODULE", |writer| writer.children("decl", func_decls))
     }
 }
 
@@ -259,9 +254,7 @@ impl Debug for FuncDecl {
         let Self { name, params, body } = self;
         writer.node("FUNCDECL", |writer| {
             writer.child("name", name)?;
-            for param in params {
-                writer.child("param", param)?;
-            }
+            writer.children("param", params)?;
             writer.child("body", body)
         })
     }
@@ -289,17 +282,12 @@ impl Debug for Bindee {
             Num(n) => writer.leaf(&n.to_string()),
             Bool(b) => writer.leaf(&b.to_string()),
             Lam(params, body) => writer.node("LAM", |writer| {
-                for param in params {
-                    writer.child("param", param)?;
-                }
+                writer.children("param", params)?;
                 writer.child("body", body)
             }),
             AppClos(fun, args) | AppFunc(fun, args) => writer.node("APP", |writer| {
                 writer.child("fun", fun)?;
-                for arg in args {
-                    writer.child("arg", arg)?;
-                }
-                Ok(())
+                writer.children("arg", args)
             }),
             BinOp(lhs, op, rhs) => writer.node("BINOP", |writer| {
                 writer.child("lhs", lhs)?;
@@ -324,17 +312,11 @@ impl Debug for Bindee {
             }),
             Variant(constr, opt_payload) => writer.node("VARIANT", |writer| {
                 writer.child("constr", constr)?;
-                if let Some(payload) = opt_payload {
-                    writer.child("payload", payload)?;
-                }
-                Ok(())
+                writer.child_if_some("payload", opt_payload)
             }),
             Match(scrut, branches) => writer.node("MATCH", |writer| {
                 writer.child("scrut", scrut)?;
-                for branch in branches {
-                    writer.child("branch", branch)?;
-                }
-                Ok(())
+                writer.children("branch", branches)
             }),
         }
     }
@@ -361,10 +343,7 @@ impl Debug for Pattern {
         let Self { constr, binder } = self;
         writer.node("PATTERN", |writer| {
             writer.child("constr", constr)?;
-            if let Some(binder) = binder {
-                writer.child("binder", binder)?;
-            }
-            Ok(())
+            writer.child_if_some("binder", binder)
         })
     }
 }

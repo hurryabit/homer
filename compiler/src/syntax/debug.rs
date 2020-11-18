@@ -8,10 +8,7 @@ impl Debug for Module {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
         let Self { decls } = self;
         writer.node("MODULE", |writer| {
-            for decl in decls {
-                writer.child("decl", decl)?;
-            }
-            Ok(())
+            writer.children("decl", decls)
         })
     }
 }
@@ -31,9 +28,7 @@ impl Debug for TypeDecl {
         let Self { name, params, body } = self;
         writer.node("TYPEDECL", |writer| {
             writer.child("name", name)?;
-            for param in params {
-                writer.child("type_param", param)?;
-            }
+            writer.children("type_param", params)?;
             writer.child("type", body)
         })
     }
@@ -50,9 +45,7 @@ impl Debug for FuncDecl {
         } = self;
         writer.node("FUNCDECL", |writer| {
             writer.child("name", name)?;
-            for type_param in type_params {
-                writer.child("type_param", type_param)?;
-            }
+            writer.children("type_param", type_params)?;
             for (param, typ) in expr_params {
                 writer.child("param", param)?;
                 writer.child("type", typ)?;
@@ -77,17 +70,12 @@ impl Debug for Type {
             Var(name) => name.write(writer),
             SynApp(syn, args) => writer.node("APP", |writer| {
                 writer.child("syn", syn)?;
-                for arg in args {
-                    writer.child("type_arg", arg)?;
-                }
-                Ok(())
+                writer.children("type_arg", args)
             }),
             Int => writer.leaf("INT"),
             Bool => writer.leaf("BOOL"),
             Fun(params, result) => writer.node("FUN", |writer| {
-                for param in params {
-                    writer.child("param", param)?;
-                }
+                writer.children("param", params)?;
                 writer.child("result", result)
             }),
             Record(fields) => writer.node("RECORD", |writer| {
@@ -100,9 +88,7 @@ impl Debug for Type {
             Variant(constrs) => writer.node("VARIANT", |writer| {
                 for (constr, opt_typ) in constrs {
                     writer.child("constr", constr)?;
-                    if let Some(typ) = opt_typ {
-                        writer.child("type", typ)?;
-                    }
+                    writer.child_if_some("type", opt_typ)?;
                 }
                 Ok(())
             }),
@@ -133,18 +119,13 @@ impl Debug for Expr {
             Lam(params, body) => writer.node("LAM", |writer| {
                 for (param, opt_typ) in params {
                     writer.child("param", param)?;
-                    if let Some(typ) = opt_typ {
-                        writer.child("type", typ)?;
-                    }
+                    writer.child_if_some("type", opt_typ)?;
                 }
                 writer.child("body", body)
             }),
             App(fun, args) => writer.node("APP", |writer| {
                 writer.child("fun", fun)?;
-                for arg in args {
-                    writer.child("arg", arg)?;
-                }
-                Ok(())
+                writer.children("arg", args)
             }),
             BinOp(lhs, op, rhs) => writer.node("BINOP", |writer| {
                 writer.child("lhs", lhs)?;
@@ -153,16 +134,11 @@ impl Debug for Expr {
             }),
             FuncInst(fun, types) => writer.node("FUNCINST", |writer| {
                 writer.child("fun", fun)?;
-                for typ in types {
-                    writer.child("type_arg", typ)?;
-                }
-                Ok(())
+                writer.children("type_arg", types)
             }),
             Let(binder, opt_typ, bindee, body) => writer.node("LET", |writer| {
                 writer.child("binder", binder)?;
-                if let Some(typ) = opt_typ {
-                    writer.child("type", typ)?;
-                }
+                writer.child_if_some("type", opt_typ)?;
                 writer.child("bindee", bindee)?;
                 writer.child("body", body)
             }),
@@ -184,17 +160,12 @@ impl Debug for Expr {
             }),
             Variant(constr, opt_payload) => writer.node("VARIANT", |writer| {
                 writer.child("constr", constr)?;
-                if let Some(payload) = opt_payload {
-                    writer.child("payload", payload)?;
-                }
+                writer.child_if_some("payload", opt_payload)?;
                 Ok(())
             }),
             Match(scrut, branches) => writer.node("MATCH", |writer| {
                 writer.child("scrut", scrut)?;
-                for branch in branches {
-                    writer.child("branch", branch)?;
-                }
-                Ok(())
+                writer.children("branch", branches)
             }),
         }
     }
@@ -302,11 +273,25 @@ impl<'a> DebugWriter<'a> {
         Ok(())
     }
 
-    pub fn child(&mut self, label: &str, item: &impl Debug) -> fmt::Result {
+    pub fn child<T: Debug>(&mut self, label: &str, item: &T) -> fmt::Result {
         self.writer.write_char('\n')?;
         self.indent()?;
         write!(self.writer, "{}: ", label)?;
         item.write(self)
+    }
+
+    pub fn child_if_some<T: Debug>(&mut self, label: &str, opt_item: &Option<T>) -> fmt::Result {
+        if let Some(item) = opt_item {
+            self.child(label, item)?;
+        }
+        Ok(())
+    }
+
+    pub fn children<T: Debug>(&mut self, label: &str, items: &[T]) -> fmt::Result {
+        for item in items {
+            self.child(label, item)?;
+        }
+        Ok(())
     }
 
     fn indent(&mut self) -> fmt::Result {
@@ -316,7 +301,7 @@ impl<'a> DebugWriter<'a> {
 }
 
 #[macro_export]
-macro_rules! derive_debug {
+macro_rules! derive_fmt_debug {
     ($type_name:ident) => {
         impl fmt::Debug for $type_name {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

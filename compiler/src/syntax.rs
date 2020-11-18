@@ -121,38 +121,8 @@ impl Default for Expr {
     }
 }
 
-impl fmt::Debug for Module {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        DebugWriter::fmt(self, f)
-    }
-}
-
-impl fmt::Debug for Decl {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        DebugWriter::fmt(self, f)
-    }
-}
-
-impl fmt::Debug for FuncDecl {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        DebugWriter::fmt(self, f)
-    }
-}
-
-impl fmt::Debug for Type {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        DebugWriter::fmt(self, f)
-    }
-}
-
-impl fmt::Debug for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        DebugWriter::fmt(self, f)
-    }
-}
-
-impl fmt::Debug for OpCode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        DebugWriter::fmt(self, f)
-    }
-}
+derive_fmt_debug!(Module);
+derive_fmt_debug!(Decl);
+derive_fmt_debug!(FuncDecl);
+derive_fmt_debug!(Type);
+derive_fmt_debug!(Expr);
