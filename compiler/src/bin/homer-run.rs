@@ -13,7 +13,7 @@ fn run() -> std::io::Result<()> {
     let input = Arc::new(std::fs::read_to_string(path)?);
     db.set_input(uri, Arc::clone(&input));
 
-    if let Some(module) = db.best_module(uri).as_ref() {
+    if let Some(module) = db.anf_module(uri) {
         println!("{:?}", module);
     }
 

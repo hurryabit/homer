@@ -3,7 +3,8 @@ use debug::DebugWriter;
 use std::fmt;
 
 mod debruijn;
-mod debug;
+#[macro_use]
+pub mod debug;
 #[macro_use]
 mod ident;
 mod iter;
@@ -145,6 +146,12 @@ impl fmt::Debug for Type {
 }
 
 impl fmt::Debug for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        DebugWriter::fmt(self, f)
+    }
+}
+
+impl fmt::Debug for OpCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         DebugWriter::fmt(self, f)
     }

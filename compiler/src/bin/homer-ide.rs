@@ -131,9 +131,8 @@ fn validate_document(
     let uri = build::Uri::new(lsp_uri.as_str());
     info!("Received text for {:?}", uri);
     db.set_input(uri, Arc::new(input));
-    let opt_module = db.best_module(uri);
     if print_module {
-        if let Some(module) = opt_module.as_ref() {
+        if let Some(module) = db.anf_module(uri) {
             info!("{:?}", module);
         }
     }

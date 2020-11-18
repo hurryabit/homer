@@ -698,7 +698,7 @@ fn find_duplicate<T: Eq + Hash, I: Iterator<Item = Located<T>>>(
     None
 }
 
-fn find_by_key<'a, K: Eq, V>(vec: &'a[(K, V)], key: &K) -> Option<&'a V> {
+fn find_by_key<'a, K: Eq, V>(vec: &'a [(K, V)], key: &K) -> Option<&'a V> {
     vec.iter()
         .find_map(|(k, v)| if k == key { Some(v) } else { None })
 }

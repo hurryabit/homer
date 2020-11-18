@@ -8,7 +8,7 @@ fn build_output(input: &str) -> String {
     db.set_input(uri, Arc::new(input.to_owned()));
 
     let mut output = String::new();
-    if let Some(module) = db.best_module(uri).as_ref() {
+    if let Some(module) = db.anf_module(uri) {
         writeln!(output, "{:?}", module).unwrap();
     } else {
         writeln!(output, "NONE").unwrap();
@@ -34,11 +34,10 @@ fn all_good() {
     "#), @r###"
     MODULE
         decl: FUNCDECL
-            name: f @ 8...9
-            param: x @ 10...11
-            type: INT @ 13...16
-            result: INT @ 21...24
-            body: x @ 27...28
+            name: f
+            param: x
+            body: EXPR
+                body: x
     "###);
 }
 
@@ -63,14 +62,17 @@ fn recoverable_parse_error_types_good() {
     "#), @r###"
     MODULE
         decl: FUNCDECL
-            name: f @ 8...9
-            param: x @ 10...11
-            type: INT @ 13...16
-            result: INT @ 21...24
-            body: BINOP @ 26...29
-                lhs: ERROR @ 26...27
-                op: ADD
-                rhs: ERROR @ 28...29
+            name: f
+            param: x
+            body: EXPR
+                binder: $v1
+                bindee: ERROR
+                binder: $v2
+                bindee: ERROR
+                body: BINOP
+                    lhs: $v1
+                    op: ADD
+                    rhs: $v2
     --------------------------------------------------
       2 |     fn f(x: Int) -> Int { + }
                                     ~
@@ -89,16 +91,7 @@ fn recoverable_parse_error_types_bad() {
     insta::assert_snapshot!(build_output(r#"
     fn f(x: Int) -> Int { true + }
     "#), @r###"
-    MODULE
-        decl: FUNCDECL
-            name: f @ 8...9
-            param: x @ 10...11
-            type: Int @ 13...16
-            result: Int @ 21...24
-            body: BINOP @ 27...34
-                lhs: true @ 27...31
-                op: ADD
-                rhs: ERROR @ 33...34
+    NONE
     --------------------------------------------------
       2 |     fn f(x: Int) -> Int { true + }
                                            ~

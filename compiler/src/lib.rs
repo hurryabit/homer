@@ -3,6 +3,7 @@ extern crate lalrpop_util;
 #[macro_use]
 extern crate lazy_static;
 
+pub mod anf;
 pub mod build;
 pub mod checker;
 pub mod diagnostic;
@@ -22,6 +23,7 @@ lazy_static! {
 
 #[cfg(test)]
 mod tests {
+    mod anf;
     mod build;
     mod checker;
     mod parser;

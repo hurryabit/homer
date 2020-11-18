@@ -314,3 +314,14 @@ impl<'a> DebugWriter<'a> {
             .write_str(&" ".repeat(Self::INDENT_SIZE * self.indent_level))
     }
 }
+
+#[macro_export]
+macro_rules! derive_debug {
+    ($type_name:ident) => {
+        impl fmt::Debug for $type_name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                DebugWriter::fmt(self, f)
+            }
+        }
+    };
+}

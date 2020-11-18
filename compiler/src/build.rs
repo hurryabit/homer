@@ -34,6 +34,8 @@ trait Compiler: salsa::Database {
     fn parsed_module(&self, uri: Uri) -> (Arc<Option<Module>>, Arc<Vec<Diagnostic>>);
 
     fn checked_module(&self, uri: Uri) -> (Arc<Option<Module>>, Arc<Vec<Diagnostic>>);
+
+    fn anf_module(&self, uri: Uri) -> Option<Arc<anf::Module>>;
 }
 
 fn humanizer(db: &dyn Compiler, uri: Uri) -> Arc<Humanizer> {
@@ -59,6 +61,14 @@ fn checked_module(db: &dyn Compiler, uri: Uri) -> (Arc<Option<Module>>, Arc<Vec<
         (None, vec![])
     };
     (Arc::new(opt_checked_module), Arc::new(diagnostics))
+}
+
+fn anf_module(db: &dyn Compiler, uri: Uri) -> Option<Arc<anf::Module>> {
+    if let Some(checked_module) = &*db.checked_module(uri).0 {
+        Some(Arc::new(checked_module.to_anf()))
+    } else {
+        None
+    }
 }
 
 #[salsa::database(CompilerStorage)]
@@ -89,6 +99,10 @@ impl CompilerDB {
         } else {
             self.parsed_module(uri).0
         }
+    }
+
+    pub fn anf_module(&self, uri: Uri) -> Option<Arc<anf::Module>> {
+        (self as &dyn Compiler).anf_module(uri)
     }
 
     pub fn with_diagnostics<R, F>(&self, uri: Uri, f: F) -> R
