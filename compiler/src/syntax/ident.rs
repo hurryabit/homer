@@ -1,6 +1,6 @@
 macro_rules! ident_type {
     ($type_name:ident) => {
-        #[derive(Clone, Copy, Eq, Hash, PartialEq)]
+        #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
         pub struct $type_name(lasso::Spur);
 
         impl $type_name {

@@ -80,3 +80,28 @@ fn nested_shadowing() {
                 body: $v2
     "###);
 }
+
+#[test]
+fn capture() {
+    insta::assert_snapshot!(anf_output(r#"
+    fn f() -> Int {
+        let x = 1;
+        let f = fn () { x };
+        f()
+    }
+    "#), @r###"
+    MODULE
+        decl: FUNCDECL
+            name: f
+            body: EXPR
+                binder: x
+                bindee: 1
+                binder: f
+                bindee: LAM
+                    captured: x
+                    body: EXPR
+                        body: x
+                body: APP
+                    fun: f
+    "###);
+}
