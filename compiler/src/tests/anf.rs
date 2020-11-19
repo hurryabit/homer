@@ -105,3 +105,31 @@ fn capture() {
                     fun: f
     "###);
 }
+
+#[test]
+fn pattern_shadowing() {
+    insta::assert_snapshot!(anf_output(r#"
+    fn f(x: [C(Int)]) -> Int {
+        match x {
+            C(x) => x + x,
+        }
+    }
+    "#), @r###"
+    MODULE
+        decl: FUNCDECL
+            name: f
+            param: x
+            body: EXPR
+                body: MATCH
+                    scrut: x
+                    branch: BRANCH
+                        pattern: PATTERN
+                            constr: C
+                            binder: $v1
+                        body: EXPR
+                            body: BINOP
+                                lhs: $v1
+                                op: ADD
+                                rhs: $v1
+    "###);
+}

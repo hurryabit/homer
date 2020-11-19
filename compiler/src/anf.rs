@@ -29,7 +29,7 @@ pub struct Atom(ExprVar);
 #[derive(Clone, Eq, PartialEq)]
 pub enum Bindee {
     Error(Span<ParserLoc>),
-    Var(ExprVar),
+    Atom(Atom),
     Num(i64),
     Bool(bool),
     Clos {
@@ -37,7 +37,7 @@ pub enum Bindee {
         params: Vec<ExprVar>,
         body: Box<Expr>,
     },
-    AppClos(ExprVar, Vec<Atom>),
+    AppClos(Atom, Vec<Atom>),
     AppFunc(ExprVar, Vec<Atom>),
     BinOp(Atom, OpCode, Atom),
     If(Atom, Box<Expr>, Box<Expr>),
@@ -112,9 +112,9 @@ impl Bindee {
     ) -> (Self, FreeVars) {
         match &expr.locatee {
             syntax::Expr::Error => (Self::Error(expr.span), ordset![]),
-            syntax::Expr::Var(var) => {
-                let binder = *env.get_binder(var);
-                (Self::Var(binder), ordset![binder])
+            syntax::Expr::Var(_) => {
+                let (atom, fvs) = Atom::from_syntax(env, expr, bindings);
+                (Self::Atom(atom), fvs)
             }
             syntax::Expr::Num(n) => (Self::Num(*n), ordset![]),
             syntax::Expr::Bool(b) => (Self::Bool(*b), ordset![]),
@@ -146,13 +146,11 @@ impl Bindee {
                     .map(|arg| Atom::from_syntax(env, arg, bindings))
                     .unzip();
                 let fvs = FreeVars::unions(fvss);
-                match &fun.locatee {
-                    syntax::Expr::Var(var) => {
-                        // FIXME(MH): There's a nasty bug here.
-                        (Self::AppClos(*env.get_binder(var), args), fvs.update(*var))
-                    }
-                    syntax::Expr::FuncInst(func, _) => (Self::AppFunc(func.locatee, args), fvs),
-                    expr => panic!("Application of unnamed function: {:?}", expr),
+                if let syntax::Expr::FuncInst(func, _) = &fun.locatee {
+                    (Self::AppFunc(func.locatee, args), fvs)
+                } else {
+                    let (atom, fvs1) = Atom::from_syntax(env, fun, bindings);
+                    (Self::AppClos(atom, args), fvs.union(fvs1))
                 }
             }
             expr @ syntax::Expr::FuncInst(..) => {
@@ -240,7 +238,8 @@ impl Atom {
         bindings: &mut Vec<Binding>,
     ) -> (Self, FreeVars) {
         if let syntax::Expr::Var(var) = expr.locatee {
-            (Self(var), ordset![var])
+            let binder = *env.get_binder(&var);
+            (Self(binder), ordset![binder])
         } else {
             let (bindee, fvs) = Bindee::from_syntax(env, expr, bindings);
             let binder = env.intro_fresh_binder();
@@ -330,7 +329,7 @@ impl Debug for Bindee {
         use Bindee::*;
         match self {
             Error(_) => writer.leaf("ERROR"),
-            Var(name) => name.write(writer),
+            Atom(atom) => atom.write(writer),
             Num(n) => writer.leaf(&n.to_string()),
             Bool(b) => writer.leaf(&b.to_string()),
             Clos {
@@ -342,7 +341,11 @@ impl Debug for Bindee {
                 writer.children("param", params)?;
                 writer.child("body", body)
             }),
-            AppClos(fun, args) | AppFunc(fun, args) => writer.node("APP", |writer| {
+            AppClos(fun, args) => writer.node("APP", |writer| {
+                writer.child("fun", fun)?;
+                writer.children("arg", args)
+            }),
+            AppFunc(fun, args) => writer.node("APP", |writer| {
                 writer.child("fun", fun)?;
                 writer.children("arg", args)
             }),
