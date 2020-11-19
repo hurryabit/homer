@@ -3,7 +3,7 @@ use std::fmt;
 use syntax::debug::{Debug, DebugWriter};
 
 use location::{ParserLoc, Span};
-use syntax::{ExprCon, ExprVar, OpCode};
+pub use syntax::{ExprCon, ExprVar, OpCode};
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Module {
@@ -18,13 +18,19 @@ pub struct FuncDecl {
 }
 
 #[derive(Clone, Eq, PartialEq)]
+pub struct Expr {
+    pub bindings: Vec<Binding>,
+    pub body: Body,
+}
+
+#[derive(Clone, Eq, PartialEq)]
 pub struct Binding {
     pub binder: ExprVar,
     pub bindee: Bindee,
 }
 
 #[derive(Clone, Eq, PartialEq)]
-pub struct Atom(ExprVar);
+pub struct Atom(pub ExprVar);
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum Bindee {
@@ -59,12 +65,6 @@ pub struct Branch {
 pub struct Pattern {
     pub constr: ExprCon,
     pub binder: Option<ExprVar>,
-}
-
-#[derive(Clone, Eq, PartialEq)]
-pub struct Expr {
-    pub bindings: Vec<Binding>,
-    pub body: Body,
 }
 
 impl syntax::Module {
@@ -406,4 +406,113 @@ impl Debug for Pattern {
             writer.child_if_some("binder", binder)
         })
     }
+}
+
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { bindings, body } = self;
+        for binding in bindings {
+            writeln!(f, "{}", binding)?;
+        }
+        write!(f, "{}", body)
+    }
+}
+
+impl fmt::Display for Binding {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { binder, bindee } = self;
+        write!(f, "let {} = {};", binder, bindee)
+    }
+}
+
+impl fmt::Display for Bindee {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Bindee::*;
+        match self {
+            Error(_) => write!(f, "???"),
+            Atom(atom) => write!(f, "{}", atom),
+            Num(n) => write!(f, "{}", n),
+            Bool(b) => write!(f, "{}", b),
+            Clos {
+                captured,
+                params,
+                body: _,
+            } => write!(
+                f,
+                "[{}; {}; ...]",
+                display_slice(captured, ", ")?,
+                display_slice(params, ", ")?
+            ),
+            AppClos(fun, args) => write!(f, "{}({})", fun, display_slice(args, ", ")?),
+            AppFunc(fun, args) => write!(f, "{}({})", fun, display_slice(args, ", ")?),
+            BinOp(lhs, op, rhs) => write!(f, "{} {} {}", lhs, op, rhs),
+            If(cond, _, _) => write!(f, "if {} {{ .. }} else {{ .. }}", cond),
+            Record(fields) => {
+                write!(f, "{{")?;
+                let mut first = true;
+                for (field, value) in fields {
+                    if first {
+                        first = false;
+                    } else {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{} = {}", field, value)?;
+                }
+                write!(f, "}}")
+            }
+            Proj(record, field) => write!(f, "{}.{}", record, field),
+            Variant(constr, None) => write!(f, "{}", constr),
+            Variant(constr, Some(payload)) => write!(f, "{}({})", constr, payload),
+            Match(scrut, branches) => {
+                write!(f, "match {} {{ ", scrut)?;
+                for branch in branches {
+                    let Pattern { constr, binder } = branch.pattern;
+                    write!(f, "{}", constr)?;
+                    if let Some(binder) = binder {
+                        write!(f, "({})", binder)?;
+                    }
+                    write!(f, " => ..., ")?;
+                }
+                write!(f, "}}")
+            }
+        }
+    }
+}
+
+impl fmt::Display for Atom {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl fmt::Display for OpCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            OpCode::Add => "+",
+            OpCode::Sub => "-",
+            OpCode::Mul => "*",
+            OpCode::Div => "/",
+            OpCode::Equals => "==",
+            OpCode::NotEq => "!=",
+            OpCode::Less => "<",
+            OpCode::LessEq => "<=",
+            OpCode::Greater => ">",
+            OpCode::GreaterEq => ">=",
+        })
+    }
+}
+
+fn display_slice<T: fmt::Display>(slice: &[T], sep: &str) -> Result<String, fmt::Error> {
+    use fmt::Write;
+    let mut output = String::new();
+    let mut first = true;
+    for item in slice {
+        if first {
+            first = false;
+        } else {
+            write!(output, "{}", sep)?;
+        }
+        write!(output, "{}", item)?;
+    }
+    Ok(output)
 }

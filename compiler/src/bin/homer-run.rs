@@ -1,8 +1,8 @@
-use homer_compiler::build;
+use homer_compiler::{build, cek, syntax};
 use std::sync::Arc;
 
 #[allow(clippy::iter_nth_zero)]
-fn run() -> std::io::Result<()> {
+fn run() -> std::io::Result<bool> {
     let path = if let Some(path) = std::env::args().nth(1) {
         path
     } else {
@@ -13,23 +13,32 @@ fn run() -> std::io::Result<()> {
     let input = Arc::new(std::fs::read_to_string(path)?);
     db.set_input(uri, Arc::clone(&input));
 
-    if let Some(module) = db.anf_module(uri) {
-        println!("{:?}", module);
-    }
-
-    let mut failed = false;
+    let mut success = true;
     db.with_diagnostics(uri, |diagnostics| {
         for diagnostic in diagnostics {
-            failed = true;
+            success = false;
             eprintln!("{}\n{}", "-".repeat(50), diagnostic.layout(&input));
         }
     });
-    Ok(())
+
+    if let Some(module) = db.anf_module(uri) {
+        let machine = cek::Machine::new(&module, syntax::ExprVar::new("main"));
+        let value = machine.run();
+        println!("Result: {}", value);
+    }
+    Ok(success)
 }
 
 fn main() {
-    if let Err(error) = run() {
-        eprintln!("Error: {:?}", error);
-        std::process::exit(1);
+    match run() {
+        Ok(true) => {},
+        Ok(false) => {
+            eprintln!("\nThere were errors.");
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("Error: {:?}", error);
+            std::process::exit(1);
+        }
     }
 }

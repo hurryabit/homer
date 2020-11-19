@@ -7,6 +7,7 @@ extern crate lazy_static;
 
 pub mod anf;
 pub mod build;
+pub mod cek;
 pub mod checker;
 pub mod diagnostic;
 pub mod location;
