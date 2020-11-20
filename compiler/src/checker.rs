@@ -297,9 +297,9 @@ impl Expr {
                     )),
                 }
             }
-            Self::Let(binder, opt_type_ann, bindee, body) => {
+            Self::Let(binder, opt_type_ann, bindee, tail) => {
                 let binder_typ = check_let_bindee(env, binder, opt_type_ann, bindee)?;
-                env.intro_binder(binder, binder_typ, |env| body.check(env, expected))
+                env.intro_binder(binder, binder_typ, |env| tail.check(env, expected))
             }
             Self::If(cond, then, elze) => {
                 cond.check(env, &RcType::new(Type::Bool))?;
@@ -335,8 +335,8 @@ impl Expr {
             },
             Self::Match(scrut, branches) => {
                 let branches = check_match_patterns(env, scrut, branches)?;
-                for (binder, body) in branches {
-                    env.intro_opt_binder(binder, |env| body.check(env, expected))?;
+                for (binder, rhs) in branches {
+                    env.intro_opt_binder(binder, |env| rhs.check(env, expected))?;
                 }
                 Ok(())
             }
@@ -487,9 +487,9 @@ impl Expr {
                     Err(Located::new(Error::UnknownExprVar(var.locatee), var.span))
                 }
             }
-            Self::Let(binder, opt_type_ann, bindee, body) => {
+            Self::Let(binder, opt_type_ann, bindee, tail) => {
                 let binder_typ = check_let_bindee(env, binder, opt_type_ann, bindee)?;
-                env.intro_binder(binder, binder_typ, |env| body.infer(env))
+                env.intro_binder(binder, binder_typ, |env| tail.infer(env))
             }
             Self::If(cond, then, elze) => {
                 cond.check(env, &RcType::new(Type::Bool))?;
@@ -527,14 +527,14 @@ impl Expr {
             Self::Match(scrut, branches) => {
                 let branches = check_match_patterns(env, scrut, branches)?;
                 let mut iter = branches.into_iter();
-                let (binder, body) = iter
+                let (binder, rhs) = iter
                     .next()
                     .expect("IMPOSSIBLE: check_match_pattern ensures we have at least one branch");
-                let body_type = env.intro_opt_binder(binder, |env| body.infer(env))?;
-                for (binder, body) in iter {
-                    env.intro_opt_binder(binder, |env| body.check(env, &body_type))?;
+                let rhs_type = env.intro_opt_binder(binder, |env| rhs.infer(env))?;
+                for (binder, rhs) in iter {
+                    env.intro_opt_binder(binder, |env| rhs.check(env, &rhs_type))?;
                 }
-                Ok(body_type)
+                Ok(rhs_type)
             }
             Self::Variant(_, _) => Err(Located::new(Error::TypeAnnsNeeded, span)),
         }
@@ -654,12 +654,12 @@ fn check_match_patterns<'a>(
             if !branches.is_empty() {
                 branches
                     .iter_mut()
-                    .map(|Branch { pattern, body }| {
+                    .map(|Branch { pattern, rhs }| {
                         let constr = pattern.locatee.constr;
                         if let Some(opt_typ) = find_by_key(constrs, &constr) {
                             match (&pattern.locatee.binder, opt_typ) {
-                                (None, None) => Ok((None, body)),
-                                (Some(var), Some(typ)) => Ok((Some((var, typ.clone())), body)),
+                                (None, None) => Ok((None, rhs)),
+                                (Some(var), Some(typ)) => Ok((Some((var, typ.clone())), rhs)),
                                 (opt_payload, opt_typ) => LError::variant_payload(
                                     opt_payload,
                                     opt_typ,

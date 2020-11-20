@@ -12,7 +12,7 @@ fn type_mono() {
     insta::assert_debug_snapshot!(parse("type T = Int"), @r###"
     TYPEDECL
         name: T @ 5...6
-        type: Int @ 9...12
+        body: Int @ 9...12
     "###);
 }
 
@@ -22,7 +22,7 @@ fn type_poly() {
     TYPEDECL
         name: T @ 5...6
         type_param: A @ 7...8
-        type: A @ 12...13
+        body: A @ 12...13
     "###);
 }
 

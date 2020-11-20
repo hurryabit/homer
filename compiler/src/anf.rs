@@ -22,17 +22,16 @@ pub struct FuncDecl {
 #[derive(Clone, Eq, PartialEq)]
 pub struct Expr {
     pub bindings: Vec<Binding>,
-    pub body: Body,
+    pub tail: TailExpr,
 }
+
+pub type TailExpr = Bindee;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Binding {
     pub binder: ExprVar,
     pub bindee: Bindee,
 }
-
-#[derive(Clone, Eq, PartialEq)]
-pub struct Atom(pub ExprVar);
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum Bindee {
@@ -55,12 +54,13 @@ pub enum Bindee {
     Match(Atom, Vec<Branch>),
 }
 
-pub type Body = Bindee;
+#[derive(Clone, Eq, PartialEq)]
+pub struct Atom(pub ExprVar);
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Branch {
     pub pattern: Pattern,
-    pub expr: Expr,
+    pub rhs: Expr,
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -101,8 +101,8 @@ type FreeVars = im::OrdSet<ExprVar>;
 impl Expr {
     fn from_syntax(env: &mut Env, expr: &syntax::LExpr) -> (Self, FreeVars) {
         let mut bindings = Vec::new();
-        let (body, fvs) = Bindee::from_syntax(env, expr, &mut bindings);
-        (Self { bindings, body }, fvs)
+        let (tail, fvs) = Bindee::from_syntax(env, expr, &mut bindings);
+        (Self { bindings, tail }, fvs)
     }
 }
 
@@ -163,12 +163,12 @@ impl Bindee {
                 let (rhs, fvs2) = Atom::from_syntax(env, rhs, bindings);
                 (Bindee::BinOp(lhs, *op, rhs), fvs1.union(fvs2))
             }
-            syntax::Expr::Let(binder, _, bindee, body) => {
+            syntax::Expr::Let(binder, _, bindee, expr) => {
                 let (bindee, fvs1) = Self::from_syntax(env, bindee, bindings);
                 let binder = env.intro_binder(binder);
                 bindings.push(Binding { binder, bindee });
-                let (body, fvs2) = Self::from_syntax(env, body, bindings);
-                (body, fvs1.union(fvs2.without(&binder)))
+                let (tail, fvs2) = Self::from_syntax(env, expr, bindings);
+                (tail, fvs1.union(fvs2.without(&binder)))
             }
             syntax::Expr::If(cond, then, elze) => {
                 let (cond, fvs1) = Atom::from_syntax(env, cond, bindings);
@@ -221,15 +221,15 @@ impl Pattern {
 
 impl Branch {
     fn from_syntax(env: &mut Env, branch: &syntax::Branch) -> (Branch, FreeVars) {
-        let syntax::Branch { pattern, body } = branch;
+        let syntax::Branch { pattern, rhs } = branch;
         let pattern = Pattern::from_syntax(env, pattern);
-        let (expr, fvs) = Expr::from_syntax(env, body);
+        let (expr, fvs) = Expr::from_syntax(env, rhs);
         let fvs = if let Some(binder) = pattern.binder {
             fvs.without(&binder)
         } else {
             fvs
         };
-        (Self { pattern, expr }, fvs)
+        (Self { pattern, rhs: expr }, fvs)
     }
 }
 
@@ -315,13 +315,13 @@ impl Debug for FuncDecl {
 
 impl Debug for Expr {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        let Self { bindings, body } = self;
+        let Self { bindings, tail } = self;
         writer.node("EXPR", |writer| {
             for Binding { binder, bindee } in bindings {
                 writer.child("binder", binder)?;
                 writer.child("bindee", bindee)?;
             }
-            writer.child("body", body)
+            writer.child("tail", tail)
         })
     }
 }
@@ -388,10 +388,10 @@ impl Debug for Atom {
 
 impl Debug for Branch {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        let Self { pattern, expr } = self;
+        let Self { pattern, rhs } = self;
         writer.node("BRANCH", |writer| {
             writer.child("pattern", pattern)?;
-            writer.child("body", expr)
+            writer.child("rhs", rhs)
         })
     }
 }
@@ -408,8 +408,8 @@ impl Debug for Pattern {
 
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { bindings, body } = self;
-        write!(f, "{}\n{}", "\n".join(bindings), body)
+        let Self { bindings, tail } = self;
+        write!(f, "{}\n{}", "\n".join(bindings), tail)
     }
 }
 

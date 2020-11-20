@@ -58,9 +58,9 @@ fn resolve_let_infer_infer() {
                 result: INT @ 0...0
             bindee: LAM @ 105...116
                 body: 0 @ 113...114
-            body: APP @ 130...142
+            tail: APP @ 130...142
                 fun: resolve_me @ 130...140
-        body: r @ 162...163
+        tail: r @ 162...163
     "###);
 }
 
@@ -79,7 +79,7 @@ fn resolve_let_infer_check() {
             result: INT @ 0...0
         bindee: LAM @ 83...94
             body: 0 @ 91...92
-        body: APP @ 104...116
+        tail: APP @ 104...116
             fun: resolve_me @ 104...114
     "###);
 }
@@ -105,9 +105,9 @@ fn resolve_let_check_infer() {
                 result: INT @ 110...113
             bindee: LAM @ 116...127
                 body: 0 @ 124...125
-            body: APP @ 141...153
+            tail: APP @ 141...153
                 fun: resolve_me @ 141...151
-        body: r @ 173...174
+        tail: r @ 173...174
     "###);
 }
 
@@ -126,7 +126,7 @@ fn resolve_let_check_check() {
             result: INT @ 88...91
         bindee: LAM @ 94...105
             body: 0 @ 102...103
-        body: APP @ 115...127
+        tail: APP @ 115...127
             fun: resolve_me @ 115...125
     "###);
 }
@@ -152,7 +152,7 @@ fn resolve_lam_param_infer() {
                 result: INT @ 111...114
             body: APP @ 118...130
                 fun: resolve_me @ 118...128
-        body: f @ 142...143
+        tail: f @ 142...143
     "###);
 }
 
@@ -211,13 +211,13 @@ fn resolve_match() {
             constr: F
             payload: LAM @ 92...103
                 body: 0 @ 100...101
-        body: MATCH @ 114...176
+        tail: MATCH @ 114...176
             scrut: f @ 120...121
             branch: BRANCH
                 pattern: PATTERN @ 136...149
                     constr: F
                     binder: resolve_me @ 138...148
-                body: APP @ 153...165
+                rhs: APP @ 153...165
                     fun: resolve_me @ 153...163
     "###);
 }

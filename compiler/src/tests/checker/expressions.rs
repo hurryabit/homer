@@ -919,7 +919,7 @@ fn rule_let_infer_infer_bindee_not_inferrable() {
 }
 
 #[test]
-fn rule_let_infer_infer_body_not_inferrable() {
+fn rule_let_infer_infer_tail_not_inferrable() {
     insta::assert_snapshot!(check_error(r#"
     fn f() -> Int {
         let x = {
@@ -979,7 +979,7 @@ fn rule_let_check_infer_mismatch_bindee() {
 }
 
 #[test]
-fn rule_let_check_infer_body_not_inferrable() {
+fn rule_let_check_infer_tail_not_inferrable() {
     insta::assert_snapshot!(check_error(r#"
     fn f() -> Int {
         let x = {
@@ -1055,7 +1055,7 @@ fn rule_let_infer_check_bindee_not_inferrable() {
 }
 
 #[test]
-fn rule_let_infer_check_mismatch_body() {
+fn rule_let_infer_check_mismatch_tail() {
     insta::assert_snapshot!(check_error(r#"
     fn f() -> Int {
         let x = 0;
@@ -1093,7 +1093,7 @@ fn rule_let_check_check_mismatch_bindee() {
 }
 
 #[test]
-fn rule_let_check_check_mismatch_body() {
+fn rule_let_check_check_mismatch_tail() {
     insta::assert_snapshot!(check_error(r#"
     fn f() -> Int {
         let x: [CheckMe2] = CheckMe2;

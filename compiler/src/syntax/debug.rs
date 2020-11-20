@@ -27,7 +27,7 @@ impl Debug for TypeDecl {
         writer.node("TYPEDECL", |writer| {
             writer.child("name", name)?;
             writer.children("type_param", params)?;
-            writer.child("type", body)
+            writer.child("body", body)
         })
     }
 }
@@ -127,11 +127,11 @@ impl Debug for Expr {
                 writer.child("fun", fun)?;
                 writer.children("type_arg", types)
             }),
-            Let(binder, opt_typ, bindee, body) => writer.node("LET", |writer| {
+            Let(binder, opt_typ, bindee, tail) => writer.node("LET", |writer| {
                 writer.child("binder", binder)?;
                 writer.child_if_some("type", opt_typ)?;
                 writer.child("bindee", bindee)?;
-                writer.child("body", body)
+                writer.child("tail", tail)
             }),
             If(cond, then, elze) => writer.node("IF", |writer| {
                 writer.child("cond", cond)?;
@@ -160,10 +160,10 @@ impl Debug for Expr {
 
 impl Debug for Branch {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        let Self { pattern, body: rhs } = self;
+        let Self { pattern, rhs } = self;
         writer.node("BRANCH", |writer| {
             writer.child("pattern", pattern)?;
-            writer.child("body", rhs)
+            writer.child("rhs", rhs)
         })
     }
 }

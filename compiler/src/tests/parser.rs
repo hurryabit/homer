@@ -55,7 +55,7 @@ fn module() {
     MODULE
         decl: TYPEDECL
             name: Mono @ 10...14
-            type: Int @ 17...20
+            body: Int @ 17...20
         decl: FUNCDECL
             name: mono @ 28...32
             param: x @ 33...34
@@ -65,7 +65,7 @@ fn module() {
         decl: TYPEDECL
             name: Poly @ 64...68
             type_param: A @ 69...70
-            type: A @ 74...75
+            body: A @ 74...75
         decl: FUNCDECL
             name: poly @ 83...87
             type_param: A @ 88...89

@@ -104,9 +104,9 @@ impl Expr {
                 FuncInst(fun, _types) => {
                     let _: &LExprVar = fun; // We want this to fail if we change the type of `fun`.
                 }
-                Let(_binder, _type, bindee, body) => {
+                Let(_binder, _type, bindee, tail) => {
                     yield_!(bindee);
-                    yield_!(body);
+                    yield_!(tail);
                 }
                 If(cond, then, elze) => {
                     yield_!(cond);
@@ -129,7 +129,7 @@ impl Expr {
                 Match(scrut, branches) => {
                     yield_!(scrut);
                     for branch in branches {
-                        yield_!(&mut branch.body);
+                        yield_!(&mut branch.rhs);
                     }
                 }
             }

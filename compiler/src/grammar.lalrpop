@@ -139,8 +139,8 @@ RecordAssign: (LExprVar, LExpr) = {
 }
 
 Branch: Branch = {
-    <pattern: Located<Pattern>> "=>" <body: LBlockExpr> => Branch { pattern, body },
-    <pattern: Located<Pattern>> "=>" <body: LExpr> "," => Branch { pattern, body },
+    <pattern: Located<Pattern>> "=>" <rhs: LBlockExpr> => Branch { pattern, rhs },
+    <pattern: Located<Pattern>> "=>" <rhs: LExpr> "," => Branch { pattern, rhs },
 }
 
 Pattern: Pattern = {

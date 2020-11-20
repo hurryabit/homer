@@ -19,12 +19,12 @@ type Env<'a> = im::HashMap<ExprVar, RcValue<'a>>;
 
 enum Ctrl<'a> {
     Evaluating,
-    Expr(&'a [Binding], &'a Body),
+    Expr(&'a [Binding], &'a TailExpr),
     Value(RcValue<'a>),
 }
 
 enum Kont<'a> {
-    Let(Env<'a>, ExprVar, &'a [Binding], &'a Body),
+    Let(Env<'a>, ExprVar, &'a [Binding], &'a TailExpr),
 }
 
 pub struct Machine<'a> {
@@ -64,12 +64,12 @@ impl<'a> Machine<'a> {
             let old_ctrl = std::mem::take(&mut self.ctrl);
             let new_ctrl = match old_ctrl {
                 Ctrl::Evaluating => panic!("Machine control has not been set after step"),
-                Ctrl::Expr(bindings, body) => self.step_expr(bindings, body),
+                Ctrl::Expr(bindings, tail) => self.step_expr(bindings, tail),
                 Ctrl::Value(value) => {
                     if let Some(kont) = self.kont.pop() {
-                        let Kont::Let(env, binder, bindings, body) = kont;
+                        let Kont::Let(env, binder, bindings, tail) = kont;
                         self.env = env.update(binder, value);
-                        Ctrl::Expr(bindings, body)
+                        Ctrl::Expr(bindings, tail)
                     } else {
                         return value;
                     }
@@ -80,40 +80,40 @@ impl<'a> Machine<'a> {
     }
 
     /// Step when control contains an expression.
-    fn step_expr(&mut self, bindings: &'a [Binding], body: &'a Body) -> Ctrl<'a> {
+    fn step_expr(&mut self, bindings: &'a [Binding], tail: &'a TailExpr) -> Ctrl<'a> {
         if let Some((Binding { binder, bindee }, bindings)) = bindings.split_first() {
             match bindee {
                 Bindee::Error(span) => panic!("Bindee::Error({:?}) during execution", span),
                 Bindee::Atom(atom) => {
                     let value = Rc::clone(self.get_atom(atom));
                     self.env.insert(*binder, value);
-                    Ctrl::Expr(bindings, body)
+                    Ctrl::Expr(bindings, tail)
                 }
                 Bindee::Num(n) => {
                     self.env.insert(*binder, Rc::new(Value::Int(*n)));
-                    Ctrl::Expr(bindings, body)
+                    Ctrl::Expr(bindings, tail)
                 }
                 Bindee::Bool(b) => {
                     self.env.insert(*binder, Rc::new(Value::Bool(*b)));
-                    Ctrl::Expr(bindings, body)
+                    Ctrl::Expr(bindings, tail)
                 }
                 Bindee::Clos {
                     captured,
                     params,
-                    body: closure_body,
+                    body,
                 } => {
                     let closure_env = captured
                         .iter()
                         .map(|var| (*var, Rc::clone(self.env.get(var).unwrap())))
                         .collect();
-                    let closure = Rc::new(Value::Closure(closure_env, params, closure_body));
+                    let closure = Rc::new(Value::Closure(closure_env, params, body));
                     self.env.insert(*binder, closure);
-                    Ctrl::Expr(bindings, body)
+                    Ctrl::Expr(bindings, tail)
                 }
                 Bindee::AppClos(fun, args) => {
                     let closure = self.get_atom(fun);
-                    if let Value::Closure(captured, params, closure_body) = closure.as_ref() {
-                        let closure_body = *closure_body;
+                    if let Value::Closure(captured, params, body) = closure.as_ref() {
+                        let body = *body;
                         assert_eq!(params.len(), args.len());
                         let mut env = captured.clone();
                         env.extend(
@@ -123,8 +123,8 @@ impl<'a> Machine<'a> {
                                 .map(|(param, arg)| (*param, Rc::clone(self.get_atom(arg)))),
                         );
                         std::mem::swap(&mut self.env, &mut env);
-                        self.kont.push(Kont::Let(env, *binder, bindings, body));
-                        Ctrl::from_expr(closure_body)
+                        self.kont.push(Kont::Let(env, *binder, bindings, tail));
+                        Ctrl::from_expr(body)
                     } else {
                         panic!("Application on non-closure")
                     }
@@ -133,7 +133,7 @@ impl<'a> Machine<'a> {
                     let FuncDecl {
                         name: _,
                         params,
-                        body: func_body,
+                        body,
                     } = self.funcs.get(fun).unwrap();
                     assert_eq!(params.len(), args.len());
                     let mut env = params
@@ -142,19 +142,19 @@ impl<'a> Machine<'a> {
                         .map(|(param, arg)| (*param, Rc::clone(self.get_atom(arg))))
                         .collect();
                     std::mem::swap(&mut self.env, &mut env);
-                    self.kont.push(Kont::Let(env, *binder, bindings, body));
-                    Ctrl::from_expr(func_body)
+                    self.kont.push(Kont::Let(env, *binder, bindings, tail));
+                    Ctrl::from_expr(body)
                 }
                 Bindee::BinOp(lhs, op, rhs) => {
                     let result = op.execute(self.get_atom(lhs), self.get_atom(rhs));
                     self.env.insert(*binder, result);
-                    Ctrl::Expr(bindings, body)
+                    Ctrl::Expr(bindings, tail)
                 }
                 Bindee::If(cond, then, elze) => {
                     if let Value::Bool(b) = self.get_atom(cond).as_ref() {
                         let b = *b;
                         self.kont
-                            .push(Kont::Let(self.env.clone(), *binder, bindings, body));
+                            .push(Kont::Let(self.env.clone(), *binder, bindings, tail));
                         Ctrl::from_expr(if b { then } else { elze })
                     } else {
                         panic!("If on non-bool")
@@ -166,7 +166,7 @@ impl<'a> Machine<'a> {
                         .map(|(field, atom)| (*field, Rc::clone(self.get_atom(atom))))
                         .collect();
                     self.env.insert(*binder, Rc::new(Value::Record(fields)));
-                    Ctrl::Expr(bindings, body)
+                    Ctrl::Expr(bindings, tail)
                 }
                 Bindee::Proj(record, field) => {
                     let record = self.get_atom(record);
@@ -174,7 +174,7 @@ impl<'a> Machine<'a> {
                         if let Ok(index) = fields.binary_search_by_key(field, |entry| entry.0) {
                             let field = Rc::clone(&fields[index].1);
                             self.env.insert(*binder, field);
-                            Ctrl::Expr(bindings, body)
+                            Ctrl::Expr(bindings, tail)
                         } else {
                             panic!("Projection on unknown field")
                         }
@@ -188,12 +188,12 @@ impl<'a> Machine<'a> {
                         .map(|payload| Rc::clone(self.get_atom(payload)));
                     let variant = Rc::new(Value::Variant(*constr, opt_payload));
                     self.env.insert(*binder, variant);
-                    Ctrl::Expr(bindings, body)
+                    Ctrl::Expr(bindings, tail)
                 }
                 Bindee::Match(scrut, branches) => {
                     if let Value::Variant(constr, payload) = self.get_atom(scrut).as_ref() {
                         let payload = payload.as_ref().cloned();
-                        if let Some(Branch { pattern, expr }) = branches
+                        if let Some(Branch { pattern, rhs: expr }) = branches
                             .iter()
                             .find(|branch| branch.pattern.constr == *constr)
                         {
@@ -202,7 +202,7 @@ impl<'a> Machine<'a> {
                                 binder: pat_binder,
                             } = pattern;
                             self.kont
-                                .push(Kont::Let(self.env.clone(), *binder, bindings, body));
+                                .push(Kont::Let(self.env.clone(), *binder, bindings, tail));
                             match (pat_binder.as_ref(), payload) {
                                 (None, Some(_)) | (Some(_), None) => {
                                     panic!("Pattern/payload mismatch")
@@ -222,7 +222,7 @@ impl<'a> Machine<'a> {
                 }
             }
         } else {
-            match body {
+            match tail {
                 Bindee::Error(span) => panic!("Bindee::Error({:?}) during execution", span),
                 Bindee::Atom(atom) => Ctrl::Value(Rc::clone(self.get_atom(atom))),
                 Bindee::Num(n) => Ctrl::Value(Rc::new(Value::Int(*n))),
@@ -230,18 +230,18 @@ impl<'a> Machine<'a> {
                 Bindee::Clos {
                     captured,
                     params,
-                    body: closure_body,
+                    body,
                 } => {
                     let closure_env = captured
                         .iter()
                         .map(|var| (*var, Rc::clone(self.env.get(var).unwrap())))
                         .collect();
-                    Ctrl::Value(Rc::new(Value::Closure(closure_env, params, closure_body)))
+                    Ctrl::Value(Rc::new(Value::Closure(closure_env, params, body)))
                 }
                 Bindee::AppClos(fun, args) => {
                     let closure = self.get_atom(fun);
-                    if let Value::Closure(captured, params, closure_body) = closure.as_ref() {
-                        let closure_body = *closure_body;
+                    if let Value::Closure(captured, params, body) = closure.as_ref() {
+                        let body = *body;
                         assert_eq!(params.len(), args.len());
                         let mut env = captured.clone();
                         env.extend(
@@ -251,7 +251,7 @@ impl<'a> Machine<'a> {
                                 .map(|(param, arg)| (*param, Rc::clone(self.get_atom(arg)))),
                         );
                         self.env = env;
-                        Ctrl::from_expr(closure_body)
+                        Ctrl::from_expr(body)
                     } else {
                         panic!("Application on non-closure")
                     }
@@ -260,7 +260,7 @@ impl<'a> Machine<'a> {
                     let FuncDecl {
                         name: _,
                         params,
-                        body: func_body,
+                        body,
                     } = self.funcs.get(fun).unwrap();
                     assert_eq!(params.len(), args.len());
                     let env = params
@@ -269,7 +269,7 @@ impl<'a> Machine<'a> {
                         .map(|(param, arg)| (*param, Rc::clone(self.get_atom(arg))))
                         .collect();
                     self.env = env;
-                    Ctrl::from_expr(func_body)
+                    Ctrl::from_expr(body)
                 }
                 Bindee::BinOp(lhs, op, rhs) => {
                     Ctrl::Value(op.execute(self.get_atom(lhs), self.get_atom(rhs)))
@@ -308,7 +308,7 @@ impl<'a> Machine<'a> {
                 Bindee::Match(scrut, branches) => {
                     if let Value::Variant(constr, payload) = self.get_atom(scrut).as_ref() {
                         let payload = payload.as_ref().cloned();
-                        if let Some(Branch { pattern, expr }) = branches
+                        if let Some(Branch { pattern, rhs: expr }) = branches
                             .iter()
                             .find(|branch| branch.pattern.constr == *constr)
                         {
@@ -352,12 +352,12 @@ impl<'a> Machine<'a> {
         print!("Control: ");
         match ctrl {
             Ctrl::Evaluating => println!("???"),
-            Ctrl::Expr(bindings, body) => {
+            Ctrl::Expr(bindings, tail) => {
                 println!();
                 for binding in *bindings {
                     println!("    {}", binding);
                 }
-                println!("    {}", body);
+                println!("    {}", tail);
             }
             Ctrl::Value(value) => {
                 println!("{}", value);
@@ -379,7 +379,7 @@ impl<'a> Machine<'a> {
 
 impl<'a> Ctrl<'a> {
     fn from_expr(expr: &'a Expr) -> Self {
-        Self::Expr(&expr.bindings, &expr.body)
+        Self::Expr(&expr.bindings, &expr.tail)
     }
 }
 

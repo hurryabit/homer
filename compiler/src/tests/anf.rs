@@ -22,7 +22,7 @@ fn simple() {
                 bindee: 1
                 binder: $v2
                 bindee: 2
-                body: BINOP
+                tail: BINOP
                     lhs: $v1
                     op: ADD
                     rhs: $v2
@@ -48,8 +48,8 @@ fn lambda_shadowing() {
                 bindee: LAM
                     param: $v1
                     body: EXPR
-                        body: $v1
-                body: APP
+                        tail: $v1
+                tail: APP
                     fun: f
                     arg: x
     "###);
@@ -77,7 +77,7 @@ fn nested_shadowing() {
                 bindee: x
                 binder: $v2
                 bindee: $v1
-                body: $v2
+                tail: $v2
     "###);
 }
 
@@ -100,8 +100,8 @@ fn capture() {
                 bindee: LAM
                     captured: x
                     body: EXPR
-                        body: x
-                body: APP
+                        tail: x
+                tail: APP
                     fun: f
     "###);
 }
@@ -120,14 +120,14 @@ fn pattern_shadowing() {
             name: f
             param: x
             body: EXPR
-                body: MATCH
+                tail: MATCH
                     scrut: x
                     branch: BRANCH
                         pattern: PATTERN
                             constr: C
                             binder: $v1
-                        body: EXPR
-                            body: BINOP
+                        rhs: EXPR
+                            tail: BINOP
                                 lhs: $v1
                                 op: ADD
                                 rhs: $v1

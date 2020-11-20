@@ -75,7 +75,7 @@ pub type LExpr = Located<Expr>;
 #[derive(Clone, Eq, PartialEq)]
 pub struct Branch {
     pub pattern: LPattern,
-    pub body: LExpr,
+    pub rhs: LExpr,
 }
 
 #[derive(Clone, Eq, PartialEq)]

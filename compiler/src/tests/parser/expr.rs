@@ -457,7 +457,7 @@ fn let1_atom() {
     LET
         binder: x @ 6...7
         bindee: 1 @ 10...11
-        body: x @ 13...14
+        tail: x @ 13...14
     "###);
 }
 
@@ -470,7 +470,7 @@ fn let1_complex() {
             lhs: 1 @ 10...11
             op: ADD
             rhs: 1 @ 14...15
-        body: x @ 17...18
+        tail: x @ 17...18
     "###);
 }
 
@@ -481,7 +481,7 @@ fn let1_typed() {
         binder: x @ 6...7
         type: Int @ 9...12
         bindee: 1 @ 15...16
-        body: x @ 18...19
+        tail: x @ 18...19
     "###);
 }
 
@@ -491,7 +491,7 @@ fn let1_block() {
     LET
         binder: x @ 6...7
         bindee: 1 @ 12...13
-        body: x @ 17...18
+        tail: x @ 17...18
     "###);
 }
 
@@ -501,10 +501,10 @@ fn let2() {
     LET
         binder: x @ 6...7
         bindee: 1 @ 10...11
-        body: LET @ 13...25
+        tail: LET @ 13...25
             binder: y @ 17...18
             bindee: x @ 21...22
-            body: y @ 24...25
+            tail: y @ 24...25
     "###);
 }
 
@@ -516,7 +516,7 @@ fn match1_novar() {
         branch: BRANCH
             pattern: PATTERN @ 10...11
                 constr: A
-            body: 1 @ 15...16
+            rhs: 1 @ 15...16
     "###);
 }
 
@@ -529,7 +529,7 @@ fn match1_var() {
             pattern: PATTERN @ 10...14
                 constr: A
                 binder: y @ 12...13
-            body: 1 @ 18...19
+            rhs: 1 @ 18...19
     "###);
 }
 
@@ -541,7 +541,7 @@ fn match1_block() {
         branch: BRANCH
             pattern: PATTERN @ 10...11
                 constr: A
-            body: 1 @ 17...18
+            rhs: 1 @ 17...18
     "###);
 }
 
@@ -565,7 +565,7 @@ fn match1_block_comma() {
         branch: BRANCH
             pattern: PATTERN @ 10...11
                 constr: A
-            body: ERROR @ 15...20
+            rhs: ERROR @ 15...20
     --------------------------------------------------
       1 | match x { A => { 1 }, }
                               ~
@@ -582,11 +582,11 @@ fn match2_exprs() {
         branch: BRANCH
             pattern: PATTERN @ 10...11
                 constr: A
-            body: 1 @ 15...16
+            rhs: 1 @ 15...16
         branch: BRANCH
             pattern: PATTERN @ 18...19
                 constr: B
-            body: 2 @ 23...24
+            rhs: 2 @ 23...24
     "###);
 }
 
@@ -598,11 +598,11 @@ fn match2_expr_block() {
         branch: BRANCH
             pattern: PATTERN @ 10...11
                 constr: A
-            body: 1 @ 15...16
+            rhs: 1 @ 15...16
         branch: BRANCH
             pattern: PATTERN @ 18...19
                 constr: B
-            body: 2 @ 25...26
+            rhs: 2 @ 25...26
     "###);
 }
 
@@ -614,11 +614,11 @@ fn match2_block_expr() {
         branch: BRANCH
             pattern: PATTERN @ 10...11
                 constr: A
-            body: 1 @ 17...18
+            rhs: 1 @ 17...18
         branch: BRANCH
             pattern: PATTERN @ 21...22
                 constr: B
-            body: 2 @ 26...27
+            rhs: 2 @ 26...27
     "###);
 }
 
@@ -630,10 +630,10 @@ fn match2_blocks() {
         branch: BRANCH
             pattern: PATTERN @ 10...11
                 constr: A
-            body: 1 @ 17...18
+            rhs: 1 @ 17...18
         branch: BRANCH
             pattern: PATTERN @ 21...22
                 constr: B
-            body: 2 @ 28...29
+            rhs: 2 @ 28...29
     "###);
 }

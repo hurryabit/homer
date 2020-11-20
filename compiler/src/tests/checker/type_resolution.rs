@@ -620,7 +620,7 @@ fn resolve_func_let_lam_int() {
                 param: x @ 34...35
                 type: INT @ 37...40
                 body: false @ 44...49
-            body: true @ 53...57
+            tail: true @ 53...57
     "###);
 }
 
@@ -644,7 +644,7 @@ fn resolve_func_let_lam_def_int() {
                 type: APP @ 57...60
                     syn: Int @ 57...60
                 body: false @ 64...69
-            body: true @ 73...77
+            tail: true @ 73...77
     "###);
 }
 
@@ -668,7 +668,7 @@ fn resolve_func_let_lam_var_def() {
                 type: APP @ 62...71
                     syn: ResolveMe @ 62...71
                 body: false @ 75...80
-            body: true @ 84...88
+            tail: true @ 84...88
     "###);
 }
 
@@ -690,7 +690,7 @@ fn resolve_func_let_lam_var_int() {
                 param: x @ 39...40
                 type: Int @ 42...45
                 body: false @ 49...54
-            body: true @ 58...62
+            tail: true @ 58...62
     "###);
 }
 
