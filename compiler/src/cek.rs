@@ -36,8 +36,6 @@ pub struct Machine<'a> {
 
 impl<'a> Machine<'a> {
     pub fn new(module: &'a Module, main: ExprVar) -> Self {
-        let env = Env::new();
-        let kont = Vec::new();
         let funcs: im::HashMap<_, _> = module
             .func_decls
             .iter()
@@ -49,11 +47,10 @@ impl<'a> Machine<'a> {
             body,
         } = funcs.get(&main).unwrap();
         assert!(params.is_empty());
-        let ctrl = Ctrl::from_expr(body);
         Self {
-            ctrl,
-            env,
-            kont,
+            ctrl: Ctrl::from_expr(body),
+            env: Env::new(),
+            kont: Vec::new(),
             funcs,
         }
     }
@@ -81,12 +78,15 @@ impl<'a> Machine<'a> {
 
     /// Step when control contains an expression.
     fn step_expr(&mut self, bindings: &'a [Binding], tail: &'a TailExpr) -> Ctrl<'a> {
-        let (head, mut rest) = if let Some((Binding { binder, bindee }, bindings)) = bindings.split_first() {
-            (bindee, Some((binder, bindings, tail)))
-        } else {
-            (tail, None)
+        let head = match bindings.split_first() {
+            Some((Binding { binder, bindee }, bindings)) => {
+                let env = self.env.clone();
+                self.kont.push(Kont::Let(env, *binder, bindings, tail));
+                bindee
+            }
+            None => tail,
         };
-        let ctrl = match head {
+        match head {
             Bindee::Error(span) => panic!("Bindee::Error({:?}) during execution", span),
             Bindee::Atom(atom) => Ctrl::Value(Rc::clone(self.get_atom(atom))),
             Bindee::Num(n) => Ctrl::Value(Rc::new(Value::Int(*n))),
@@ -95,51 +95,13 @@ impl<'a> Machine<'a> {
             Bindee::Record(fields) => self.step_record(fields),
             Bindee::Project(record, field) => self.step_proj(record, field),
             Bindee::Variant(constr, payload) => self.step_variant(constr, payload),
-            Bindee::BinOp(lhs, op, rhs) => op.execute(self.get_atom(lhs), self.get_atom(rhs)),
-            Bindee::AppClosure(clo, args) => {
-                let (mut env, ctrl) = self.step_app_closure(clo, args);
-                if let Some((binder, bindings, tail)) = rest.take() {
-                    std::mem::swap(&mut self.env, &mut env);
-                    self.kont.push(Kont::Let(env, *binder, bindings, tail));
-                } else {
-                    self.env = env;
-                }
-                ctrl
+            Bindee::BinOp(lhs, op, rhs) => {
+                Ctrl::Value(op.execute(self.get_atom(lhs), self.get_atom(rhs)))
             }
-            Bindee::AppFunc(fun, args) => {
-                let (mut env, ctrl) = self.step_app_func(fun, args);
-                if let Some((binder, bindings, tail)) = rest.take() {
-                    std::mem::swap(&mut self.env, &mut env);
-                    self.kont.push(Kont::Let(env, *binder, bindings, tail));
-                } else {
-                    self.env = env;
-                }
-                ctrl
-            }
-            Bindee::If(cond, then, elze) => {
-                if let Some((binder, bindings, tail)) = rest.take() {
-                    self.kont
-                        .push(Kont::Let(self.env.clone(), *binder, bindings, tail));
-                }
-                self.step_if(cond, then, elze)
-            }
-            Bindee::Match(scrut, branches) => {
-                if let Some((binder, bindings, tail)) = rest.take() {
-                    self.kont
-                        .push(Kont::Let(self.env.clone(), *binder, bindings, tail));
-                }
-                self.step_match(scrut, branches)
-            }
-        };
-        if let Some((binder, bindings, tail)) = rest.take() {
-            if let Ctrl::Value(value) = ctrl {
-                self.env.insert(*binder, value);
-                Ctrl::Expr(bindings, tail)
-            } else {
-                panic!("IMPOSSIBLE: Unhandled rest and value at the same time")
-            }
-        } else {
-            ctrl
+            Bindee::AppClosure(clo, args) => self.step_app_closure(clo, args),
+            Bindee::AppFunc(fun, args) => self.step_app_func(fun, args),
+            Bindee::If(cond, then, elze) => self.step_if(cond, then, elze),
+            Bindee::Match(scrut, branches) => self.step_match(scrut, branches),
         }
     }
 
@@ -149,11 +111,11 @@ impl<'a> Machine<'a> {
             params,
             body,
         } = closure;
-        let closure_env = captured
+        let env = captured
             .iter()
             .map(|var| (*var, Rc::clone(self.env.get(var).unwrap())))
             .collect();
-        Ctrl::Value(Rc::new(Value::Closure(closure_env, params, body)))
+        Ctrl::Value(Rc::new(Value::Closure(env, params, body)))
     }
 
     fn step_record(&self, fields: &'a [(ExprVar, Atom)]) -> Ctrl<'a> {
@@ -183,7 +145,7 @@ impl<'a> Machine<'a> {
         Ctrl::Value(Rc::new(Value::Variant(*constr, payload)))
     }
 
-    fn step_app_closure(&self, clo: &'a Atom, args: &'a [Atom]) -> (Env<'a>, Ctrl<'a>) {
+    fn step_app_closure(&mut self, clo: &'a Atom, args: &'a [Atom]) -> Ctrl<'a> {
         let closure = self.get_atom(clo);
         if let Value::Closure(captured, params, body) = closure.as_ref() {
             let body = *body;
@@ -195,30 +157,31 @@ impl<'a> Machine<'a> {
                     .zip(args.iter())
                     .map(|(param, arg)| (*param, Rc::clone(self.get_atom(arg)))),
             );
-            (env, Ctrl::from_expr(body))
+            self.env = env;
+            Ctrl::from_expr(body)
         } else {
             panic!("Application on non-closure")
         }
     }
 
-    fn step_app_func(&self, fun: &'a ExprVar, args: &'a [Atom]) -> (Env<'a>, Ctrl<'a>) {
+    fn step_app_func(&mut self, fun: &'a ExprVar, args: &'a [Atom]) -> Ctrl<'a> {
         let FuncDecl {
             name: _,
             params,
             body,
         } = self.funcs.get(fun).unwrap();
         assert_eq!(params.len(), args.len());
-        let env = params
+        self.env = params
             .iter()
             .zip(args.iter())
             .map(|(param, arg)| (*param, Rc::clone(self.get_atom(arg))))
             .collect();
-        (env, Ctrl::from_expr(body))
+        Ctrl::from_expr(body)
     }
 
     fn step_if(&self, cond: &'a Atom, then: &'a Expr, elze: &'a Expr) -> Ctrl<'a> {
-        if let Value::Bool(b) = self.get_atom(cond).as_ref() {
-            Ctrl::from_expr(if *b { then } else { elze })
+        if let Value::Bool(cond) = self.get_atom(cond).as_ref() {
+            Ctrl::from_expr(if *cond { then } else { elze })
         } else {
             panic!("If on non-bool")
         }
@@ -226,23 +189,19 @@ impl<'a> Machine<'a> {
 
     fn step_match(&mut self, scrut: &'a Atom, branches: &'a [Branch]) -> Ctrl<'a> {
         if let Value::Variant(constr, payload) = self.get_atom(scrut).as_ref() {
-            let payload = payload.as_ref().cloned();
-            if let Some(Branch { pattern, rhs: expr }) = branches
+            if let Some(Branch { pattern, rhs }) = branches
                 .iter()
                 .find(|branch| branch.pattern.constr == *constr)
             {
-                let Pattern {
-                    constr: _,
-                    binder: pat_binder,
-                } = pattern;
-                match (pat_binder.as_ref(), payload) {
+                let Pattern { constr: _, binder } = pattern;
+                match (binder.as_ref(), payload.as_ref().cloned()) {
                     (None, Some(_)) | (Some(_), None) => panic!("Pattern/payload mismatch"),
                     (None, None) => (),
-                    (Some(pat_binder), Some(payload)) => {
-                        self.env.insert(*pat_binder, payload);
+                    (Some(binder), Some(payload)) => {
+                        self.env.insert(*binder, payload);
                     }
                 };
-                Ctrl::from_expr(expr)
+                Ctrl::from_expr(rhs)
             } else {
                 panic!("Unmatched constructor: {:?}", constr)
             }
@@ -298,7 +257,7 @@ impl<'a> Ctrl<'a> {
 }
 
 impl OpCode {
-    fn execute<'a>(self, lhs: &RcValue<'a>, rhs: &RcValue<'a>) -> Ctrl<'a> {
+    fn execute<'a>(self, lhs: &RcValue<'a>, rhs: &RcValue<'a>) -> RcValue<'a> {
         let value = match self {
             OpCode::Add => Value::Int(lhs.as_i64() + rhs.as_i64()),
             OpCode::Sub => Value::Int(lhs.as_i64() - rhs.as_i64()),
@@ -311,7 +270,7 @@ impl OpCode {
             OpCode::Greater => Value::Bool(lhs > rhs),
             OpCode::GreaterEq => Value::Bool(lhs >= rhs),
         };
-        Ctrl::Value(Rc::new(value))
+        Rc::new(value)
     }
 }
 
