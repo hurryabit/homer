@@ -81,70 +81,65 @@ impl<'a> Machine<'a> {
 
     /// Step when control contains an expression.
     fn step_expr(&mut self, bindings: &'a [Binding], tail: &'a TailExpr) -> Ctrl<'a> {
-        if let Some((Binding { binder, bindee }, bindings)) = bindings.split_first() {
-            let ctrl = match bindee {
-                Bindee::Error(span) => panic!("Bindee::Error({:?}) during execution", span),
-                Bindee::Atom(atom) => Ctrl::Value(Rc::clone(self.get_atom(atom))),
-                Bindee::Num(n) => Ctrl::Value(Rc::new(Value::Int(*n))),
-                Bindee::Bool(b) => Ctrl::Value(Rc::new(Value::Bool(*b))),
-                Bindee::MakeClosure(closure) => self.step_make_closure(closure),
-                Bindee::Record(fields) => self.step_record(fields),
-                Bindee::Project(record, field) => self.step_proj(record, field),
-                Bindee::Variant(constr, payload) => self.step_variant(constr, payload),
-                Bindee::BinOp(lhs, op, rhs) => op.execute(self.get_atom(lhs), self.get_atom(rhs)),
-                Bindee::AppClosure(clo, args) => {
-                    let (mut env, ctrl) = self.step_app_closure(clo, args);
+        let (head, mut rest) = if let Some((Binding { binder, bindee }, bindings)) = bindings.split_first() {
+            (bindee, Some((binder, bindings, tail)))
+        } else {
+            (tail, None)
+        };
+        let ctrl = match head {
+            Bindee::Error(span) => panic!("Bindee::Error({:?}) during execution", span),
+            Bindee::Atom(atom) => Ctrl::Value(Rc::clone(self.get_atom(atom))),
+            Bindee::Num(n) => Ctrl::Value(Rc::new(Value::Int(*n))),
+            Bindee::Bool(b) => Ctrl::Value(Rc::new(Value::Bool(*b))),
+            Bindee::MakeClosure(closure) => self.step_make_closure(closure),
+            Bindee::Record(fields) => self.step_record(fields),
+            Bindee::Project(record, field) => self.step_proj(record, field),
+            Bindee::Variant(constr, payload) => self.step_variant(constr, payload),
+            Bindee::BinOp(lhs, op, rhs) => op.execute(self.get_atom(lhs), self.get_atom(rhs)),
+            Bindee::AppClosure(clo, args) => {
+                let (mut env, ctrl) = self.step_app_closure(clo, args);
+                if let Some((binder, bindings, tail)) = rest.take() {
                     std::mem::swap(&mut self.env, &mut env);
                     self.kont.push(Kont::Let(env, *binder, bindings, tail));
-                    ctrl
+                } else {
+                    self.env = env;
                 }
-                Bindee::AppFunc(fun, args) => {
-                    let (mut env, ctrl) = self.step_app_func(fun, args);
+                ctrl
+            }
+            Bindee::AppFunc(fun, args) => {
+                let (mut env, ctrl) = self.step_app_func(fun, args);
+                if let Some((binder, bindings, tail)) = rest.take() {
                     std::mem::swap(&mut self.env, &mut env);
                     self.kont.push(Kont::Let(env, *binder, bindings, tail));
-                    ctrl
+                } else {
+                    self.env = env;
                 }
-                Bindee::If(cond, then, elze) => {
+                ctrl
+            }
+            Bindee::If(cond, then, elze) => {
+                if let Some((binder, bindings, tail)) = rest.take() {
                     self.kont
                         .push(Kont::Let(self.env.clone(), *binder, bindings, tail));
-                    self.step_if(cond, then, elze)
                 }
-                Bindee::Match(scrut, branches) => {
+                self.step_if(cond, then, elze)
+            }
+            Bindee::Match(scrut, branches) => {
+                if let Some((binder, bindings, tail)) = rest.take() {
                     self.kont
                         .push(Kont::Let(self.env.clone(), *binder, bindings, tail));
-                    self.step_match(scrut, branches)
                 }
-            };
+                self.step_match(scrut, branches)
+            }
+        };
+        if let Some((binder, bindings, tail)) = rest.take() {
             if let Ctrl::Value(value) = ctrl {
                 self.env.insert(*binder, value);
                 Ctrl::Expr(bindings, tail)
             } else {
-                ctrl
+                panic!("IMPOSSIBLE: Unhandled rest and value at the same time")
             }
         } else {
-            match tail {
-                Bindee::Error(span) => panic!("Bindee::Error({:?}) during execution", span),
-                Bindee::Atom(atom) => Ctrl::Value(Rc::clone(self.get_atom(atom))),
-                Bindee::Num(n) => Ctrl::Value(Rc::new(Value::Int(*n))),
-                Bindee::Bool(b) => Ctrl::Value(Rc::new(Value::Bool(*b))),
-                Bindee::MakeClosure(closure) => self.step_make_closure(closure),
-                Bindee::Record(fields) => self.step_record(fields),
-                Bindee::Project(record, field) => self.step_proj(record, field),
-                Bindee::Variant(constr, payload) => self.step_variant(constr, payload),
-                Bindee::BinOp(lhs, op, rhs) => op.execute(self.get_atom(lhs), self.get_atom(rhs)),
-                Bindee::AppClosure(clo, args) => {
-                    let (env, ctrl) = self.step_app_closure(clo, args);
-                    self.env = env;
-                    ctrl
-                }
-                Bindee::AppFunc(fun, args) => {
-                    let (env, ctrl) = self.step_app_func(fun, args);
-                    self.env = env;
-                    ctrl
-                }
-                Bindee::If(cond, then, elze) => self.step_if(cond, then, elze),
-                Bindee::Match(scrut, branches) => self.step_match(scrut, branches),
-            }
+            ctrl
         }
     }
 
