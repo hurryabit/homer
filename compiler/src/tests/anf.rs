@@ -45,7 +45,7 @@ fn lambda_shadowing() {
                 binder: x
                 bindee: 1
                 binder: f
-                bindee: LAM
+                bindee: MAKE_CLOSURE
                     param: $v1
                     body: EXPR
                         tail: $v1
@@ -97,7 +97,7 @@ fn capture() {
                 binder: x
                 bindee: 1
                 binder: f
-                bindee: LAM
+                bindee: MAKE_CLOSURE
                     captured: x
                     body: EXPR
                         tail: x

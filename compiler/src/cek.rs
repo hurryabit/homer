@@ -60,7 +60,7 @@ impl<'a> Machine<'a> {
 
     pub fn run(mut self) -> RcValue<'a> {
         loop {
-            self.print_debug();
+            // self.print_debug();
             let old_ctrl = std::mem::take(&mut self.ctrl);
             let new_ctrl = match old_ctrl {
                 Ctrl::Evaluating => panic!("Machine control has not been set after step"),
@@ -82,144 +82,44 @@ impl<'a> Machine<'a> {
     /// Step when control contains an expression.
     fn step_expr(&mut self, bindings: &'a [Binding], tail: &'a TailExpr) -> Ctrl<'a> {
         if let Some((Binding { binder, bindee }, bindings)) = bindings.split_first() {
-            match bindee {
+            let ctrl = match bindee {
                 Bindee::Error(span) => panic!("Bindee::Error({:?}) during execution", span),
-                Bindee::Atom(atom) => {
-                    let value = Rc::clone(self.get_atom(atom));
-                    self.env.insert(*binder, value);
-                    Ctrl::Expr(bindings, tail)
-                }
-                Bindee::Num(n) => {
-                    self.env.insert(*binder, Rc::new(Value::Int(*n)));
-                    Ctrl::Expr(bindings, tail)
-                }
-                Bindee::Bool(b) => {
-                    self.env.insert(*binder, Rc::new(Value::Bool(*b)));
-                    Ctrl::Expr(bindings, tail)
-                }
-                Bindee::Clos {
-                    captured,
-                    params,
-                    body,
-                } => {
-                    let closure_env = captured
-                        .iter()
-                        .map(|var| (*var, Rc::clone(self.env.get(var).unwrap())))
-                        .collect();
-                    let closure = Rc::new(Value::Closure(closure_env, params, body));
-                    self.env.insert(*binder, closure);
-                    Ctrl::Expr(bindings, tail)
-                }
-                Bindee::AppClos(fun, args) => {
-                    let closure = self.get_atom(fun);
-                    if let Value::Closure(captured, params, body) = closure.as_ref() {
-                        let body = *body;
-                        assert_eq!(params.len(), args.len());
-                        let mut env = captured.clone();
-                        env.extend(
-                            params
-                                .iter()
-                                .zip(args.iter())
-                                .map(|(param, arg)| (*param, Rc::clone(self.get_atom(arg)))),
-                        );
-                        std::mem::swap(&mut self.env, &mut env);
-                        self.kont.push(Kont::Let(env, *binder, bindings, tail));
-                        Ctrl::from_expr(body)
-                    } else {
-                        panic!("Application on non-closure")
-                    }
-                }
-                Bindee::AppFunc(fun, args) => {
-                    let FuncDecl {
-                        name: _,
-                        params,
-                        body,
-                    } = self.funcs.get(fun).unwrap();
-                    assert_eq!(params.len(), args.len());
-                    let mut env = params
-                        .iter()
-                        .zip(args.iter())
-                        .map(|(param, arg)| (*param, Rc::clone(self.get_atom(arg))))
-                        .collect();
+                Bindee::Atom(atom) => Ctrl::Value(Rc::clone(self.get_atom(atom))),
+                Bindee::Num(n) => Ctrl::Value(Rc::new(Value::Int(*n))),
+                Bindee::Bool(b) => Ctrl::Value(Rc::new(Value::Bool(*b))),
+                Bindee::MakeClosure(closure) => self.step_make_closure(closure),
+                Bindee::Record(fields) => self.step_record(fields),
+                Bindee::Project(record, field) => self.step_proj(record, field),
+                Bindee::Variant(constr, payload) => self.step_variant(constr, payload),
+                Bindee::BinOp(lhs, op, rhs) => op.execute(self.get_atom(lhs), self.get_atom(rhs)),
+                Bindee::AppClosure(clo, args) => {
+                    let (mut env, ctrl) = self.step_app_closure(clo, args);
                     std::mem::swap(&mut self.env, &mut env);
                     self.kont.push(Kont::Let(env, *binder, bindings, tail));
-                    Ctrl::from_expr(body)
+                    ctrl
                 }
-                Bindee::BinOp(lhs, op, rhs) => {
-                    let result = op.execute(self.get_atom(lhs), self.get_atom(rhs));
-                    self.env.insert(*binder, result);
-                    Ctrl::Expr(bindings, tail)
+                Bindee::AppFunc(fun, args) => {
+                    let (mut env, ctrl) = self.step_app_func(fun, args);
+                    std::mem::swap(&mut self.env, &mut env);
+                    self.kont.push(Kont::Let(env, *binder, bindings, tail));
+                    ctrl
                 }
                 Bindee::If(cond, then, elze) => {
-                    if let Value::Bool(b) = self.get_atom(cond).as_ref() {
-                        let b = *b;
-                        self.kont
-                            .push(Kont::Let(self.env.clone(), *binder, bindings, tail));
-                        Ctrl::from_expr(if b { then } else { elze })
-                    } else {
-                        panic!("If on non-bool")
-                    }
-                }
-                Bindee::Record(fields) => {
-                    let fields = fields
-                        .iter()
-                        .map(|(field, atom)| (*field, Rc::clone(self.get_atom(atom))))
-                        .collect();
-                    self.env.insert(*binder, Rc::new(Value::Record(fields)));
-                    Ctrl::Expr(bindings, tail)
-                }
-                Bindee::Proj(record, field) => {
-                    let record = self.get_atom(record);
-                    if let Value::Record(fields) = record.as_ref() {
-                        if let Ok(index) = fields.binary_search_by_key(field, |entry| entry.0) {
-                            let field = Rc::clone(&fields[index].1);
-                            self.env.insert(*binder, field);
-                            Ctrl::Expr(bindings, tail)
-                        } else {
-                            panic!("Projection on unknown field")
-                        }
-                    } else {
-                        panic!("Projection on non-record: {}", record)
-                    }
-                }
-                Bindee::Variant(constr, opt_payload) => {
-                    let opt_payload = opt_payload
-                        .as_ref()
-                        .map(|payload| Rc::clone(self.get_atom(payload)));
-                    let variant = Rc::new(Value::Variant(*constr, opt_payload));
-                    self.env.insert(*binder, variant);
-                    Ctrl::Expr(bindings, tail)
+                    self.kont
+                        .push(Kont::Let(self.env.clone(), *binder, bindings, tail));
+                    self.step_if(cond, then, elze)
                 }
                 Bindee::Match(scrut, branches) => {
-                    if let Value::Variant(constr, payload) = self.get_atom(scrut).as_ref() {
-                        let payload = payload.as_ref().cloned();
-                        if let Some(Branch { pattern, rhs: expr }) = branches
-                            .iter()
-                            .find(|branch| branch.pattern.constr == *constr)
-                        {
-                            let Pattern {
-                                constr: _,
-                                binder: pat_binder,
-                            } = pattern;
-                            self.kont
-                                .push(Kont::Let(self.env.clone(), *binder, bindings, tail));
-                            match (pat_binder.as_ref(), payload) {
-                                (None, Some(_)) | (Some(_), None) => {
-                                    panic!("Pattern/payload mismatch")
-                                }
-                                (None, None) => (),
-                                (Some(pat_binder), Some(payload)) => {
-                                    self.env.insert(*pat_binder, payload);
-                                }
-                            };
-                            Ctrl::from_expr(expr)
-                        } else {
-                            panic!("Unmatched constructor: {:?}", constr)
-                        }
-                    } else {
-                        panic!("Match on non-variant")
-                    }
+                    self.kont
+                        .push(Kont::Let(self.env.clone(), *binder, bindings, tail));
+                    self.step_match(scrut, branches)
                 }
+            };
+            if let Ctrl::Value(value) = ctrl {
+                self.env.insert(*binder, value);
+                Ctrl::Expr(bindings, tail)
+            } else {
+                ctrl
             }
         } else {
             match tail {
@@ -227,113 +127,132 @@ impl<'a> Machine<'a> {
                 Bindee::Atom(atom) => Ctrl::Value(Rc::clone(self.get_atom(atom))),
                 Bindee::Num(n) => Ctrl::Value(Rc::new(Value::Int(*n))),
                 Bindee::Bool(b) => Ctrl::Value(Rc::new(Value::Bool(*b))),
-                Bindee::Clos {
-                    captured,
-                    params,
-                    body,
-                } => {
-                    let closure_env = captured
-                        .iter()
-                        .map(|var| (*var, Rc::clone(self.env.get(var).unwrap())))
-                        .collect();
-                    Ctrl::Value(Rc::new(Value::Closure(closure_env, params, body)))
-                }
-                Bindee::AppClos(fun, args) => {
-                    let closure = self.get_atom(fun);
-                    if let Value::Closure(captured, params, body) = closure.as_ref() {
-                        let body = *body;
-                        assert_eq!(params.len(), args.len());
-                        let mut env = captured.clone();
-                        env.extend(
-                            params
-                                .iter()
-                                .zip(args.iter())
-                                .map(|(param, arg)| (*param, Rc::clone(self.get_atom(arg)))),
-                        );
-                        self.env = env;
-                        Ctrl::from_expr(body)
-                    } else {
-                        panic!("Application on non-closure")
-                    }
+                Bindee::MakeClosure(closure) => self.step_make_closure(closure),
+                Bindee::Record(fields) => self.step_record(fields),
+                Bindee::Project(record, field) => self.step_proj(record, field),
+                Bindee::Variant(constr, payload) => self.step_variant(constr, payload),
+                Bindee::BinOp(lhs, op, rhs) => op.execute(self.get_atom(lhs), self.get_atom(rhs)),
+                Bindee::AppClosure(clo, args) => {
+                    let (env, ctrl) = self.step_app_closure(clo, args);
+                    self.env = env;
+                    ctrl
                 }
                 Bindee::AppFunc(fun, args) => {
-                    let FuncDecl {
-                        name: _,
-                        params,
-                        body,
-                    } = self.funcs.get(fun).unwrap();
-                    assert_eq!(params.len(), args.len());
-                    let env = params
-                        .iter()
-                        .zip(args.iter())
-                        .map(|(param, arg)| (*param, Rc::clone(self.get_atom(arg))))
-                        .collect();
+                    let (env, ctrl) = self.step_app_func(fun, args);
                     self.env = env;
-                    Ctrl::from_expr(body)
+                    ctrl
                 }
-                Bindee::BinOp(lhs, op, rhs) => {
-                    Ctrl::Value(op.execute(self.get_atom(lhs), self.get_atom(rhs)))
-                }
-                Bindee::If(cond, then, elze) => {
-                    if let Value::Bool(b) = self.get_atom(cond).as_ref() {
-                        Ctrl::from_expr(if *b { then } else { elze })
-                    } else {
-                        panic!("If on non-bool")
-                    }
-                }
-                Bindee::Record(fields) => {
-                    let fields = fields
-                        .iter()
-                        .map(|(field, atom)| (*field, Rc::clone(self.get_atom(atom))))
-                        .collect();
-                    Ctrl::Value(Rc::new(Value::Record(fields)))
-                }
-                Bindee::Proj(record, field) => {
-                    if let Value::Record(fields) = self.get_atom(record).as_ref() {
-                        if let Ok(index) = fields.binary_search_by_key(field, |entry| entry.0) {
-                            Ctrl::Value(Rc::clone(&fields[index].1))
-                        } else {
-                            panic!("Projection on unknown field")
-                        }
-                    } else {
-                        panic!("Projection on non-record")
-                    }
-                }
-                Bindee::Variant(constr, opt_payload) => {
-                    let opt_payload = opt_payload
-                        .as_ref()
-                        .map(|payload| Rc::clone(self.get_atom(payload)));
-                    Ctrl::Value(Rc::new(Value::Variant(*constr, opt_payload)))
-                }
-                Bindee::Match(scrut, branches) => {
-                    if let Value::Variant(constr, payload) = self.get_atom(scrut).as_ref() {
-                        let payload = payload.as_ref().cloned();
-                        if let Some(Branch { pattern, rhs: expr }) = branches
-                            .iter()
-                            .find(|branch| branch.pattern.constr == *constr)
-                        {
-                            let Pattern {
-                                constr: _,
-                                binder: pat_binder,
-                            } = pattern;
-                            match (pat_binder.as_ref(), payload) {
-                                (None, Some(_)) | (Some(_), None) => {
-                                    panic!("Pattern/payload mismatch")
-                                }
-                                (None, None) => (),
-                                (Some(pat_binder), Some(payload)) => {
-                                    self.env.insert(*pat_binder, payload);
-                                }
-                            };
-                            Ctrl::from_expr(expr)
-                        } else {
-                            panic!("Unmatched constructor: {:?}", constr)
-                        }
-                    } else {
-                        panic!("Match on non-variant")
-                    }
-                }
+                Bindee::If(cond, then, elze) => self.step_if(cond, then, elze),
+                Bindee::Match(scrut, branches) => self.step_match(scrut, branches),
             }
+        }
+    }
+
+    fn step_make_closure(&self, closure: &'a MakeClosure) -> Ctrl<'a> {
+        let MakeClosure {
+            captured,
+            params,
+            body,
+        } = closure;
+        let closure_env = captured
+            .iter()
+            .map(|var| (*var, Rc::clone(self.env.get(var).unwrap())))
+            .collect();
+        Ctrl::Value(Rc::new(Value::Closure(closure_env, params, body)))
+    }
+
+    fn step_record(&self, fields: &'a [(ExprVar, Atom)]) -> Ctrl<'a> {
+        let fields = fields
+            .iter()
+            .map(|(field, atom)| (*field, Rc::clone(self.get_atom(atom))))
+            .collect();
+        Ctrl::Value(Rc::new(Value::Record(fields)))
+    }
+
+    fn step_proj(&self, record: &'a Atom, field: &'a ExprVar) -> Ctrl<'a> {
+        if let Value::Record(fields) = self.get_atom(record).as_ref() {
+            if let Ok(index) = fields.binary_search_by_key(field, |entry| entry.0) {
+                Ctrl::Value(Rc::clone(&fields[index].1))
+            } else {
+                panic!("Projection on unknown field")
+            }
+        } else {
+            panic!("Projection on non-record: {}", record)
+        }
+    }
+
+    fn step_variant(&self, constr: &'a ExprCon, payload: &'a Option<Atom>) -> Ctrl<'a> {
+        let payload = payload
+            .as_ref()
+            .map(|payload| Rc::clone(self.get_atom(payload)));
+        Ctrl::Value(Rc::new(Value::Variant(*constr, payload)))
+    }
+
+    fn step_app_closure(&self, clo: &'a Atom, args: &'a [Atom]) -> (Env<'a>, Ctrl<'a>) {
+        let closure = self.get_atom(clo);
+        if let Value::Closure(captured, params, body) = closure.as_ref() {
+            let body = *body;
+            assert_eq!(params.len(), args.len());
+            let mut env = captured.clone();
+            env.extend(
+                params
+                    .iter()
+                    .zip(args.iter())
+                    .map(|(param, arg)| (*param, Rc::clone(self.get_atom(arg)))),
+            );
+            (env, Ctrl::from_expr(body))
+        } else {
+            panic!("Application on non-closure")
+        }
+    }
+
+    fn step_app_func(&self, fun: &'a ExprVar, args: &'a [Atom]) -> (Env<'a>, Ctrl<'a>) {
+        let FuncDecl {
+            name: _,
+            params,
+            body,
+        } = self.funcs.get(fun).unwrap();
+        assert_eq!(params.len(), args.len());
+        let env = params
+            .iter()
+            .zip(args.iter())
+            .map(|(param, arg)| (*param, Rc::clone(self.get_atom(arg))))
+            .collect();
+        (env, Ctrl::from_expr(body))
+    }
+
+    fn step_if(&self, cond: &'a Atom, then: &'a Expr, elze: &'a Expr) -> Ctrl<'a> {
+        if let Value::Bool(b) = self.get_atom(cond).as_ref() {
+            Ctrl::from_expr(if *b { then } else { elze })
+        } else {
+            panic!("If on non-bool")
+        }
+    }
+
+    fn step_match(&mut self, scrut: &'a Atom, branches: &'a [Branch]) -> Ctrl<'a> {
+        if let Value::Variant(constr, payload) = self.get_atom(scrut).as_ref() {
+            let payload = payload.as_ref().cloned();
+            if let Some(Branch { pattern, rhs: expr }) = branches
+                .iter()
+                .find(|branch| branch.pattern.constr == *constr)
+            {
+                let Pattern {
+                    constr: _,
+                    binder: pat_binder,
+                } = pattern;
+                match (pat_binder.as_ref(), payload) {
+                    (None, Some(_)) | (Some(_), None) => panic!("Pattern/payload mismatch"),
+                    (None, None) => (),
+                    (Some(pat_binder), Some(payload)) => {
+                        self.env.insert(*pat_binder, payload);
+                    }
+                };
+                Ctrl::from_expr(expr)
+            } else {
+                panic!("Unmatched constructor: {:?}", constr)
+            }
+        } else {
+            panic!("Match on non-variant")
         }
     }
 
@@ -384,7 +303,7 @@ impl<'a> Ctrl<'a> {
 }
 
 impl OpCode {
-    fn execute<'a>(self, lhs: &RcValue<'a>, rhs: &RcValue<'a>) -> RcValue<'a> {
+    fn execute<'a>(self, lhs: &RcValue<'a>, rhs: &RcValue<'a>) -> Ctrl<'a> {
         let value = match self {
             OpCode::Add => Value::Int(lhs.as_i64() + rhs.as_i64()),
             OpCode::Sub => Value::Int(lhs.as_i64() - rhs.as_i64()),
@@ -397,7 +316,7 @@ impl OpCode {
             OpCode::Greater => Value::Bool(lhs > rhs),
             OpCode::GreaterEq => Value::Bool(lhs >= rhs),
         };
-        Rc::new(value)
+        Ctrl::Value(Rc::new(value))
     }
 }
 

@@ -39,23 +39,26 @@ pub enum Bindee {
     Atom(Atom),
     Num(i64),
     Bool(bool),
-    Clos {
-        captured: Vec<ExprVar>,
-        params: Vec<ExprVar>,
-        body: Box<Expr>,
-    },
-    AppClos(Atom, Vec<Atom>),
+    MakeClosure(MakeClosure),
+    AppClosure(Atom, Vec<Atom>),
     AppFunc(ExprVar, Vec<Atom>),
     BinOp(Atom, OpCode, Atom),
     If(Atom, Box<Expr>, Box<Expr>),
     Record(Vec<(ExprVar, Atom)>),
-    Proj(Atom, ExprVar),
+    Project(Atom, ExprVar),
     Variant(ExprCon, Option<Atom>),
     Match(Atom, Vec<Branch>),
 }
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Atom(pub ExprVar);
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct MakeClosure {
+    pub captured: Vec<ExprVar>,
+    pub params: Vec<ExprVar>,
+    pub body: Box<Expr>,
+}
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Branch {
@@ -134,11 +137,11 @@ impl Bindee {
                 let mut captured: Vec<_> = fvs.iter().copied().collect();
                 captured.sort_by_cached_key(|fv| env.get_index(fv));
                 (
-                    Self::Clos {
+                    Self::MakeClosure(MakeClosure {
                         captured,
                         params,
                         body,
-                    },
+                    }),
                     fvs,
                 )
             }
@@ -151,8 +154,8 @@ impl Bindee {
                 if let syntax::Expr::FuncInst(func, _) = &fun.locatee {
                     (Self::AppFunc(func.locatee, args), fvs)
                 } else {
-                    let (atom, fvs1) = Atom::from_syntax(env, fun, bindings);
-                    (Self::AppClos(atom, args), fvs.union(fvs1))
+                    let (clo, fvs1) = Atom::from_syntax(env, fun, bindings);
+                    (Self::AppClosure(clo, args), fvs.union(fvs1))
                 }
             }
             expr @ syntax::Expr::FuncInst(..) => {
@@ -189,7 +192,7 @@ impl Bindee {
             }
             syntax::Expr::Proj(record, field) => {
                 let (record, fvs) = Atom::from_syntax(env, record, bindings);
-                (Self::Proj(record, field.locatee), fvs)
+                (Self::Project(record, field.locatee), fvs)
             }
             syntax::Expr::Variant(constr, None) => (Self::Variant(*constr, None), ordset![]),
             syntax::Expr::Variant(constr, Some(payload)) => {
@@ -334,17 +337,9 @@ impl Debug for Bindee {
             Atom(atom) => atom.write(writer),
             Num(n) => writer.leaf(&n.to_string()),
             Bool(b) => writer.leaf(&b.to_string()),
-            Clos {
-                captured,
-                params,
-                body,
-            } => writer.node("LAM", |writer| {
-                writer.children("captured", captured)?;
-                writer.children("param", params)?;
-                writer.child("body", body)
-            }),
-            AppClos(fun, args) => writer.node("APP", |writer| {
-                writer.child("fun", fun)?;
+            MakeClosure(closure) => closure.write(writer),
+            AppClosure(clo, args) => writer.node("APP", |writer| {
+                writer.child("fun", clo)?;
                 writer.children("arg", args)
             }),
             AppFunc(fun, args) => writer.node("APP", |writer| {
@@ -364,7 +359,7 @@ impl Debug for Bindee {
             Record(fields) => writer.node("RECORD", |writer| {
                 writer.children_pair("field", "value", fields)
             }),
-            Proj(record, field) => writer.node("PROJ", |writer| {
+            Project(record, field) => writer.node("PROJECT", |writer| {
                 writer.child("record", record)?;
                 writer.child("field", field)
             }),
@@ -383,6 +378,21 @@ impl Debug for Bindee {
 impl Debug for Atom {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
         self.0.write(writer)
+    }
+}
+
+impl Debug for MakeClosure {
+    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+        let MakeClosure {
+            captured,
+            params,
+            body,
+        } = self;
+        writer.node("MAKE_CLOSURE", |writer| {
+            writer.children("captured", captured)?;
+            writer.children("param", params)?;
+            writer.child("body", body)
+        })
     }
 }
 
@@ -428,12 +438,8 @@ impl fmt::Display for Bindee {
             Atom(atom) => write!(f, "{}", atom),
             Num(n) => write!(f, "{}", n),
             Bool(b) => write!(f, "{}", b),
-            Clos {
-                captured,
-                params,
-                body: _,
-            } => write!(f, "[{}; {}; ...]", ", ".join(captured), ", ".join(params)),
-            AppClos(fun, args) => write!(f, "{}({})", fun, ", ".join(args)),
+            MakeClosure(closure) => write!(f, "{}", closure),
+            AppClosure(clo, args) => write!(f, "{}({})", clo, ", ".join(args)),
             AppFunc(fun, args) => write!(f, "{}({})", fun, ", ".join(args)),
             BinOp(lhs, op, rhs) => write!(f, "{} {} {}", lhs, op, rhs),
             If(cond, _, _) => write!(f, "if {} {{ .. }} else {{ .. }}", cond),
@@ -446,7 +452,7 @@ impl fmt::Display for Bindee {
                         .map(|(field, value)| lazy_format!("{} = {}", field, value))
                 )
             ),
-            Proj(record, field) => write!(f, "{}.{}", record, field),
+            Project(record, field) => write!(f, "{}.{}", record, field),
             Variant(constr, payload) => write!(f, "{}{}", constr, in_parens_if_some(payload)),
             Match(scrut, branches) => write!(
                 f,
@@ -464,6 +470,17 @@ impl fmt::Display for Bindee {
 impl fmt::Display for Atom {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl fmt::Display for MakeClosure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let MakeClosure {
+            captured,
+            params,
+            body: _,
+        } = self;
+        write!(f, "[{}; {}; ...]", ", ".join(captured), ", ".join(params))
     }
 }
 
