@@ -15,7 +15,7 @@ pub enum Value<'a> {
 
 pub type RcValue<'a> = Rc<Value<'a>>;
 
-type Env<'a> = im::HashMap<ExprVar, RcValue<'a>>;
+type Env<'a> = std::collections::HashMap<ExprVar, RcValue<'a>>;
 
 #[derive(Clone)]
 enum Ctrl<'a> {
@@ -67,8 +67,9 @@ impl<'a> Machine<'a> {
                 Ctrl::Expr(bindings, tail) => self.step_expr(bindings, tail),
                 Ctrl::Value(value) => {
                     if let Some(kont) = self.kont.pop() {
-                        let Kont::Let(env, binder, bindings, tail) = kont;
-                        self.env = env.update(binder, value);
+                        let Kont::Let(mut env, binder, bindings, tail) = kont;
+                        env.insert(binder, value);
+                        self.env = env;
                         Ctrl::Expr(bindings, tail)
                     } else {
                         return value;
