@@ -7,9 +7,7 @@ type Span = location::Span<location::ParserLoc>;
 impl Debug for Module {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
         let Self { decls } = self;
-        writer.node("MODULE", |writer| {
-            writer.children("decl", decls)
-        })
+        writer.node("MODULE", |writer| writer.children("decl", decls))
     }
 }
 
@@ -46,10 +44,7 @@ impl Debug for FuncDecl {
         writer.node("FUNCDECL", |writer| {
             writer.child("name", name)?;
             writer.children("type_param", type_params)?;
-            for (param, typ) in expr_params {
-                writer.child("param", param)?;
-                writer.child("type", typ)?;
-            }
+            writer.children_pair("param", "type", expr_params)?;
             writer.child("result", return_type)?;
             writer.child("body", body)
         })
@@ -79,11 +74,7 @@ impl Debug for Type {
                 writer.child("result", result)
             }),
             Record(fields) => writer.node("RECORD", |writer| {
-                for (field, typ) in fields {
-                    writer.child("field", field)?;
-                    writer.child("type", typ)?;
-                }
-                Ok(())
+                writer.children_pair("field", "type", fields)
             }),
             Variant(constrs) => writer.node("VARIANT", |writer| {
                 for (constr, opt_typ) in constrs {
@@ -148,11 +139,7 @@ impl Debug for Expr {
                 writer.child("else", elze)
             }),
             Record(fields) => writer.node("RECORD", |writer| {
-                for (field, value) in fields {
-                    writer.child("field", field)?;
-                    writer.child("value", value)?;
-                }
-                Ok(())
+                writer.children_pair("field", "value", fields)
             }),
             Proj(record, field) => writer.node("PROJ", |writer| {
                 writer.child("record", record)?;
@@ -290,6 +277,19 @@ impl<'a> DebugWriter<'a> {
     pub fn children<T: Debug>(&mut self, label: &str, items: &[T]) -> fmt::Result {
         for item in items {
             self.child(label, item)?;
+        }
+        Ok(())
+    }
+
+    pub fn children_pair<T: Debug, U: Debug>(
+        &mut self,
+        label1: &str,
+        label2: &str,
+        items: &[(T, U)],
+    ) -> fmt::Result {
+        for (item1, item2) in items {
+            self.child(label1, item1)?;
+            self.child(label2, item2)?;
         }
         Ok(())
     }

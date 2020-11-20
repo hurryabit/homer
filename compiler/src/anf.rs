@@ -362,11 +362,7 @@ impl Debug for Bindee {
                 writer.child("else", elze)
             }),
             Record(fields) => writer.node("RECORD", |writer| {
-                for (field, value) in fields {
-                    writer.child("field", field)?;
-                    writer.child("value", value)?;
-                }
-                Ok(())
+                writer.children_pair("field", "value", fields)
             }),
             Proj(record, field) => writer.node("PROJ", |writer| {
                 writer.child("record", record)?;
