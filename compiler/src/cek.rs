@@ -1,4 +1,6 @@
 use crate::anf::*;
+use crate::util::in_parens_if_some;
+use join_lazy_fmt::*;
 use std::cmp::Ordering;
 use std::fmt;
 use std::rc::Rc;
@@ -58,7 +60,7 @@ impl<'a> Machine<'a> {
 
     pub fn run(mut self) -> RcValue<'a> {
         loop {
-            // self.print_debug();
+            self.print_debug();
             let old_ctrl = std::mem::take(&mut self.ctrl);
             let new_ctrl = match old_ctrl {
                 Ctrl::Evaluating => panic!("Machine control has not been set after step"),
@@ -341,7 +343,12 @@ impl<'a> Machine<'a> {
 
     #[allow(dead_code)]
     fn print_debug(&self) {
-        let Self { ctrl, env, kont, funcs: _ } = self;
+        let Self {
+            ctrl,
+            env,
+            kont,
+            funcs: _,
+        } = self;
         print!("Control: ");
         match ctrl {
             Ctrl::Evaluating => println!("???"),
@@ -463,49 +470,26 @@ impl<'a> fmt::Display for Value<'a> {
         match self {
             Int(n) => write!(f, "{}", n),
             Bool(b) => write!(f, "{}", b),
-            Record(fs) => {
-                write!(f, "{{")?;
-                let mut first = true;
-                for (field, value) in fs {
-                    if first {
-                        first = false;
-                    } else {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{} = {}", field, value)?;
-                }
-                write!(f, "}}")
-            }
-            Variant(c, v) => {
-                if let Some(v) = v {
-                    write!(f, "{}({})", c, v)
-                } else {
-                    write!(f, "{}", c)
-                }
-            }
-            Closure(captured, params, _) => {
-                write!(f, "[")?;
-                let mut first = true;
-                for (binder, value) in captured {
-                    if first {
-                        first = false
-                    } else {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{} = {}", binder, value)?;
-                }
-                write!(f, "; ")?;
-                let mut first = true;
-                for param in *params {
-                    if first {
-                        first = false
-                    } else {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", param)?;
-                }
-                write!(f, "; ...]")
-            }
+            Record(fields) => write!(
+                f,
+                "{{{}}}",
+                ", ".join(
+                    fields
+                        .iter()
+                        .map(|(field, value)| lazy_format!("{} = {}", field, value))
+                )
+            ),
+            Variant(constr, value) => write!(f, "{}{}", constr, in_parens_if_some(value)),
+            Closure(captured, params, _body) => write!(
+                f,
+                "[{captured}; {params}; ...]",
+                captured = ", ".join(
+                    captured
+                        .iter()
+                        .map(|(binder, value)| lazy_format!("{} = {}", binder, value))
+                ),
+                params = ", ".join(*params),
+            ),
         }
     }
 }

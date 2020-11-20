@@ -13,6 +13,7 @@ pub mod diagnostic;
 pub mod location;
 pub mod parser;
 pub mod syntax;
+mod util;
 
 lalrpop_mod!(
     #[allow(clippy::all)]

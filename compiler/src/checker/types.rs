@@ -1,8 +1,10 @@
+use join_lazy_fmt::*;
 use std::fmt;
 use std::rc::Rc;
 
 use crate::location;
 use crate::syntax;
+use crate::util::in_parens_if_some;
 use syntax::{ExprCon, ExprVar, TypeVar};
 
 type Located<T> = location::Located<T, location::ParserLoc>;
@@ -325,22 +327,6 @@ impl fmt::Display for RcType {
 
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fn write_list<T, F>(fmt: &mut fmt::Formatter, list: &[T], sep: &str, f: F) -> fmt::Result
-        where
-            F: Fn(&mut fmt::Formatter, &T) -> fmt::Result,
-        {
-            let mut first = true;
-            for item in list {
-                if first {
-                    first = false;
-                } else {
-                    fmt.write_str(sep)?;
-                }
-                f(fmt, item)?;
-            }
-            Ok(())
-        }
-
         use Type::*;
         match self {
             Type::Error => write!(f, "???"),
@@ -348,36 +334,26 @@ impl fmt::Display for Type {
             SynApp(syn, args) => {
                 write!(f, "{}", syn)?;
                 if !args.is_empty() {
-                    write!(f, "<")?;
-                    write_list(f, &args, ", ", |f, arg| write!(f, "{}", arg))?;
-                    write!(f, ">")?;
+                    write!(f, "<{}>", ", ".join(args))?;
                 }
                 Ok(())
             }
             Int => write!(f, "Int"),
             Bool => write!(f, "Bool"),
-            Fun(params, result) => {
-                write!(f, "(")?;
-                write_list(f, &params, ", ", |f, param| write!(f, "{}", param))?;
-                write!(f, ") -> {}", result)
-            }
-            Record(fields) => {
-                f.write_str("{")?;
-                write_list(f, &fields, ", ", |f, (field, typ)| {
-                    write!(f, "{}: {}", field, typ)
-                })?;
-                f.write_str("}")
-            }
+            Fun(params, result) => write!(f, "({}) -> {}", ", ".join(params), result),
+            Record(fields) => write!(
+                f,
+                "{{{}}}",
+                ", ".join(
+                    fields
+                        .iter()
+                        .map(|(field, typ)| lazy_format!("{}: {}", field, typ))
+                )
+            ),
             Variant(constrs) => {
-                f.write_str("[")?;
-                write_list(f, &constrs, " | ", |f, (constr, opt_typ)| {
-                    if let Some(typ) = opt_typ {
-                        write!(f, "{}({})", constr, typ)
-                    } else {
-                        write!(f, "{}", constr)
-                    }
-                })?;
-                f.write_str("]")
+                write!(f, "[{}]", " | ".join(constrs.iter().map(|(constr, typ)| {
+                    lazy_format!("{}{}", constr, in_parens_if_some(typ))
+                })))
             }
         }
     }

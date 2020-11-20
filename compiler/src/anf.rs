@@ -1,6 +1,8 @@
 use crate::*;
+use join_lazy_fmt::*;
 use std::fmt;
 use syntax::debug::{Debug, DebugWriter};
+use util::in_parens_if_some;
 
 use location::{ParserLoc, Span};
 pub use syntax::{ExprCon, ExprVar, OpCode};
@@ -411,10 +413,7 @@ impl Debug for Pattern {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self { bindings, body } = self;
-        for binding in bindings {
-            writeln!(f, "{}", binding)?;
-        }
-        write!(f, "{}", body)
+        write!(f, "{}\n{}", "\n".join(bindings), body)
     }
 }
 
@@ -437,44 +436,31 @@ impl fmt::Display for Bindee {
                 captured,
                 params,
                 body: _,
-            } => write!(
-                f,
-                "[{}; {}; ...]",
-                display_slice(captured, ", ")?,
-                display_slice(params, ", ")?
-            ),
-            AppClos(fun, args) => write!(f, "{}({})", fun, display_slice(args, ", ")?),
-            AppFunc(fun, args) => write!(f, "{}({})", fun, display_slice(args, ", ")?),
+            } => write!(f, "[{}; {}; ...]", ", ".join(captured), ", ".join(params)),
+            AppClos(fun, args) => write!(f, "{}({})", fun, ", ".join(args)),
+            AppFunc(fun, args) => write!(f, "{}({})", fun, ", ".join(args)),
             BinOp(lhs, op, rhs) => write!(f, "{} {} {}", lhs, op, rhs),
             If(cond, _, _) => write!(f, "if {} {{ .. }} else {{ .. }}", cond),
-            Record(fields) => {
-                write!(f, "{{")?;
-                let mut first = true;
-                for (field, value) in fields {
-                    if first {
-                        first = false;
-                    } else {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{} = {}", field, value)?;
-                }
-                write!(f, "}}")
-            }
+            Record(fields) => write!(
+                f,
+                "{{{}}}",
+                ", ".join(
+                    fields
+                        .iter()
+                        .map(|(field, value)| lazy_format!("{} = {}", field, value))
+                )
+            ),
             Proj(record, field) => write!(f, "{}.{}", record, field),
-            Variant(constr, None) => write!(f, "{}", constr),
-            Variant(constr, Some(payload)) => write!(f, "{}({})", constr, payload),
-            Match(scrut, branches) => {
-                write!(f, "match {} {{ ", scrut)?;
-                for branch in branches {
+            Variant(constr, payload) => write!(f, "{}{}", constr, in_parens_if_some(payload)),
+            Match(scrut, branches) => write!(
+                f,
+                "match {} {{ {}, }}",
+                scrut,
+                ", ".join(branches.iter().map(|branch| {
                     let Pattern { constr, binder } = branch.pattern;
-                    write!(f, "{}", constr)?;
-                    if let Some(binder) = binder {
-                        write!(f, "({})", binder)?;
-                    }
-                    write!(f, " => ..., ")?;
-                }
-                write!(f, "}}")
-            }
+                    lazy_format!("{}{} => ...", constr, in_parens_if_some(&binder))
+                }))
+            ),
         }
     }
 }
@@ -500,19 +486,4 @@ impl fmt::Display for OpCode {
             OpCode::GreaterEq => ">=",
         })
     }
-}
-
-fn display_slice<T: fmt::Display>(slice: &[T], sep: &str) -> Result<String, fmt::Error> {
-    use fmt::Write;
-    let mut output = String::new();
-    let mut first = true;
-    for item in slice {
-        if first {
-            first = false;
-        } else {
-            write!(output, "{}", sep)?;
-        }
-        write!(output, "{}", item)?;
-    }
-    Ok(output)
 }
