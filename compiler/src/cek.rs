@@ -17,16 +17,19 @@ pub type RcValue<'a> = Rc<Value<'a>>;
 
 type Env<'a> = im::HashMap<ExprVar, RcValue<'a>>;
 
+#[derive(Clone)]
 enum Ctrl<'a> {
     Evaluating,
     Expr(&'a [Binding], &'a TailExpr),
     Value(RcValue<'a>),
 }
 
+#[derive(Clone)]
 enum Kont<'a> {
     Let(Env<'a>, ExprVar, &'a [Binding], &'a TailExpr),
 }
 
+#[derive(Clone)]
 pub struct Machine<'a> {
     ctrl: Ctrl<'a>,
     env: Env<'a>,
