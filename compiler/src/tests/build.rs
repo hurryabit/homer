@@ -37,7 +37,7 @@ fn all_good() {
             name: f
             param: x
             body: EXPR
-                tail: x
+                tail: x/1
     "###);
 }
 
@@ -70,9 +70,9 @@ fn recoverable_parse_error_types_good() {
                 binder: $v2
                 bindee: ERROR
                 tail: BINOP
-                    lhs: $v1
+                    lhs: $v1/2
                     op: ADD
-                    rhs: $v2
+                    rhs: $v2/1
     --------------------------------------------------
       2 |     fn f(x: Int) -> Int { + }
                                     ~

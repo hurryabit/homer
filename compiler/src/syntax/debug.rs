@@ -216,6 +216,24 @@ impl<T: Debug> Debug for Box<T> {
     }
 }
 
+impl<T: Debug> Debug for &T {
+    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+        (*self).write(writer)
+    }
+}
+
+impl Debug for String {
+    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+        write!(writer.writer, "{}", self)
+    }
+}
+
+impl Debug for u32 {
+    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+        write!(writer.writer, "{}", self)
+    }
+}
+
 pub struct DebugWriter<'a> {
     writer: &'a mut dyn fmt::Write,
     indent_level: usize,
@@ -274,9 +292,9 @@ impl<'a> DebugWriter<'a> {
         Ok(())
     }
 
-    pub fn children<T: Debug>(&mut self, label: &str, items: &[T]) -> fmt::Result {
+    pub fn children<T: Debug, I: IntoIterator<Item = T>>(&mut self, label: &str, items: I) -> fmt::Result {
         for item in items {
-            self.child(label, item)?;
+            self.child(label, &item)?;
         }
         Ok(())
     }

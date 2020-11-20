@@ -7,6 +7,8 @@ use util::in_parens_if_some;
 use location::{ParserLoc, Span};
 pub use syntax::{ExprCon, ExprVar, OpCode};
 
+mod debruijn;
+
 #[derive(Clone, Eq, PartialEq)]
 pub struct Module {
     pub func_decls: Vec<FuncDecl>,
@@ -50,12 +52,16 @@ pub enum Bindee {
     Match(Atom, Vec<Branch>),
 }
 
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct IdxVar(pub u32, pub ExprVar);
+
 #[derive(Clone, Eq, PartialEq)]
-pub struct Atom(pub ExprVar);
+pub struct Atom(pub IdxVar);
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct MakeClosure {
-    pub captured: Vec<ExprVar>,
+    pub captured: Vec<IdxVar>,
     pub params: Vec<ExprVar>,
     pub body: Box<Expr>,
 }
@@ -95,7 +101,9 @@ impl syntax::FuncDecl {
             .map(|(param, _)| env.intro_binder(param))
             .collect();
         let (body, _fvs) = Expr::from_syntax(env, body);
-        FuncDecl { name, params, body }
+        let mut decl = FuncDecl { name, params, body };
+        decl.index();
+        decl
     }
 }
 
@@ -134,8 +142,8 @@ impl Bindee {
                     let fvs = params.iter().fold(fvs, |fvs, param| fvs.without(param));
                     (params, Box::new(body), fvs)
                 };
-                let mut captured: Vec<_> = fvs.iter().copied().collect();
-                captured.sort_by_cached_key(|fv| env.get_index(fv));
+                let mut captured: Vec<_> = fvs.iter().map(|x| IdxVar(0, *x)).collect();
+                captured.sort_by_cached_key(|IdxVar(_, x)| env.get_index(x));
                 (
                     Self::MakeClosure(MakeClosure {
                         captured,
@@ -244,12 +252,12 @@ impl Atom {
     ) -> (Self, FreeVars) {
         if let syntax::Expr::Var(var) = expr.locatee {
             let binder = *env.get_binder(&var);
-            (Self(binder), ordset![binder])
+            (Self(IdxVar(0, binder)), ordset![binder])
         } else {
             let (bindee, fvs) = Bindee::from_syntax(env, expr, bindings);
             let binder = env.intro_fresh_binder();
             bindings.push(Binding { binder, bindee });
-            (Self(binder), fvs)
+            (Self(IdxVar(0, binder)), fvs)
         }
     }
 }
@@ -377,7 +385,7 @@ impl Debug for Bindee {
 
 impl Debug for Atom {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        self.0.write(writer)
+        writer.leaf(&self.to_string())
     }
 }
 
@@ -389,7 +397,7 @@ impl Debug for MakeClosure {
             body,
         } = self;
         writer.node("MAKE_CLOSURE", |writer| {
-            writer.children("captured", captured)?;
+            writer.children("captured", captured.iter().map(|idx| idx.to_string()))?;
             writer.children("param", params)?;
             writer.child("body", body)
         })
@@ -464,6 +472,12 @@ impl fmt::Display for Bindee {
                 }))
             ),
         }
+    }
+}
+
+impl fmt::Display for IdxVar {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}/{}", self.1, self.0)
     }
 }
 

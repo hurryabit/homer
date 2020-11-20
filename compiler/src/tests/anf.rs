@@ -23,9 +23,9 @@ fn simple() {
                 binder: $v2
                 bindee: 2
                 tail: BINOP
-                    lhs: $v1
+                    lhs: $v1/2
                     op: ADD
-                    rhs: $v2
+                    rhs: $v2/1
     "###);
 }
 
@@ -48,10 +48,10 @@ fn lambda_shadowing() {
                 bindee: MAKE_CLOSURE
                     param: $v1
                     body: EXPR
-                        tail: $v1
+                        tail: $v1/1
                 tail: APP
-                    fun: f
-                    arg: x
+                    fun: f/1
+                    arg: x/2
     "###);
 }
 
@@ -74,10 +74,10 @@ fn nested_shadowing() {
                 binder: x
                 bindee: 1
                 binder: $v1
-                bindee: x
+                bindee: x/1
                 binder: $v2
-                bindee: $v1
-                tail: $v2
+                bindee: $v1/1
+                tail: $v2/1
     "###);
 }
 
@@ -98,11 +98,11 @@ fn capture() {
                 bindee: 1
                 binder: f
                 bindee: MAKE_CLOSURE
-                    captured: x
+                    captured: x/1
                     body: EXPR
-                        tail: x
+                        tail: x/1
                 tail: APP
-                    fun: f
+                    fun: f/1
     "###);
 }
 
@@ -121,15 +121,15 @@ fn pattern_shadowing() {
             param: x
             body: EXPR
                 tail: MATCH
-                    scrut: x
+                    scrut: x/1
                     branch: BRANCH
                         pattern: PATTERN
                             constr: C
                             binder: $v1
                         rhs: EXPR
                             tail: BINOP
-                                lhs: $v1
+                                lhs: $v1/1
                                 op: ADD
-                                rhs: $v1
+                                rhs: $v1/1
     "###);
 }

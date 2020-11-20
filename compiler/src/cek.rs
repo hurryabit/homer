@@ -117,7 +117,7 @@ impl<'a> Machine<'a> {
         } = closure;
         let env = captured
             .iter()
-            .map(|var| (*var, Rc::clone(self.env.get(var).unwrap())))
+            .map(|index| (index.1, Rc::clone(self.get_index(index))))
             .collect();
         Ctrl::Value(Rc::new(Value::Closure(env, params, body)))
     }
@@ -214,8 +214,12 @@ impl<'a> Machine<'a> {
         }
     }
 
+    fn get_index(&self, index: &IdxVar) -> &RcValue<'a> {
+        self.env.get(&index.1).unwrap()
+    }
+
     fn get_atom(&self, atom: &Atom) -> &RcValue<'a> {
-        self.env.get(&atom.0).unwrap()
+        self.get_index(&atom.0)
     }
 
     #[allow(dead_code)]
