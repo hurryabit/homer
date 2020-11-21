@@ -203,10 +203,15 @@ impl Bindee {
             }
             syntax::Expr::Match(scrut, branches) => {
                 let (scrut, fvs0) = Atom::from_syntax(env, scrut, bindings);
-                let (branches, fvss): (_, Vec<_>) = branches
+                let (mut branches, fvss): (Vec<_>, Vec<_>) = branches
                     .iter()
                     .map(|branch| Branch::from_syntax(&mut env.clone(), branch))
                     .unzip();
+                branches.sort_by_key(|branch| branch.pattern.rank);
+                assert!(branches
+                    .iter()
+                    .enumerate()
+                    .all(|(rank, branch)| rank == branch.pattern.rank as usize));
                 (Self::Match(scrut, branches), fvs0.union(FreeVars::unions(fvss)))
             }
         }

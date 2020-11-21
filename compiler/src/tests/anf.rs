@@ -133,3 +133,33 @@ fn pattern_shadowing() {
                                 rhs: $v1/1
     "###);
 }
+
+#[test]
+fn branch_sorting() {
+    insta::assert_snapshot!(anf_output(r#"
+    fn f(x: [A | B]) -> Int {
+        match x {
+            B => 0,
+            A => 1,
+        }
+    }
+    "#), @r###"
+    MODULE
+        decl: FUNCDECL
+            name: f
+            param: x
+            body: EXPR
+                tail: MATCH
+                    scrut: x/1
+                    branch: BRANCH
+                        pattern: PATTERN
+                            constr: A/0
+                        rhs: EXPR
+                            tail: 1
+                    branch: BRANCH
+                        pattern: PATTERN
+                            constr: B/1
+                        rhs: EXPR
+                            tail: 0
+    "###);
+}

@@ -176,22 +176,17 @@ impl<'a> Machine<'a> {
     }
 
     fn step_match(&mut self, scrut: &'a Atom, branches: &'a [Branch]) -> Ctrl<'a> {
-        if let Value::Variant(rank, constr, payload) = self.get_atom(scrut).as_ref() {
-            if let Some(Branch { pattern, rhs }) =
-                branches.iter().find(|branch| branch.pattern.rank == *rank)
-            {
-                let Pattern { rank: _, constr: _, binder } = pattern;
-                match (binder.as_ref(), payload.as_ref().cloned()) {
-                    (None, Some(_)) | (Some(_), None) => panic!("Pattern/payload mismatch"),
-                    (None, None) => (),
-                    (Some(binder), Some(payload)) => {
-                        self.push_stack(*binder, payload);
-                    }
-                };
-                Ctrl::from_expr(rhs)
-            } else {
-                panic!("Unmatched constructor: {:?}", constr)
-            }
+        if let Value::Variant(rank, _constr, payload) = self.get_atom(scrut).as_ref() {
+            let Branch { pattern, rhs } = &branches[*rank as usize];
+            let Pattern { rank: _, constr: _, binder } = pattern;
+            match (binder.as_ref(), payload.as_ref().cloned()) {
+                (None, Some(_)) | (Some(_), None) => panic!("Pattern/payload mismatch"),
+                (None, None) => (),
+                (Some(binder), Some(payload)) => {
+                    self.push_stack(*binder, payload);
+                }
+            };
+            Ctrl::from_expr(rhs)
         } else {
             panic!("Match on non-variant")
         }
