@@ -10,12 +10,12 @@ pub enum Value<'a> {
     Bool(bool),
     Record(Vec<(ExprVar, RcValue<'a>)>),
     Variant(ExprCon, Option<RcValue<'a>>),
-    Closure(Env<'a>, &'a [ExprVar], &'a Expr),
+    Closure(Stack<'a>, &'a [ExprVar], &'a Expr),
 }
 
 pub type RcValue<'a> = Rc<Value<'a>>;
 
-type Env<'a> = Vec<(ExprVar, RcValue<'a>)>;
+type Stack<'a> = Vec<(ExprVar, RcValue<'a>)>;
 
 #[derive(Clone)]
 enum Ctrl<'a> {
@@ -26,15 +26,16 @@ enum Ctrl<'a> {
 
 #[derive(Clone)]
 enum Kont<'a> {
-    Let(Env<'a>, ExprVar, &'a [Binding], &'a TailExpr),
+    Let(ExprVar, &'a [Binding], &'a TailExpr),
 }
 
 #[derive(Clone)]
 pub struct Machine<'a> {
     ctrl: Ctrl<'a>,
-    env: Env<'a>,
-    kont: Vec<Kont<'a>>,
+    stack: Stack<'a>,
+    kont: Vec<(usize, Kont<'a>)>,
     funcs: im::HashMap<ExprVar, &'a FuncDecl>,
+    args_tmp: Stack<'a>,
 }
 
 impl<'a> Machine<'a> {
@@ -52,9 +53,10 @@ impl<'a> Machine<'a> {
         assert!(params.is_empty());
         Self {
             ctrl: Ctrl::from_expr(body),
-            env: Env::new(),
+            stack: Stack::new(),
             kont: Vec::new(),
             funcs,
+            args_tmp: Vec::new(),
         }
     }
 
@@ -67,11 +69,12 @@ impl<'a> Machine<'a> {
                 Ctrl::Expr(bindings, tail) => self.step_expr(bindings, tail),
                 Ctrl::Value(value) => {
                     if let Some(kont) = self.kont.pop() {
-                        let Kont::Let(env, binder, bindings, tail) = kont;
-                        self.env = env;
-                        self.push_env(binder, value);
+                        let (stack_level, Kont::Let(binder, bindings, tail)) = kont;
+                        self.stack.truncate(stack_level);
+                        self.push_stack(binder, value);
                         Ctrl::Expr(bindings, tail)
                     } else {
+                        // println!("Max stack: {}", self.stack.capacity());
                         return value;
                     }
                 }
@@ -84,8 +87,9 @@ impl<'a> Machine<'a> {
     fn step_expr(&mut self, bindings: &'a [Binding], tail: &'a TailExpr) -> Ctrl<'a> {
         let head = match bindings.split_first() {
             Some((Binding { binder, bindee }, bindings)) => {
-                let env = self.env.clone();
-                self.kont.push(Kont::Let(env, *binder, bindings, tail));
+                let stack_level = self.stack.len();
+                self.kont
+                    .push((stack_level, Kont::Let(*binder, bindings, tail)));
                 bindee
             }
             None => tail,
@@ -150,18 +154,16 @@ impl<'a> Machine<'a> {
     }
 
     fn step_app_closure(&mut self, clo: &'a Atom, args: &'a [Atom]) -> Ctrl<'a> {
-        let closure = self.get_atom(clo);
+        let closure = Rc::clone(self.get_atom(clo));
         if let Value::Closure(captured, params, body) = closure.as_ref() {
-            let body = *body;
             assert_eq!(params.len(), args.len());
-            let mut env = captured.clone();
-            env.extend(
-                params
-                    .iter()
-                    .zip(args.iter())
-                    .map(|(param, arg)| (*param, Rc::clone(self.get_atom(arg)))),
-            );
-            self.env = env;
+            for (param, arg) in params.iter().zip(args.iter()) {
+                self.args_tmp.push((*param, Rc::clone(self.get_atom(arg))));
+            }
+            self.stack
+                .truncate(self.kont.last().map_or(0, |kont| kont.0));
+            self.stack.extend_from_slice(captured);
+            self.stack.append(&mut self.args_tmp);
             Ctrl::from_expr(body)
         } else {
             panic!("Application on non-closure")
@@ -175,11 +177,12 @@ impl<'a> Machine<'a> {
             body,
         } = self.funcs.get(fun).unwrap();
         assert_eq!(params.len(), args.len());
-        self.env = params
-            .iter()
-            .zip(args.iter())
-            .map(|(param, arg)| (*param, Rc::clone(self.get_atom(arg))))
-            .collect();
+        for (param, arg) in params.iter().zip(args.iter()) {
+            self.args_tmp.push((*param, Rc::clone(self.get_atom(arg))));
+        }
+        self.stack
+            .truncate(self.kont.last().map_or(0, |kont| kont.0));
+        self.stack.append(&mut self.args_tmp);
         Ctrl::from_expr(body)
     }
 
@@ -202,7 +205,7 @@ impl<'a> Machine<'a> {
                     (None, Some(_)) | (Some(_), None) => panic!("Pattern/payload mismatch"),
                     (None, None) => (),
                     (Some(binder), Some(payload)) => {
-                        self.push_env(*binder, payload);
+                        self.push_stack(*binder, payload);
                     }
                 };
                 Ctrl::from_expr(rhs)
@@ -214,12 +217,12 @@ impl<'a> Machine<'a> {
         }
     }
 
-    fn push_env(&mut self, binder: ExprVar, value: RcValue<'a>) {
-        self.env.push((binder, value));
+    fn push_stack(&mut self, binder: ExprVar, value: RcValue<'a>) {
+        self.stack.push((binder, value));
     }
 
     fn get_index(&self, index: &IdxVar) -> &RcValue<'a> {
-        &self.env[self.env.len() - index.0 as usize].1
+        &self.stack[self.stack.len() - index.0 as usize].1
     }
 
     fn get_atom(&self, atom: &Atom) -> &RcValue<'a> {
@@ -230,9 +233,10 @@ impl<'a> Machine<'a> {
     fn print_debug(&self) {
         let Self {
             ctrl,
-            env,
+            stack,
             kont,
             funcs: _,
+            args_tmp: _,
         } = self;
         print!("Control: ");
         match ctrl {
@@ -250,12 +254,12 @@ impl<'a> Machine<'a> {
         }
         println!("{}", "-".repeat(60));
         println!("Environment:");
-        for (binder, value) in env {
+        for (binder, value) in stack {
             println!("    {} = {}", binder, value);
         }
         println!("{}", "-".repeat(60));
         println!("Kontinuations:");
-        for Kont::Let(_, binder, _, _) in kont.iter().rev() {
+        for (_, Kont::Let(binder, _, _)) in kont.iter().rev() {
             println!("    {}", binder);
         }
         println!("{}", "=".repeat(60));
