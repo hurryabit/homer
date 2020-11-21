@@ -29,6 +29,7 @@ pub enum Error<Pos = ParserLoc> {
     BadMatch(RcType),
     BadBranch(RcType, ExprCon),
     EmptyMatch,
+    NonExhaustiveMatch(RcType, ExprCon),
     TypeAnnsNeeded,
 }
 
@@ -180,6 +181,11 @@ impl fmt::Display for Error {
                 f,
                 "`{}` is not a possible constructor for variant type `{}`.",
                 con, scrut_type
+            ),
+            Self::NonExhaustiveMatch(scrut_type, constr) => write!(
+                f,
+                "Constructor `{}` is not covered in pattern match on type `{}`.",
+                constr, scrut_type
             ),
             Self::TypeAnnsNeeded => write!(f, "Cannot infer the type of the expression. Further type annotations are required."),
         }

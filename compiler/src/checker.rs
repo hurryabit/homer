@@ -598,11 +598,13 @@ fn check_match_patterns<'a>(
     match scrut_type.weak_normalize_env(env).as_ref() {
         Type::Variant(constrs) => {
             if !branches.is_empty() {
-                branches
+                let mut matched = std::collections::BTreeSet::new();
+                let branches = branches
                     .iter_mut()
                     .map(|Branch { pattern, rhs }| {
                         let Pattern { constr, rank, binder } = &mut pattern.locatee;
                         if let Some(constr_rank) = constrs.iter().position(|x| x.0 == *constr) {
+                            matched.insert(constr_rank);
                             *rank = Some(constr_rank as u32);
                             match (binder, &constrs[constr_rank].1) {
                                 (None, None) => Ok((None, rhs)),
@@ -624,7 +626,19 @@ fn check_match_patterns<'a>(
                             ))
                         }
                     })
-                    .collect::<Result<_, _>>()
+                    .collect::<Result<_, _>>()?;
+                if matched.len() < constrs.len() {
+                    let missing_rank = (0..constrs.len())
+                        .find(|rank| !matched.contains(rank))
+                        .expect("IMPOSSIBLE");
+                    let missing_constr = constrs[missing_rank].0;
+                    Err(Located::new(
+                        Error::NonExhaustiveMatch(scrut_type, missing_constr),
+                        scrut.span,
+                    ))
+                } else {
+                    Ok(branches)
+                }
             } else {
                 Err(Located::new(Error::EmptyMatch, scrut.span))
             }

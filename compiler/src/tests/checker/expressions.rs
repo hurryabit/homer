@@ -1648,7 +1648,7 @@ fn rule_match_infer_without_without_payload() {
     check_success(
         r#"
         fn check_me() -> [CheckMe] { CheckMe }
-        fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
+        fn f(x: [A | B]) -> [CheckMe] {
             let r = match x {
                 A => check_me(),
                 B => CheckMe,
@@ -1663,7 +1663,7 @@ fn rule_match_infer_without_without_payload() {
 fn rule_match_infer_with_without_payload() {
     check_success(
         r#"
-        fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
+        fn f(x: [B | C([CheckMe])]) -> [CheckMe] {
             let r = match x {
                 C(y) => y,
                 B => CheckMe,
@@ -1679,7 +1679,7 @@ fn rule_match_infer_without_with_payload() {
     check_success(
         r#"
         fn check_me() -> [CheckMe] { CheckMe }
-        fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
+        fn f(x: [A | C([CheckMe])]) -> [CheckMe] {
             let r = match x {
                 A => check_me(),
                 C(y) => {
@@ -1697,7 +1697,7 @@ fn rule_match_infer_without_with_payload() {
 fn rule_match_infer_with_with_payload() {
     check_success(
         r#"
-        fn f(x: [A | B([CheckMe]) | C([CheckMe])]) -> [CheckMe] {
+        fn f(x: [B([CheckMe]) | C([CheckMe])]) -> [CheckMe] {
             let r = match x {
                 B(y) => y,
                 C(z) => {
@@ -1930,10 +1930,43 @@ fn rule_match_infer_unknown_constructor_after_mismatch() {
 }
 
 #[test]
+fn rule_match_infer_missing_1() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f(x: [A | B]) -> Int {
+        let r = match x {
+            B => 0,
+        };
+        r
+    }
+    "#), @r###"
+      3 |         let r = match x {
+                                ~
+    Constructor `A` is not covered in pattern match on type `[A | B]`.
+    "###);
+}
+
+#[test]
+fn rule_match_infer_missing_2() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f(x: [A(Int) | B(Bool)]) -> Int {
+        let r = match x {
+            A(x) => x,
+            A(x) => x,
+        };
+        r
+    }
+    "#), @r###"
+      3 |         let r = match x {
+                                ~
+    Constructor `B` is not covered in pattern match on type `[A(Int) | B(Bool)]`.
+    "###);
+}
+
+#[test]
 fn rule_match_check_without_without_payload() {
     check_success(
         r#"
-        fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
+        fn f(x: [A | B]) -> [CheckMe] {
             match x {
                 A => CheckMe,
                 B => CheckMe,
@@ -1947,7 +1980,7 @@ fn rule_match_check_without_without_payload() {
 fn rule_match_check_with_without_payload() {
     check_success(
         r#"
-        fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
+        fn f(x: [B | C([CheckMe])]) -> [CheckMe] {
             match x {
                 C(y) => y,
                 B => CheckMe,
@@ -1962,7 +1995,7 @@ fn rule_match_check_without_with_payload() {
     check_success(
         r#"
         fn check_me() -> [CheckMe] { CheckMe }
-        fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
+        fn f(x: [A | C([CheckMe])]) -> [CheckMe] {
             match x {
                 A => CheckMe,
                 C(y) => y,
@@ -1976,7 +2009,7 @@ fn rule_match_check_without_with_payload() {
 fn rule_match_check_with_with_payload() {
     check_success(
         r#"
-        fn f(x: [A | B([CheckMe]) | C([CheckMe])]) -> [CheckMe] {
+        fn f(x: [B([CheckMe]) | C([CheckMe])]) -> [CheckMe] {
             let r = match x {
                 B(y) => y,
                 C(z) => z,
@@ -2150,5 +2183,36 @@ fn rule_match_check_unknown_constructor_after_mismatch() {
       5 |             C => 0,
                       ~
     `C` is not a possible constructor for variant type `[A | B]`.
+    "###);
+}
+
+#[test]
+fn rule_match_check_missing_1() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f(x: [A | B]) -> Int {
+        match x {
+            B => 0,
+        }
+    }
+    "#), @r###"
+      3 |         match x {
+                        ~
+    Constructor `A` is not covered in pattern match on type `[A | B]`.
+    "###);
+}
+
+#[test]
+fn rule_match_check_missing_2() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f(x: [A(Int) | B(Bool)]) -> Int {
+        match x {
+            A(x) => x,
+            A(x) => x,
+        }
+    }
+    "#), @r###"
+      3 |         match x {
+                        ~
+    Constructor `B` is not covered in pattern match on type `[A(Int) | B(Bool)]`.
     "###);
 }
