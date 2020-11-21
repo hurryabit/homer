@@ -23,8 +23,8 @@ fn run() -> std::io::Result<bool> {
 
     if let Some(module) = db.anf_module(uri) {
         let machine = cek::Machine::new(&module, syntax::ExprVar::new("main"));
-        let value = machine.run();
-        println!("Result: {}", value);
+        let (addr, mem) = machine.run();
+        println!("Result: {}", mem.value_at(addr));
     }
     Ok(success)
 }

@@ -1,35 +1,15 @@
 use crate::anf::*;
-use crate::util::in_parens_if_some;
-use join_lazy_fmt::*;
-use std::cmp::Ordering;
-use std::fmt;
-use std::rc::Rc;
+use mem::{Addr, Data, Memory, Tag};
 
-pub enum Value<'a> {
-    Int(i64),
-    Bool(bool),
-    Record(&'a Vec<ExprVar>, Vec<RcValue<'a>>),
-    Variant(u32, ExprCon, Option<RcValue<'a>>),
-    Closure(Box<Closure<'a>>),
-}
+pub mod mem;
 
-assert_eq_size!(Value, [usize; 5]);
-
-pub type RcValue<'a> = Rc<Value<'a>>;
-
-pub struct Closure<'a> {
-    env: Stack<'a>,
-    params: &'a [ExprVar],
-    body: &'a Expr,
-}
-
-type Stack<'a> = Vec<(ExprVar, RcValue<'a>)>;
+type Stack<'a> = Vec<(ExprVar, Addr)>;
 
 #[derive(Clone)]
 enum Ctrl<'a> {
     Evaluating,
     Expr(&'a [Binding], &'a TailExpr),
-    Value(RcValue<'a>),
+    Value(Addr),
 }
 
 #[derive(Clone)]
@@ -41,6 +21,7 @@ enum Kont<'a> {
 pub struct Machine<'a> {
     ctrl: Ctrl<'a>,
     stack: Stack<'a>,
+    memory: Memory<'a>,
     kont: Vec<(usize, Kont<'a>)>,
     funcs: im::HashMap<ExprVar, &'a FuncDecl>,
     args_tmp: Stack<'a>,
@@ -55,28 +36,29 @@ impl<'a> Machine<'a> {
         Self {
             ctrl: Ctrl::from_expr(body),
             stack: Stack::new(),
+            memory: Memory::new(),
             kont: Vec::new(),
             funcs,
             args_tmp: Vec::new(),
         }
     }
 
-    pub fn run(mut self) -> RcValue<'a> {
+    pub fn run(mut self) -> (Addr, Memory<'a>) {
         loop {
             // self.print_debug();
             let old_ctrl = std::mem::take(&mut self.ctrl);
             let new_ctrl = match old_ctrl {
                 Ctrl::Evaluating => panic!("Machine control has not been set after step"),
                 Ctrl::Expr(bindings, tail) => self.step_expr(bindings, tail),
-                Ctrl::Value(value) => {
+                Ctrl::Value(addr) => {
                     if let Some(kont) = self.kont.pop() {
                         let (stack_level, Kont::Let(binder, bindings, tail)) = kont;
                         self.stack.truncate(stack_level);
-                        self.push_stack(binder, value);
+                        self.push_stack(binder, addr);
                         Ctrl::Expr(bindings, tail)
                     } else {
                         // println!("Max stack: {}", self.stack.capacity());
-                        return value;
+                        return (addr, self.memory);
                     }
                 }
             };
@@ -96,16 +78,14 @@ impl<'a> Machine<'a> {
         };
         match head {
             Bindee::Error(span) => panic!("Bindee::Error({:?}) during execution", span),
-            Bindee::Atom(atom) => Ctrl::Value(Rc::clone(self.get_atom(atom))),
-            Bindee::Num(n) => Ctrl::Value(Rc::new(Value::Int(*n))),
-            Bindee::Bool(b) => Ctrl::Value(Rc::new(Value::Bool(*b))),
+            Bindee::Atom(atom) => Ctrl::Value(self.get_atom(atom)),
+            Bindee::Num(n) => self.alloc_int(*n),
+            Bindee::Bool(b) => self.alloc_bool(*b),
             Bindee::MakeClosure(closure) => self.step_make_closure(closure),
-            Bindee::Record(fields, values) => self.step_record(fields, values),
+            Bindee::Record(_fields, values) => self.step_record(values),
             Bindee::Project(record, index, _field) => self.step_proj(record, *index),
-            Bindee::Variant(rank, constr, payload) => self.step_variant(*rank, constr, payload),
-            Bindee::BinOp(lhs, op, rhs) => {
-                Ctrl::Value(op.execute(self.get_atom(lhs), self.get_atom(rhs)))
-            }
+            Bindee::Variant(rank, _constr, payload) => self.step_variant(*rank, payload),
+            Bindee::BinOp(lhs, op, rhs) => self.step_binop(lhs, op, rhs),
             Bindee::AppClosure(clo, args) => self.step_app_closure(clo, args),
             Bindee::AppFunc(fun, args) => self.step_app_func(fun, args),
             Bindee::If(cond, then, elze) => self.step_if(cond, then, elze),
@@ -113,54 +93,98 @@ impl<'a> Machine<'a> {
         }
     }
 
-    fn step_make_closure(&self, closure: &'a MakeClosure) -> Ctrl<'a> {
-        let MakeClosure { captured, params, body } = closure;
-        let env =
-            captured.iter().map(|index| (index.1, Rc::clone(self.get_index(index)))).collect();
-        Ctrl::Value(Rc::new(Value::Closure(Box::new(Closure { env, params, body }))))
+    fn alloc_int(&mut self, n: i64) -> Ctrl<'a> {
+        let addr = self.memory.alloc(Tag::Int, 0, 1);
+        self.memory[addr + 1] = Data::from_int(n);
+        Ctrl::Value(addr)
     }
 
-    #[allow(clippy::ptr_arg)]
-    fn step_record(&self, fields: &'a Vec<ExprVar>, values: &'a [Atom]) -> Ctrl<'a> {
-        let values = values.iter().map(|atom| Rc::clone(self.get_atom(atom))).collect();
-        Ctrl::Value(Rc::new(Value::Record(fields, values)))
+    fn alloc_bool(&mut self, b: bool) -> Ctrl<'a> {
+        Ctrl::Value(self.memory.alloc(Tag::Bool, b as u16, 0))
     }
 
-    fn step_proj(&self, record: &'a Atom, index: u32) -> Ctrl<'a> {
-        if let Value::Record(_fields, values) = self.get_atom(record).as_ref() {
-            Ctrl::Value(Rc::clone(&values[index as usize]))
-        } else {
-            panic!("Projection on non-record: {}", record)
+    fn step_make_closure(&mut self, closure: &'a MakeClosure) -> Ctrl<'a> {
+        let size = closure.captured.len() as u32 + 1;
+        let addr = self.memory.alloc(Tag::Closure, 0, size);
+        self.memory[addr + size] = Data::from_make_closure(closure);
+        for (var, offset) in closure.captured.iter().zip(1..) {
+            self.memory[addr + offset] = Data::from_addr(self.get_index(var));
         }
+        Ctrl::Value(addr)
     }
 
-    fn step_variant(&self, rank: u32, constr: &'a ExprCon, payload: &'a Option<Atom>) -> Ctrl<'a> {
-        let payload = payload.as_ref().map(|payload| Rc::clone(self.get_atom(payload)));
-        Ctrl::Value(Rc::new(Value::Variant(rank, *constr, payload)))
+    fn step_record(&mut self, values: &'a [Atom]) -> Ctrl<'a> {
+        let addr = self.memory.alloc(Tag::Record, 0, values.len() as u32);
+        for (value, offset) in values.iter().zip(1..) {
+            self.memory[addr + offset] = Data::from_addr(self.get_atom(value));
+        }
+        Ctrl::Value(addr)
+    }
+
+    fn step_proj(&mut self, record: &'a Atom, index: u32) -> Ctrl<'a> {
+        let addr = self.get_atom(record);
+        let header = self.memory[addr].into_header();
+        debug_assert_eq!(header.tag, Tag::Record);
+        debug_assert!(index < header.size);
+        Ctrl::Value(self.memory[addr + index + 1].into_addr())
+    }
+
+    fn step_variant(&mut self, rank: u32, payload: &'a Option<Atom>) -> Ctrl<'a> {
+        debug_assert!(rank <= u16::MAX as u32);
+        let rank = rank as u16;
+        let addr = match payload {
+            None => self.memory.alloc(Tag::Variant, rank, 0),
+            Some(payload) => {
+                let addr = self.memory.alloc(Tag::Variant, rank, 1);
+                self.memory[addr + 1] = Data::from_addr(self.get_atom(payload));
+                addr
+            }
+        };
+        Ctrl::Value(addr)
+    }
+
+    fn step_binop(&mut self, lhs: &'a Atom, op: &'a OpCode, rhs: &'a Atom) -> Ctrl<'a> {
+        let lhs = self.get_int(lhs);
+        let rhs = self.get_int(rhs);
+        match op {
+            OpCode::Add => self.alloc_int(lhs + rhs),
+            OpCode::Sub => self.alloc_int(lhs - rhs),
+            OpCode::Mul => self.alloc_int(lhs * rhs),
+            OpCode::Div => self.alloc_int(lhs / rhs),
+            OpCode::Equals => self.alloc_bool(lhs == rhs),
+            OpCode::NotEq => self.alloc_bool(lhs != rhs),
+            OpCode::Less => self.alloc_bool(lhs < rhs),
+            OpCode::LessEq => self.alloc_bool(lhs <= rhs),
+            OpCode::Greater => self.alloc_bool(lhs > rhs),
+            OpCode::GreaterEq => self.alloc_bool(lhs >= rhs),
+        }
     }
 
     fn step_app_closure(&mut self, clo: &'a Atom, args: &'a [Atom]) -> Ctrl<'a> {
-        let closure = Rc::clone(self.get_atom(clo));
-        if let Value::Closure(closure) = closure.as_ref() {
-            let Closure { env, params, body } = closure.as_ref();
-            assert_eq!(params.len(), args.len());
-            for (param, arg) in params.iter().zip(args.iter()) {
-                self.args_tmp.push((*param, Rc::clone(self.get_atom(arg))));
-            }
-            self.stack.truncate(self.kont.last().map_or(0, |kont| kont.0));
-            self.stack.extend_from_slice(env);
-            self.stack.append(&mut self.args_tmp);
-            Ctrl::from_expr(body)
-        } else {
-            panic!("Application on non-closure")
+        let addr = self.get_atom(clo);
+        let header = self.memory[addr].into_header();
+        debug_assert_eq!(header.tag, Tag::Closure);
+        let MakeClosure { captured, params, body } =
+            self.memory[addr + header.size].into_make_closure();
+        debug_assert_eq!(header.size as usize, captured.len() + 1);
+        debug_assert_eq!(args.len(), params.len());
+        for (param, arg) in params.iter().zip(args.iter()) {
+            self.args_tmp.push((*param, self.get_atom(arg)));
         }
+        self.stack.truncate(self.kont.last().map_or(0, |kont| kont.0));
+        self.stack.reserve(captured.len() + params.len());
+        for (var, offset) in captured.iter().zip(1..) {
+            self.push_stack(var.1, self.memory[addr + offset].into_addr());
+        }
+        self.stack.append(&mut self.args_tmp);
+        Ctrl::from_expr(body)
     }
 
     fn step_app_func(&mut self, fun: &'a ExprVar, args: &'a [Atom]) -> Ctrl<'a> {
         let FuncDecl { name: _, params, body } = self.funcs.get(fun).unwrap();
         assert_eq!(params.len(), args.len());
         for (param, arg) in params.iter().zip(args.iter()) {
-            self.args_tmp.push((*param, Rc::clone(self.get_atom(arg))));
+            self.args_tmp.push((*param, self.get_atom(arg)));
         }
         self.stack.truncate(self.kont.last().map_or(0, |kont| kont.0));
         self.stack.append(&mut self.args_tmp);
@@ -168,45 +192,52 @@ impl<'a> Machine<'a> {
     }
 
     fn step_if(&self, cond: &'a Atom, then: &'a Expr, elze: &'a Expr) -> Ctrl<'a> {
-        if let Value::Bool(cond) = self.get_atom(cond).as_ref() {
-            Ctrl::from_expr(if *cond { then } else { elze })
-        } else {
-            panic!("If on non-bool")
-        }
+        let addr = self.get_atom(cond);
+        let header = self.memory[addr].into_header();
+        debug_assert_eq!(header.tag, Tag::Bool);
+        Ctrl::from_expr(if header.rank != 0 { then } else { elze })
     }
 
     fn step_match(&mut self, scrut: &'a Atom, branches: &'a [Branch]) -> Ctrl<'a> {
-        if let Value::Variant(rank, _constr, payload) = self.get_atom(scrut).as_ref() {
-            let Branch { pattern, rhs } = &branches[*rank as usize];
-            let Pattern { rank: _, constr: _, binder } = pattern;
-            match (binder.as_ref(), payload.as_ref().cloned()) {
-                (None, Some(_)) | (Some(_), None) => panic!("Pattern/payload mismatch"),
-                (None, None) => (),
-                (Some(binder), Some(payload)) => {
-                    self.push_stack(*binder, payload);
-                }
-            };
-            Ctrl::from_expr(rhs)
-        } else {
-            panic!("Match on non-variant")
+        let addr = self.get_atom(scrut);
+        let header = self.memory[addr].into_header();
+        debug_assert_eq!(header.tag, Tag::Variant);
+        let Branch { pattern, rhs } = &branches[header.rank as usize];
+        let Pattern { rank: _, constr: _, binder } = pattern;
+        match binder {
+            None => {
+                debug_assert_eq!(header.size, 0);
+            }
+            Some(binder) => {
+                debug_assert_eq!(header.size, 1);
+                self.push_stack(*binder, self.memory[addr + 1].into_addr());
+            }
         }
+        Ctrl::from_expr(rhs)
     }
 
-    fn push_stack(&mut self, binder: ExprVar, value: RcValue<'a>) {
-        self.stack.push((binder, value));
+    fn push_stack(&mut self, binder: ExprVar, addr: Addr) {
+        self.stack.push((binder, addr));
     }
 
-    fn get_index(&self, index: &IdxVar) -> &RcValue<'a> {
-        &self.stack[self.stack.len() - index.0 as usize].1
+    fn get_index(&self, index: &IdxVar) -> Addr {
+        self.stack[self.stack.len() - index.0 as usize].1
     }
 
-    fn get_atom(&self, atom: &Atom) -> &RcValue<'a> {
+    fn get_atom(&self, atom: &Atom) -> Addr {
         self.get_index(&atom.0)
+    }
+
+    fn get_int(&self, atom: &Atom) -> i64 {
+        let addr = self.get_atom(atom);
+        let header = self.memory[addr].into_header();
+        debug_assert_eq!(header.tag, Tag::Int);
+        self.memory[addr + 1].into_int()
     }
 
     #[allow(dead_code)]
     fn print_debug(&self) {
-        let Self { ctrl, stack, kont, funcs: _, args_tmp: _ } = self;
+        let Self { ctrl, stack, memory, kont, funcs: _, args_tmp: _ } = self;
         print!("Control: ");
         match ctrl {
             Ctrl::Evaluating => println!("???"),
@@ -217,14 +248,14 @@ impl<'a> Machine<'a> {
                 }
                 println!("    {}", tail);
             }
-            Ctrl::Value(value) => {
-                println!("{}", value);
+            Ctrl::Value(addr) => {
+                println!("{}", memory.value_at(*addr));
             }
         }
         println!("{}", "-".repeat(60));
         println!("Environment:");
-        for (binder, value) in stack {
-            println!("    {} = {}", binder, value);
+        for (binder, addr) in stack {
+            println!("    {} = {}", binder, memory.value_at(*addr));
         }
         println!("{}", "-".repeat(60));
         println!("Kontinuations:");
@@ -238,114 +269,6 @@ impl<'a> Machine<'a> {
 impl<'a> Ctrl<'a> {
     fn from_expr(expr: &'a Expr) -> Self {
         Self::Expr(&expr.bindings, &expr.tail)
-    }
-}
-
-impl OpCode {
-    fn execute<'a>(self, lhs: &RcValue<'a>, rhs: &RcValue<'a>) -> RcValue<'a> {
-        let value = match self {
-            Self::Add => Value::Int(lhs.as_i64() + rhs.as_i64()),
-            Self::Sub => Value::Int(lhs.as_i64() - rhs.as_i64()),
-            Self::Mul => Value::Int(lhs.as_i64() * rhs.as_i64()),
-            Self::Div => Value::Int(lhs.as_i64() / rhs.as_i64()),
-            Self::Equals => Value::Bool(lhs == rhs),
-            Self::NotEq => Value::Bool(lhs != rhs),
-            Self::Less => Value::Bool(lhs < rhs),
-            Self::LessEq => Value::Bool(lhs <= rhs),
-            Self::Greater => Value::Bool(lhs > rhs),
-            Self::GreaterEq => Value::Bool(lhs >= rhs),
-        };
-        Rc::new(value)
-    }
-}
-
-impl<'a> Value<'a> {
-    fn as_i64(&self) -> i64 {
-        if let Value::Int(n) = self {
-            *n
-        } else {
-            panic!("Expected Int, found something else")
-        }
-    }
-}
-
-impl<'a> PartialEq for Value<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        matches!(self.partial_cmp(other), Some(Ordering::Equal))
-    }
-}
-
-impl<'a> PartialOrd for Value<'a> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match (self, other) {
-            (Self::Int(n1), Self::Int(n2)) => Some(n1.cmp(n2)),
-            (Self::Int(_), Self::Bool(_))
-            | (Self::Int(_), Self::Record(..))
-            | (Self::Int(_), Self::Variant(..))
-            | (Self::Int(_), Self::Closure(..)) => Some(Ordering::Less),
-            (Self::Bool(_), Self::Int(_)) => Some(Ordering::Greater),
-            (Self::Bool(b1), Self::Bool(b2)) => Some(b1.cmp(b2)),
-            (Self::Bool(_), Self::Record(..))
-            | (Self::Bool(_), Self::Variant(..))
-            | (Self::Bool(_), Self::Closure(..)) => Some(Ordering::Less),
-            (Self::Record(..), Self::Int(_)) | (Self::Record(..), Self::Bool(_)) => {
-                Some(Ordering::Greater)
-            }
-            (Self::Record(_, values1), Self::Record(_, values2)) => values1.partial_cmp(values2),
-            (Self::Record(..), Self::Variant(..)) | (Self::Record(..), Self::Closure(..)) => {
-                Some(Ordering::Less)
-            }
-            (Self::Variant(..), Self::Int(_))
-            | (Self::Variant(..), Self::Bool(_))
-            | (Self::Variant(..), Self::Record(..)) => Some(Ordering::Greater),
-            (
-                Self::Variant(rank1, _constr1, payload1),
-                Self::Variant(rank2, _constr2, payload2),
-            ) => match rank1.cmp(rank2) {
-                Ordering::Less => Some(Ordering::Less),
-                Ordering::Greater => Some(Ordering::Greater),
-                Ordering::Equal => payload1.partial_cmp(payload2),
-            },
-            (Self::Variant(..), Self::Closure(..)) => Some(Ordering::Less),
-            (Self::Closure(..), Self::Int(_))
-            | (Self::Closure(..), Self::Bool(_))
-            | (Self::Closure(..), Self::Record(..))
-            | (Self::Closure(..), Self::Variant(..)) => Some(Ordering::Greater),
-            (Self::Closure(..), Self::Closure(..)) => None,
-        }
-    }
-}
-
-impl<'a> fmt::Display for Value<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Int(n) => write!(f, "{}", n),
-            Self::Bool(b) => write!(f, "{}", b),
-            Self::Record(fields, values) => write!(
-                f,
-                "{{{}}}",
-                ", ".join(
-                    fields
-                        .iter()
-                        .zip(values.iter())
-                        .map(|(field, value)| lazy_format!("{} = {}", field, value))
-                )
-            ),
-            Self::Variant(rank, constr, value) => {
-                write!(f, "{}/{}{}", constr, rank, in_parens_if_some(value))
-            }
-            Self::Closure(closure) => {
-                let Closure { env, params, body: _ } = closure.as_ref();
-                write!(
-                    f,
-                    "[{env}; {params}; ...]",
-                    env = ", ".join(
-                        env.iter().map(|(binder, value)| lazy_format!("{} = {}", binder, value))
-                    ),
-                    params = ", ".join(*params),
-                )
-            }
-        }
     }
 }
 
