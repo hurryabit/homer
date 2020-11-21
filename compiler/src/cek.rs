@@ -15,7 +15,7 @@ pub enum Value<'a> {
 
 pub type RcValue<'a> = Rc<Value<'a>>;
 
-type Env<'a> = std::collections::HashMap<ExprVar, RcValue<'a>>;
+type Env<'a> = Vec<(ExprVar, RcValue<'a>)>;
 
 #[derive(Clone)]
 enum Ctrl<'a> {
@@ -67,9 +67,9 @@ impl<'a> Machine<'a> {
                 Ctrl::Expr(bindings, tail) => self.step_expr(bindings, tail),
                 Ctrl::Value(value) => {
                     if let Some(kont) = self.kont.pop() {
-                        let Kont::Let(mut env, binder, bindings, tail) = kont;
-                        env.insert(binder, value);
+                        let Kont::Let(env, binder, bindings, tail) = kont;
                         self.env = env;
+                        self.push_env(binder, value);
                         Ctrl::Expr(bindings, tail)
                     } else {
                         return value;
@@ -202,7 +202,7 @@ impl<'a> Machine<'a> {
                     (None, Some(_)) | (Some(_), None) => panic!("Pattern/payload mismatch"),
                     (None, None) => (),
                     (Some(binder), Some(payload)) => {
-                        self.env.insert(*binder, payload);
+                        self.push_env(*binder, payload);
                     }
                 };
                 Ctrl::from_expr(rhs)
@@ -214,8 +214,12 @@ impl<'a> Machine<'a> {
         }
     }
 
+    fn push_env(&mut self, binder: ExprVar, value: RcValue<'a>) {
+        self.env.push((binder, value));
+    }
+
     fn get_index(&self, index: &IdxVar) -> &RcValue<'a> {
-        self.env.get(&index.1).unwrap()
+        &self.env[self.env.len() - index.0 as usize].1
     }
 
     fn get_atom(&self, atom: &Atom) -> &RcValue<'a> {
