@@ -13,10 +13,9 @@ impl Debug for Module {
 
 impl Debug for Decl {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        use Decl::*;
         match self {
-            Type(decl) => decl.write(writer),
-            Func(decl) => decl.write(writer),
+            Self::Type(decl) => decl.write(writer),
+            Self::Func(decl) => decl.write(writer),
         }
     }
 }
@@ -59,24 +58,23 @@ impl Debug for TypeVar {
 
 impl Debug for Type {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        use Type::*;
         match self {
-            Error => writer.leaf("ERROR"),
-            Var(name) => name.write(writer),
-            SynApp(syn, args) => writer.node("APP", |writer| {
+            Self::Error => writer.leaf("ERROR"),
+            Self::Var(name) => name.write(writer),
+            Self::SynApp(syn, args) => writer.node("APP", |writer| {
                 writer.child("syn", syn)?;
                 writer.children("type_arg", args)
             }),
-            Int => writer.leaf("INT"),
-            Bool => writer.leaf("BOOL"),
-            Fun(params, result) => writer.node("FUN", |writer| {
+            Self::Int => writer.leaf("INT"),
+            Self::Bool => writer.leaf("BOOL"),
+            Self::Fun(params, result) => writer.node("FUN", |writer| {
                 writer.children("param", params)?;
                 writer.child("result", result)
             }),
-            Record(fields) => writer.node("RECORD", |writer| {
+            Self::Record(fields) => writer.node("RECORD", |writer| {
                 writer.children_pair("field", "type", fields)
             }),
-            Variant(constrs) => writer.node("VARIANT", |writer| {
+            Self::Variant(constrs) => writer.node("VARIANT", |writer| {
                 for (constr, opt_typ) in constrs {
                     writer.child("constr", constr)?;
                     writer.child_if_some("type", opt_typ)?;
@@ -131,56 +129,55 @@ impl Debug for (ExprCon, Option<u32>) {
 
 impl Debug for Expr {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        use Expr::*;
         match self {
-            Error => writer.leaf("ERROR"),
-            Var(name) => name.write(writer),
-            Num(n) => writer.leaf(&n.to_string()),
-            Bool(b) => writer.leaf(&b.to_string()),
-            Lam(params, body) => writer.node("LAM", |writer| {
+            Self::Error => writer.leaf("ERROR"),
+            Self::Var(name) => name.write(writer),
+            Self::Num(n) => writer.leaf(&n.to_string()),
+            Self::Bool(b) => writer.leaf(&b.to_string()),
+            Self::Lam(params, body) => writer.node("LAM", |writer| {
                 for (param, opt_typ) in params {
                     writer.child("param", param)?;
                     writer.child_if_some("type", opt_typ)?;
                 }
                 writer.child("body", body)
             }),
-            App(fun, args) => writer.node("APP", |writer| {
+            Self::App(fun, args) => writer.node("APP", |writer| {
                 writer.child("fun", fun)?;
                 writer.children("arg", args)
             }),
-            BinOp(lhs, op, rhs) => writer.node("BINOP", |writer| {
+            Self::BinOp(lhs, op, rhs) => writer.node("BINOP", |writer| {
                 writer.child("lhs", lhs)?;
                 writer.child("op", op)?;
                 writer.child("rhs", rhs)
             }),
-            FuncInst(fun, types) => writer.node("FUNCINST", |writer| {
+            Self::FuncInst(fun, types) => writer.node("FUNCINST", |writer| {
                 writer.child("fun", fun)?;
                 writer.children("type_arg", types)
             }),
-            Let(binder, opt_typ, bindee, tail) => writer.node("LET", |writer| {
+            Self::Let(binder, opt_typ, bindee, tail) => writer.node("LET", |writer| {
                 writer.child("binder", binder)?;
                 writer.child_if_some("type", opt_typ)?;
                 writer.child("bindee", bindee)?;
                 writer.child("tail", tail)
             }),
-            If(cond, then, elze) => writer.node("IF", |writer| {
+            Self::If(cond, then, elze) => writer.node("IF", |writer| {
                 writer.child("cond", cond)?;
                 writer.child("then", then)?;
                 writer.child("else", elze)
             }),
-            Record(fields) => writer.node("RECORD", |writer| {
+            Self::Record(fields) => writer.node("RECORD", |writer| {
                 writer.children_pair("field", "value", fields)
             }),
-            Proj(record, field, index) => writer.node("PROJ", |writer| {
+            Self::Proj(record, field, index) => writer.node("PROJ", |writer| {
                 writer.child("record", record)?;
                 writer.child("field", &field.map(|f| (f, *index)))
             }),
-            Variant(constr, rank, payload) => writer.node("VARIANT", |writer| {
+            Self::Variant(constr, rank, payload) => writer.node("VARIANT", |writer| {
                 writer.child("constr", &(*constr, *rank))?;
                 writer.child_if_some("payload", payload)?;
                 Ok(())
             }),
-            Match(scrut, branches) => writer.node("MATCH", |writer| {
+            Self::Match(scrut, branches) => writer.node("MATCH", |writer| {
                 writer.child("scrut", scrut)?;
                 writer.children("branch", branches)
             }),
@@ -213,18 +210,17 @@ impl Debug for Pattern {
 
 impl Debug for OpCode {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        use OpCode::*;
         match self {
-            Add => writer.leaf("ADD"),
-            Sub => writer.leaf("SUB"),
-            Mul => writer.leaf("MUL"),
-            Div => writer.leaf("DIV"),
-            Equals => writer.leaf("EQUALS"),
-            NotEq => writer.leaf("NOTEQ"),
-            Less => writer.leaf("LESS"),
-            LessEq => writer.leaf("LESSEQ"),
-            Greater => writer.leaf("GREATER"),
-            GreaterEq => writer.leaf("GREATEREQ"),
+            Self::Add => writer.leaf("ADD"),
+            Self::Sub => writer.leaf("SUB"),
+            Self::Mul => writer.leaf("MUL"),
+            Self::Div => writer.leaf("DIV"),
+            Self::Equals => writer.leaf("EQUALS"),
+            Self::NotEq => writer.leaf("NOTEQ"),
+            Self::Less => writer.leaf("LESS"),
+            Self::LessEq => writer.leaf("LESSEQ"),
+            Self::Greater => writer.leaf("GREATER"),
+            Self::GreaterEq => writer.leaf("GREATEREQ"),
         }
     }
 }

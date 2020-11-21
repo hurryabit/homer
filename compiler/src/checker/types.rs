@@ -77,9 +77,8 @@ impl RcType {
     }
 
     pub fn equiv(&self, expected: &RcType, type_defs: &TypeDefs) -> bool {
-        use Type::*;
         match (&**self, &**expected) {
-            (SynApp(var1, args1), SynApp(var2, args2)) if var1 == var2 => {
+            (Type::SynApp(var1, args1), Type::SynApp(var2, args2)) if var1 == var2 => {
                 assert_eq!(args1.len(), args2.len());
                 args1
                     .iter()
@@ -90,14 +89,14 @@ impl RcType {
                 self.weak_normalize(type_defs).as_ref(),
                 expected.weak_normalize(type_defs).as_ref(),
             ) {
-                (SynApp(_, _), _) | (_, SynApp(_, _)) => {
+                (Type::SynApp(_, _), _) | (_, Type::SynApp(_, _)) => {
                     panic!("IMPOSSIBLE: Type::SynApp after Type::weak_normalize")
                 }
-                (Error, _) | (_, Error) => true,
-                (Var(var1), Var(var2)) => var1 == var2,
-                (Int, Int) => true,
-                (Bool, Bool) => true,
-                (Fun(params1, result1), Fun(params2, result2)) => {
+                (Type::Error, _) | (_, Type::Error) => true,
+                (Type::Var(var1), Type::Var(var2)) => var1 == var2,
+                (Type::Int, Type::Int) => true,
+                (Type::Bool, Type::Bool) => true,
+                (Type::Fun(params1, result1), Type::Fun(params2, result2)) => {
                     params1.len() == params2.len()
                         && params1
                             .iter()
@@ -105,14 +104,14 @@ impl RcType {
                             .all(|(param1, param2)| param1.equiv(param2, type_defs))
                         && result1.equiv(result2, type_defs)
                 }
-                (Record(fields1), Record(fields2)) => {
+                (Type::Record(fields1), Type::Record(fields2)) => {
                     same_keys(&fields1, &fields2)
                         && fields1
                             .iter()
                             .zip(fields2.iter())
                             .all(|((_, typ1), (_, typ2))| typ1.equiv(typ2, type_defs))
                 }
-                (Variant(constrs1), Variant(constrs2)) => {
+                (Type::Variant(constrs1), Type::Variant(constrs2)) => {
                     same_keys(&constrs1, &constrs2)
                         && constrs1.iter().zip(constrs2.iter()).all(
                             |((_, opt_typ1), (_, opt_typ2))| match (opt_typ1, opt_typ2) {
@@ -122,12 +121,12 @@ impl RcType {
                             },
                         )
                 }
-                (Var(_), _)
-                | (Int, _)
-                | (Bool, _)
-                | (Fun(_, _), _)
-                | (Record(_), _)
-                | (Variant(_), _) => false,
+                (Type::Var(_), _)
+                | (Type::Int, _)
+                | (Type::Bool, _)
+                | (Type::Fun(_, _), _)
+                | (Type::Record(_), _)
+                | (Type::Variant(_), _) => false,
             },
         }
     }
@@ -224,29 +223,28 @@ impl Type {
 impl<T> Type<T> {
     pub fn children_mut(&mut self) -> impl Iterator<Item = &mut T> {
         use genawaiter::{rc::gen, yield_};
-        use Type::*;
         gen!({
             match self {
-                Error => {}
-                Var(_) | Int | Bool => {}
-                SynApp(syn, args) => {
+                Self::Error => {}
+                Self::Var(_) | Self::Int | Self::Bool => {}
+                Self::SynApp(syn, args) => {
                     let _: &TypeVar = syn; // We want this to break if change the type of `syn`.
                     for arg in args {
                         yield_!(arg);
                     }
                 }
-                Fun(params, result) => {
+                Self::Fun(params, result) => {
                     for param in params {
                         yield_!(param);
                     }
                     yield_!(result);
                 }
-                Record(fields) => {
+                Self::Record(fields) => {
                     for (_name, typ) in fields {
                         yield_!(typ);
                     }
                 }
-                Variant(constrs) => {
+                Self::Variant(constrs) => {
                     for (_name, opt_typ) in constrs {
                         if let Some(typ) = opt_typ {
                             yield_!(typ);
@@ -262,34 +260,33 @@ impl<T> Type<T> {
     where
         F: Fn(&T) -> U + Copy,
     {
-        use Type::*;
         match self {
-            Error => Error,
-            Var(var) => Var(*var),
-            SynApp(var, args) => {
+            Self::Error => Type::Error,
+            Self::Var(var) => Type::Var(*var),
+            Self::SynApp(var, args) => {
                 let args = args.iter().map(f).collect();
-                SynApp(*var, args)
+                Type::SynApp(*var, args)
             }
-            Int => Int,
-            Bool => Bool,
-            Fun(params, result) => {
+            Self::Int => Type::Int,
+            Self::Bool => Type::Bool,
+            Self::Fun(params, result) => {
                 let params = params.iter().map(&f).collect();
                 let result = f(result);
-                Fun(params, result)
+                Type::Fun(params, result)
             }
-            Record(fields) => {
+            Self::Record(fields) => {
                 let fields = fields
                     .iter()
                     .map(|(name, child)| (*name, f(child)))
                     .collect();
-                Record(fields)
+                Type::Record(fields)
             }
-            Variant(constrs) => {
+            Self::Variant(constrs) => {
                 let constrs = constrs
                     .iter()
                     .map(|(name, opt_child)| (*name, opt_child.as_ref().map(f)))
                     .collect();
-                Variant(constrs)
+                Type::Variant(constrs)
             }
         }
     }
@@ -327,21 +324,20 @@ impl fmt::Display for RcType {
 
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use Type::*;
         match self {
-            Type::Error => write!(f, "???"),
-            Var(var) => write!(f, "{}", var),
-            SynApp(syn, args) => {
+            Self::Error => write!(f, "???"),
+            Self::Var(var) => write!(f, "{}", var),
+            Self::SynApp(syn, args) => {
                 write!(f, "{}", syn)?;
                 if !args.is_empty() {
                     write!(f, "<{}>", ", ".join(args))?;
                 }
                 Ok(())
             }
-            Int => write!(f, "Int"),
-            Bool => write!(f, "Bool"),
-            Fun(params, result) => write!(f, "({}) -> {}", ", ".join(params), result),
-            Record(fields) => write!(
+            Self::Int => write!(f, "Int"),
+            Self::Bool => write!(f, "Bool"),
+            Self::Fun(params, result) => write!(f, "({}) -> {}", ", ".join(params), result),
+            Self::Record(fields) => write!(
                 f,
                 "{{{}}}",
                 ", ".join(
@@ -350,7 +346,7 @@ impl fmt::Display for Type {
                         .map(|(field, typ)| lazy_format!("{}: {}", field, typ))
                 )
             ),
-            Variant(constrs) => {
+            Self::Variant(constrs) => {
                 write!(f, "[{}]", " | ".join(constrs.iter().map(|(constr, typ)| {
                     lazy_format!("{}{}", constr, in_parens_if_some(typ))
                 })))

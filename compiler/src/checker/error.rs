@@ -111,14 +111,13 @@ impl fmt::Display for Error {
             }
         }
 
-        use Error::*;
         match self {
-            UnknownTypeVar(var) => write!(f, "Undeclared type variable `{}`.", var),
-            UnknownExprVar(var) => write!(f, "Undeclared variable `{}`.", var),
-            UnexpectedGeneric(var, _arity) => {
+            Self::UnknownTypeVar(var) => write!(f, "Undeclared type variable `{}`.", var),
+            Self::UnknownExprVar(var) => write!(f, "Undeclared variable `{}`.", var),
+            Self::UnexpectedGeneric(var, _arity) => {
                 write!(f, "Expected a type but found the generic type `{}`.", var)
             }
-            GenericTypeArityMismatch {
+            Self::GenericTypeArityMismatch {
                 type_var,
                 expected: 0,
                 found,
@@ -127,7 +126,7 @@ impl fmt::Display for Error {
                 "Type `{}` is not a generic type but is applied to {} type argument{}.",
                 type_var, found, plural(*found)
             ),
-            GenericTypeArityMismatch {
+            Self::GenericTypeArityMismatch {
                 type_var,
                 expected,
                 found,
@@ -136,7 +135,7 @@ impl fmt::Display for Error {
                 "Generic type `{}` expects {} type argument{} but is applied to {} type argument{}.",
                 type_var, expected, plural(*expected), found, plural(*found)
             ),
-            GenericFuncArityMismatch {
+            Self::GenericFuncArityMismatch {
                 expr_var,
                 expected,
                 found,
@@ -156,26 +155,26 @@ impl fmt::Display for Error {
                     )
                 }
             }
-            TypeMismatch { expected, found } => write!(
+            Self::TypeMismatch { expected, found } => write!(
                 f,
                 "Expected an expression of type `{}` but found an expression of type `{}`.",
                 expected, found,
             ),
-            ParamTypeMismatch { param, expected, found } => write!(
+            Self::ParamTypeMismatch { param, expected, found } => write!(
                 f,
                 "Expected parameter `{}` to have type `{}` but found a type annotation `{}`.",
                 param, expected, found,
             ),
-            ParamNeedsType(param) => write!(f, "Cannot infer the type of parameter `{}`. A type annoation is needed.", param),
-            DuplicateTypeVar { var, original: _ } => write!(f, "Duplicate type variable `{}`.", var),
-            DuplicateTypeDecl { var, original: _ } => {
+            Self::ParamNeedsType(param) => write!(f, "Cannot infer the type of parameter `{}`. A type annoation is needed.", param),
+            Self::DuplicateTypeVar { var, original: _ } => write!(f, "Duplicate type variable `{}`.", var),
+            Self::DuplicateTypeDecl { var, original: _ } => {
                 write!(f, "Duplicate definition of type `{}`.", var)
             }
-            DuplicateParam { var, original: _ } => write!(f, "Duplicate paramter `{}`.", var),
-            DuplicateFuncDecl { var, original: _ } => {
+            Self::DuplicateParam { var, original: _ } => write!(f, "Duplicate paramter `{}`.", var),
+            Self::DuplicateFuncDecl { var, original: _ } => {
                 write!(f, "Duplicate definition of function `{}`.", var)
             }
-            BadApp {
+            Self::BadApp {
                 func: Some(func),
                 func_type,
                 num_args,
@@ -184,7 +183,7 @@ impl fmt::Display for Error {
                 "`{}` cannot be applied to {} argument{} because it has has type `{}`.",
                 func, num_args, plural(*num_args), func_type
             ),
-            BadApp {
+            Self::BadApp {
                 func: None,
                 func_type,
                 num_args,
@@ -193,42 +192,42 @@ impl fmt::Display for Error {
                 "Expressions of type `{}` cannot be applied to {} argument{}.",
                 func_type, num_args, plural(*num_args)
             ),
-            BadRecordProj { record_type, field } => write!(
+            Self::BadRecordProj { record_type, field } => write!(
                 f,
                 "Expression of type `{}` do not contain a field named `{}`.",
                 record_type, field
             ),
-            BadLam(expected, arity) => write!(
+            Self::BadLam(expected, arity) => write!(
                 f,
                 "Expected an expression of type `{}` but found a lambda with {} parameter{}.",
                 expected, arity, plural(*arity)
             ),
-            VariantExpectedPayload {
+            Self::VariantExpectedPayload {
                 variant_type, constr
             } => write!(f, "Constructor `{}` of variant type `{}` needs a payload.", constr, variant_type),
-            VariantUnexpectedPayload {
+            Self::VariantUnexpectedPayload {
                 variant_type, constr
             } => write!(f, "Constructor `{}` of variant type `{}` does not take a payload.", constr, variant_type),
-            BadVariantConstr(expected, con) => write!(
+            Self::BadVariantConstr(expected, con) => write!(
                 f,
                 "`{}` is not a possible constructor for variant type `{}`.",
                 con, expected
             ),
-            UnexpectedVariantType(expected, con) => write!(
+            Self::UnexpectedVariantType(expected, con) => write!(
                 f,
                 "Expected an expression of type `{}` but found variant constructor `{}`.",
                 expected, con
             ),
-            EmptyMatch => write!(f, "Match expressions must have at least one branch."),
-            BadMatch(scrut_type) => {
+            Self::EmptyMatch => write!(f, "Match expressions must have at least one branch."),
+            Self::BadMatch(scrut_type) => {
                 write!(f, "Cannot match on expressions of type `{}`.", scrut_type)
             }
-            BadBranch(scrut_type, con) => write!(
+            Self::BadBranch(scrut_type, con) => write!(
                 f,
                 "`{}` is not a possible constructor for variant type `{}`.",
                 con, scrut_type
             ),
-            TypeAnnsNeeded => write!(f, "Cannot infer the type of the expression. Further type annotations are required."),
+            Self::TypeAnnsNeeded => write!(f, "Cannot infer the type of the expression. Further type annotations are required."),
         }
     }
 }

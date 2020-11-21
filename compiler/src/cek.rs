@@ -288,16 +288,16 @@ impl<'a> Ctrl<'a> {
 impl OpCode {
     fn execute<'a>(self, lhs: &RcValue<'a>, rhs: &RcValue<'a>) -> RcValue<'a> {
         let value = match self {
-            OpCode::Add => Value::Int(lhs.as_i64() + rhs.as_i64()),
-            OpCode::Sub => Value::Int(lhs.as_i64() - rhs.as_i64()),
-            OpCode::Mul => Value::Int(lhs.as_i64() * rhs.as_i64()),
-            OpCode::Div => Value::Int(lhs.as_i64() / rhs.as_i64()),
-            OpCode::Equals => Value::Bool(lhs == rhs),
-            OpCode::NotEq => Value::Bool(lhs != rhs),
-            OpCode::Less => Value::Bool(lhs < rhs),
-            OpCode::LessEq => Value::Bool(lhs <= rhs),
-            OpCode::Greater => Value::Bool(lhs > rhs),
-            OpCode::GreaterEq => Value::Bool(lhs >= rhs),
+            Self::Add => Value::Int(lhs.as_i64() + rhs.as_i64()),
+            Self::Sub => Value::Int(lhs.as_i64() - rhs.as_i64()),
+            Self::Mul => Value::Int(lhs.as_i64() * rhs.as_i64()),
+            Self::Div => Value::Int(lhs.as_i64() / rhs.as_i64()),
+            Self::Equals => Value::Bool(lhs == rhs),
+            Self::NotEq => Value::Bool(lhs != rhs),
+            Self::Less => Value::Bool(lhs < rhs),
+            Self::LessEq => Value::Bool(lhs <= rhs),
+            Self::Greater => Value::Bool(lhs > rhs),
+            Self::GreaterEq => Value::Bool(lhs >= rhs),
         };
         Rc::new(value)
     }
@@ -321,37 +321,41 @@ impl<'a> PartialEq for Value<'a> {
 
 impl<'a> PartialOrd for Value<'a> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        use Value::*;
         match (self, other) {
-            (Int(n1), Int(n2)) => Some(n1.cmp(n2)),
-            (Int(_), Bool(_))
-            | (Int(_), Record(..))
-            | (Int(_), Variant(..))
-            | (Int(_), Closure(..)) => Some(Ordering::Less),
-            (Bool(_), Int(_)) => Some(Ordering::Greater),
-            (Bool(b1), Bool(b2)) => Some(b1.cmp(b2)),
-            (Bool(_), Record(..)) | (Bool(_), Variant(..)) | (Bool(_), Closure(..)) => {
-                Some(Ordering::Less)
-            }
-            (Record(..), Int(_)) | (Record(..), Bool(_)) => Some(Ordering::Greater),
-            (Record(_, values1), Record(_, values2)) => values1.partial_cmp(values2),
-            (Record(..), Variant(..)) | (Record(..), Closure(..)) => Some(Ordering::Less),
-            (Variant(..), Int(_)) | (Variant(..), Bool(_)) | (Variant(..), Record(..)) => {
+            (Self::Int(n1), Self::Int(n2)) => Some(n1.cmp(n2)),
+            (Self::Int(_), Self::Bool(_))
+            | (Self::Int(_), Self::Record(..))
+            | (Self::Int(_), Self::Variant(..))
+            | (Self::Int(_), Self::Closure(..)) => Some(Ordering::Less),
+            (Self::Bool(_), Self::Int(_)) => Some(Ordering::Greater),
+            (Self::Bool(b1), Self::Bool(b2)) => Some(b1.cmp(b2)),
+            (Self::Bool(_), Self::Record(..))
+            | (Self::Bool(_), Self::Variant(..))
+            | (Self::Bool(_), Self::Closure(..)) => Some(Ordering::Less),
+            (Self::Record(..), Self::Int(_)) | (Self::Record(..), Self::Bool(_)) => {
                 Some(Ordering::Greater)
             }
-            (Variant(rank1, _constr1, payload1), Variant(rank2, _constr2, payload2)) => {
-                match rank1.cmp(rank2) {
-                    Ordering::Less => Some(Ordering::Less),
-                    Ordering::Greater => Some(Ordering::Greater),
-                    Ordering::Equal => payload1.partial_cmp(payload2),
-                }
+            (Self::Record(_, values1), Self::Record(_, values2)) => values1.partial_cmp(values2),
+            (Self::Record(..), Self::Variant(..)) | (Self::Record(..), Self::Closure(..)) => {
+                Some(Ordering::Less)
             }
-            (Variant(..), Closure(..)) => Some(Ordering::Less),
-            (Closure(..), Int(_))
-            | (Closure(..), Bool(_))
-            | (Closure(..), Record(..))
-            | (Closure(..), Variant(..)) => Some(Ordering::Greater),
-            (Closure(..), Closure(..)) => None,
+            (Self::Variant(..), Self::Int(_))
+            | (Self::Variant(..), Self::Bool(_))
+            | (Self::Variant(..), Self::Record(..)) => Some(Ordering::Greater),
+            (
+                Self::Variant(rank1, _constr1, payload1),
+                Self::Variant(rank2, _constr2, payload2),
+            ) => match rank1.cmp(rank2) {
+                Ordering::Less => Some(Ordering::Less),
+                Ordering::Greater => Some(Ordering::Greater),
+                Ordering::Equal => payload1.partial_cmp(payload2),
+            },
+            (Self::Variant(..), Self::Closure(..)) => Some(Ordering::Less),
+            (Self::Closure(..), Self::Int(_))
+            | (Self::Closure(..), Self::Bool(_))
+            | (Self::Closure(..), Self::Record(..))
+            | (Self::Closure(..), Self::Variant(..)) => Some(Ordering::Greater),
+            (Self::Closure(..), Self::Closure(..)) => None,
         }
     }
 }
@@ -359,9 +363,9 @@ impl<'a> PartialOrd for Value<'a> {
 impl<'a> fmt::Display for Value<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Value::Int(n) => write!(f, "{}", n),
-            Value::Bool(b) => write!(f, "{}", b),
-            Value::Record(fields, values) => write!(
+            Self::Int(n) => write!(f, "{}", n),
+            Self::Bool(b) => write!(f, "{}", b),
+            Self::Record(fields, values) => write!(
                 f,
                 "{{{}}}",
                 ", ".join(
@@ -371,10 +375,10 @@ impl<'a> fmt::Display for Value<'a> {
                         .map(|(field, value)| lazy_format!("{} = {}", field, value))
                 )
             ),
-            Value::Variant(rank, constr, value) => {
+            Self::Variant(rank, constr, value) => {
                 write!(f, "{}/{}{}", constr, rank, in_parens_if_some(value))
             }
-            Value::Closure(closure) => {
+            Self::Closure(closure) => {
                 let Closure {
                     env,
                     params,

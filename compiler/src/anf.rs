@@ -365,47 +365,46 @@ impl Debug for Expr {
 
 impl Debug for Bindee {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        use Bindee::*;
         match self {
-            Error(_) => writer.leaf("ERROR"),
-            Atom(atom) => atom.write(writer),
-            Num(n) => writer.leaf(&n.to_string()),
-            Bool(b) => writer.leaf(&b.to_string()),
-            MakeClosure(closure) => closure.write(writer),
-            AppClosure(clo, args) => writer.node("APP", |writer| {
+            Self::Error(_) => writer.leaf("ERROR"),
+            Self::Atom(atom) => atom.write(writer),
+            Self::Num(n) => writer.leaf(&n.to_string()),
+            Self::Bool(b) => writer.leaf(&b.to_string()),
+            Self::MakeClosure(closure) => closure.write(writer),
+            Self::AppClosure(clo, args) => writer.node("APP", |writer| {
                 writer.child("fun", clo)?;
                 writer.children("arg", args)
             }),
-            AppFunc(fun, args) => writer.node("APP", |writer| {
+            Self::AppFunc(fun, args) => writer.node("APP", |writer| {
                 writer.child("fun", fun)?;
                 writer.children("arg", args)
             }),
-            BinOp(lhs, op, rhs) => writer.node("BINOP", |writer| {
+            Self::BinOp(lhs, op, rhs) => writer.node("BINOP", |writer| {
                 writer.child("lhs", lhs)?;
                 writer.child("op", op)?;
                 writer.child("rhs", rhs)
             }),
-            If(cond, then, elze) => writer.node("IF", |writer| {
+            Self::If(cond, then, elze) => writer.node("IF", |writer| {
                 writer.child("cond", cond)?;
                 writer.child("then", then)?;
                 writer.child("else", elze)
             }),
-            Record(fields, values) => writer.node("RECORD", |writer| {
+            Self::Record(fields, values) => writer.node("RECORD", |writer| {
                 for (field, value) in fields.iter().zip(values.iter()) {
                     writer.child("field", field)?;
                     writer.child("value", value)?;
                 }
                 Ok(())
             }),
-            Project(record, index, field) => writer.node("PROJECT", |writer| {
+            Self::Project(record, index, field) => writer.node("PROJECT", |writer| {
                 writer.child("record", record)?;
                 writer.child("field", &(*field, *index))
             }),
-            Variant(rank, constr, payload) => writer.node("VARIANT", |writer| {
+            Self::Variant(rank, constr, payload) => writer.node("VARIANT", |writer| {
                 writer.child("constr", &(*constr, *rank))?;
                 writer.child_if_some("payload", payload)
             }),
-            Match(scrut, branches) => writer.node("MATCH", |writer| {
+            Self::Match(scrut, branches) => writer.node("MATCH", |writer| {
                 writer.child("scrut", scrut)?;
                 writer.children("branch", branches)
             }),
@@ -479,18 +478,17 @@ impl fmt::Display for Binding {
 
 impl fmt::Display for Bindee {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Bindee::*;
         match self {
-            Error(_) => write!(f, "???"),
-            Atom(atom) => write!(f, "{}", atom),
-            Num(n) => write!(f, "{}", n),
-            Bool(b) => write!(f, "{}", b),
-            MakeClosure(closure) => write!(f, "{}", closure),
-            AppClosure(clo, args) => write!(f, "{}({})", clo, ", ".join(args)),
-            AppFunc(fun, args) => write!(f, "{}({})", fun, ", ".join(args)),
-            BinOp(lhs, op, rhs) => write!(f, "{} {} {}", lhs, op, rhs),
-            If(cond, _, _) => write!(f, "if {} {{ .. }} else {{ .. }}", cond),
-            Record(fields, values) => write!(
+            Self::Error(_) => write!(f, "???"),
+            Self::Atom(atom) => write!(f, "{}", atom),
+            Self::Num(n) => write!(f, "{}", n),
+            Self::Bool(b) => write!(f, "{}", b),
+            Self::MakeClosure(closure) => write!(f, "{}", closure),
+            Self::AppClosure(clo, args) => write!(f, "{}({})", clo, ", ".join(args)),
+            Self::AppFunc(fun, args) => write!(f, "{}({})", fun, ", ".join(args)),
+            Self::BinOp(lhs, op, rhs) => write!(f, "{} {} {}", lhs, op, rhs),
+            Self::If(cond, _, _) => write!(f, "if {} {{ .. }} else {{ .. }}", cond),
+            Self::Record(fields, values) => write!(
                 f,
                 "{{{}}}",
                 ", ".join(
@@ -500,11 +498,11 @@ impl fmt::Display for Bindee {
                         .map(|(field, value)| lazy_format!("{} = {}", field, value))
                 )
             ),
-            Project(record, index, field) => write!(f, "{}.{}/{}", record, field, index),
-            Variant(rank, constr, payload) => {
+            Self::Project(record, index, field) => write!(f, "{}.{}/{}", record, field, index),
+            Self::Variant(rank, constr, payload) => {
                 write!(f, "{}/{}{}", constr, rank, in_parens_if_some(payload))
             }
-            Match(scrut, branches) => write!(
+            Self::Match(scrut, branches) => write!(
                 f,
                 "match {} {{ {}, }}",
                 scrut,
@@ -547,16 +545,16 @@ impl fmt::Display for MakeClosure {
 impl fmt::Display for OpCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
-            OpCode::Add => "+",
-            OpCode::Sub => "-",
-            OpCode::Mul => "*",
-            OpCode::Div => "/",
-            OpCode::Equals => "==",
-            OpCode::NotEq => "!=",
-            OpCode::Less => "<",
-            OpCode::LessEq => "<=",
-            OpCode::Greater => ">",
-            OpCode::GreaterEq => ">=",
+            Self::Add => "+",
+            Self::Sub => "-",
+            Self::Mul => "*",
+            Self::Div => "/",
+            Self::Equals => "==",
+            Self::NotEq => "!=",
+            Self::Less => "<",
+            Self::LessEq => "<=",
+            Self::Greater => ">",
+            Self::GreaterEq => ">=",
         })
     }
 }

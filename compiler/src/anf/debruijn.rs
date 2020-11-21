@@ -43,50 +43,49 @@ impl Expr {
 
 impl Bindee {
     fn index(&mut self, env: &Env) {
-        use Bindee::*;
         match self {
-            Error(_) => {}
-            Atom(var) => {
+            Self::Error(_) => {}
+            Self::Atom(var) => {
                 var.index(env);
             }
-            Num(_) | Bool(_) => {}
-            MakeClosure(closure) => {
+            Self::Num(_) | Self::Bool(_) => {}
+            Self::MakeClosure(closure) => {
                 closure.index(env);
             }
-            AppClosure(clo, args) => {
+            Self::AppClosure(clo, args) => {
                 clo.index(env);
                 for arg in args {
                     arg.index(env);
                 }
             }
-            AppFunc(_fun, args) => {
+            Self::AppFunc(_fun, args) => {
                 for arg in args {
                     arg.index(env);
                 }
             }
-            BinOp(lhs, _op, rhs) => {
+            Self::BinOp(lhs, _op, rhs) => {
                 lhs.index(env);
                 rhs.index(env);
             }
-            If(cond, then, elze) => {
+            Self::If(cond, then, elze) => {
                 cond.index(env);
                 then.index(env);
                 elze.index(env);
             }
-            Record(_fields, values) => {
+            Self::Record(_fields, values) => {
                 for value in values {
                     value.index(env);
                 }
             }
-            Project(record, _index, _field) => {
+            Self::Project(record, _index, _field) => {
                 record.index(env);
             }
-            Variant(_rank, _constr, payload) => {
+            Self::Variant(_rank, _constr, payload) => {
                 if let Some(payload) = payload {
                     payload.index(env);
                 }
             }
-            Match(scrut, branches) => {
+            Self::Match(scrut, branches) => {
                 scrut.index(env);
                 for branch in branches {
                     branch.index(env);

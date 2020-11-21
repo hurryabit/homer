@@ -39,29 +39,28 @@ impl LType {
 impl Type {
     pub fn children_mut(&mut self) -> impl Iterator<Item = &mut LType> {
         use genawaiter::{rc::gen, yield_};
-        use Type::*;
         gen!({
             match self {
-                Error => {}
-                Var(_) | Int | Bool => {}
-                SynApp(syn, args) => {
+                Self::Error => {}
+                Self::Var(_) | Self::Int | Self::Bool => {}
+                Self::SynApp(syn, args) => {
                     let _: &LTypeVar = syn; // We want this to break if change the type of `syn`.
                     for arg in args {
                         yield_!(arg);
                     }
                 }
-                Fun(params, result) => {
+                Self::Fun(params, result) => {
                     for param in params {
                         yield_!(param);
                     }
                     yield_!(result);
                 }
-                Record(fields) => {
+                Self::Record(fields) => {
                     for (_name, typ) in fields {
                         yield_!(typ);
                     }
                 }
-                Variant(constrs) => {
+                Self::Variant(constrs) => {
                     for (_name, opt_typ) in constrs {
                         if let Some(typ) = opt_typ {
                             yield_!(typ);
@@ -83,50 +82,49 @@ impl LExpr {
 impl Expr {
     pub fn children_mut(&mut self) -> impl Iterator<Item = &mut LExpr> {
         use genawaiter::{rc::gen, yield_};
-        use Expr::*;
         gen!({
             match self {
-                Error => {}
-                Var(_) | Num(_) | Bool(_) => {}
-                Lam(_params, body) => {
+                Self::Error => {}
+                Self::Var(_) | Self::Num(_) | Self::Bool(_) => {}
+                Self::Lam(_params, body) => {
                     yield_!(body.as_mut());
                 }
-                App(fun, args) => {
+                Self::App(fun, args) => {
                     yield_!(fun);
                     for arg in args {
                         yield_!(arg);
                     }
                 }
-                BinOp(lhs, _opcode, rhs) => {
+                Self::BinOp(lhs, _opcode, rhs) => {
                     yield_!(lhs);
                     yield_!(rhs);
                 }
-                FuncInst(fun, _types) => {
+                Self::FuncInst(fun, _types) => {
                     let _: &LExprVar = fun; // We want this to fail if we change the type of `fun`.
                 }
-                Let(_binder, _type, bindee, tail) => {
+                Self::Let(_binder, _type, bindee, tail) => {
                     yield_!(bindee);
                     yield_!(tail);
                 }
-                If(cond, then, elze) => {
+                Self::If(cond, then, elze) => {
                     yield_!(cond);
                     yield_!(then);
                     yield_!(elze);
                 }
-                Record(fields) => {
+                Self::Record(fields) => {
                     for (_name, expr) in fields {
                         yield_!(expr);
                     }
                 }
-                Proj(record, _field, _index) => {
+                Self::Proj(record, _field, _index) => {
                     yield_!(record);
                 }
-                Variant(_constr, _rank, payload) => {
+                Self::Variant(_constr, _rank, payload) => {
                     if let Some(payload) = payload {
                         yield_!(payload);
                     }
                 }
-                Match(scrut, branches) => {
+                Self::Match(scrut, branches) => {
                     yield_!(scrut);
                     for branch in branches {
                         yield_!(&mut branch.rhs);
