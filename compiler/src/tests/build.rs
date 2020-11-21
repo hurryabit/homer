@@ -8,10 +8,9 @@ fn build_output(input: &str) -> String {
     db.set_input(uri, Arc::new(input.to_owned()));
 
     let mut output = String::new();
-    if let Some(module) = db.anf_module(uri) {
-        writeln!(output, "{:?}", module).unwrap();
-    } else {
-        writeln!(output, "NONE").unwrap();
+    match db.anf_module(uri) {
+        None => writeln!(output, "NONE").unwrap(),
+        Some(module) => writeln!(output, "{:?}", module).unwrap(),
     }
     db.with_diagnostics(uri, |diagnostics| {
         for diagnostic in diagnostics {

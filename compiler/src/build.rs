@@ -52,23 +52,20 @@ fn parsed_module(db: &dyn Compiler, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<D
 
 fn checked_module(db: &dyn Compiler, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>) {
     let humanizer = db.humanizer(uri);
-    let (opt_checked_module, diagnostics) = if let Some(parsed_module) = db.parsed_module(uri).0 {
-        match parsed_module.check(&humanizer) {
+    let (opt_checked_module, diagnostics) = match db.parsed_module(uri).0 {
+        None => (None, vec![]),
+        Some(parsed_module) => match parsed_module.check(&humanizer) {
             Ok(checked_module) => (Some(checked_module), vec![]),
             Err(diagnostic) => (None, vec![diagnostic]),
-        }
-    } else {
-        (None, vec![])
+        },
     };
     (opt_checked_module.map(Arc::new), Arc::new(diagnostics))
 }
 
 fn anf_module(db: &dyn Compiler, uri: Uri) -> Option<Arc<anf::Module>> {
-    if let Some(checked_module) = db.checked_module(uri).0 {
-        Some(Arc::new(checked_module.to_anf()))
-    } else {
-        None
-    }
+    db.checked_module(uri)
+        .0
+        .map(|checked_module| Arc::new(checked_module.to_anf()))
 }
 
 #[salsa::database(CompilerStorage)]

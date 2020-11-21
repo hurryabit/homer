@@ -286,10 +286,9 @@ impl<'a> DebugWriter<'a> {
     }
 
     pub fn leaf(&mut self, label: &str) -> fmt::Result {
-        if let Some(span) = self.next_span.take() {
-            write!(self.writer, "{} @ {:?}...{:?}", label, span.start, span.end)
-        } else {
-            self.writer.write_str(label)
+        match self.next_span.take() {
+            None => self.writer.write_str(label),
+            Some(span) => write!(self.writer, "{} @ {:?}...{:?}", label, span.start, span.end),
         }
     }
 

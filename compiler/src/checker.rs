@@ -601,10 +601,9 @@ impl Env {
     where
         F: FnOnce(&Self) -> Result<R, LError>,
     {
-        if let Some((var, typ)) = binder {
-            self.intro_binder(var, typ, f)
-        } else {
-            f(self)
+        match binder {
+            None => f(self),
+            Some((var, typ)) => self.intro_binder(var, typ, f),
         }
     }
 }

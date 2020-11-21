@@ -261,10 +261,9 @@ impl Branch {
         let syntax::Branch { pattern, rhs } = branch;
         let pattern = Pattern::from_syntax(env, pattern);
         let (expr, fvs) = Expr::from_syntax(env, rhs);
-        let fvs = if let Some(binder) = pattern.binder {
-            fvs.without(&binder)
-        } else {
-            fvs
+        let fvs = match pattern.binder {
+            None => fvs,
+            Some(binder) => fvs.without(&binder),
         };
         (Self { pattern, rhs: expr }, fvs)
     }
