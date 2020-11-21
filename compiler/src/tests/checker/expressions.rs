@@ -1309,6 +1309,31 @@ fn rule_proj_syn() {
 }
 
 #[test]
+fn rule_proj_index() {
+    insta::assert_debug_snapshot!(check_output_func_body("f", r#"
+    fn f(r: {a: Int, b: Bool}) -> Int {
+        let x = r.a;
+        let y = r.b;
+        0
+    }
+    "#), @r###"
+    LET
+        binder: x @ 53...54
+        type: INT @ 53...54
+        bindee: PROJ @ 57...60
+            record: r @ 57...58
+            field: a/0 @ 59...60
+        tail: LET @ 70...92
+            binder: y @ 74...75
+            type: BOOL @ 74...75
+            bindee: PROJ @ 78...81
+                record: r @ 78...79
+                field: b/1 @ 80...81
+            tail: 0 @ 91...92
+    "###);
+}
+
+#[test]
 fn rule_proj_record_not_inferrable() {
     insta::assert_snapshot!(check_error(r#"
     fn f() -> Int {

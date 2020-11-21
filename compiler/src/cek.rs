@@ -8,12 +8,12 @@ use std::rc::Rc;
 pub enum Value<'a> {
     Int(i64),
     Bool(bool),
-    Record(Vec<(ExprVar, RcValue<'a>)>),
+    Record(&'a Vec<ExprVar>, Vec<RcValue<'a>>),
     Variant(ExprCon, Option<RcValue<'a>>),
     Closure(Box<Closure<'a>>),
 }
 
-assert_eq_size!(Value, [usize; 4]);
+assert_eq_size!(Value, [usize; 5]);
 
 pub type RcValue<'a> = Rc<Value<'a>>;
 
@@ -108,8 +108,8 @@ impl<'a> Machine<'a> {
             Bindee::Num(n) => Ctrl::Value(Rc::new(Value::Int(*n))),
             Bindee::Bool(b) => Ctrl::Value(Rc::new(Value::Bool(*b))),
             Bindee::MakeClosure(closure) => self.step_make_closure(closure),
-            Bindee::Record(fields) => self.step_record(fields),
-            Bindee::Project(record, field) => self.step_proj(record, field),
+            Bindee::Record(fields, values) => self.step_record(fields, values),
+            Bindee::Project(record, index, _field) => self.step_proj(record, *index),
             Bindee::Variant(constr, payload) => self.step_variant(constr, payload),
             Bindee::BinOp(lhs, op, rhs) => {
                 Ctrl::Value(op.execute(self.get_atom(lhs), self.get_atom(rhs)))
@@ -138,21 +138,18 @@ impl<'a> Machine<'a> {
         }))))
     }
 
-    fn step_record(&self, fields: &'a [(ExprVar, Atom)]) -> Ctrl<'a> {
-        let fields = fields
+    #[allow(clippy::ptr_arg)]
+    fn step_record(&self, fields: &'a Vec<ExprVar>, values: &'a [Atom]) -> Ctrl<'a> {
+        let values = values
             .iter()
-            .map(|(field, atom)| (*field, Rc::clone(self.get_atom(atom))))
+            .map(|atom| Rc::clone(self.get_atom(atom)))
             .collect();
-        Ctrl::Value(Rc::new(Value::Record(fields)))
+        Ctrl::Value(Rc::new(Value::Record(fields, values)))
     }
 
-    fn step_proj(&self, record: &'a Atom, field: &'a ExprVar) -> Ctrl<'a> {
-        if let Value::Record(fields) = self.get_atom(record).as_ref() {
-            if let Ok(index) = fields.binary_search_by_key(field, |entry| entry.0) {
-                Ctrl::Value(Rc::clone(&fields[index].1))
-            } else {
-                panic!("Projection on unknown field")
-            }
+    fn step_proj(&self, record: &'a Atom, index: u32) -> Ctrl<'a> {
+        if let Value::Record(_fields, values) = self.get_atom(record).as_ref() {
+            Ctrl::Value(Rc::clone(&values[index as usize]))
         } else {
             panic!("Projection on non-record: {}", record)
         }
@@ -325,30 +322,18 @@ impl<'a> PartialOrd for Value<'a> {
         match (self, other) {
             (Int(n1), Int(n2)) => Some(n1.cmp(n2)),
             (Int(_), Bool(_))
-            | (Int(_), Record(_))
+            | (Int(_), Record(..))
             | (Int(_), Variant(..))
             | (Int(_), Closure(..)) => Some(Ordering::Less),
             (Bool(_), Int(_)) => Some(Ordering::Greater),
             (Bool(b1), Bool(b2)) => Some(b1.cmp(b2)),
-            (Bool(_), Record(_)) | (Bool(_), Variant(..)) | (Bool(_), Closure(..)) => {
+            (Bool(_), Record(..)) | (Bool(_), Variant(..)) | (Bool(_), Closure(..)) => {
                 Some(Ordering::Less)
             }
-            (Record(_), Int(_)) | (Record(_), Bool(_)) => Some(Ordering::Greater),
-            (Record(fs1), Record(fs2)) => {
-                let fields1 = fs1.iter().map(|f| f.0);
-                let fields2 = fs2.iter().map(|f| f.0);
-                match fields1.cmp(fields2) {
-                    Ordering::Less => Some(Ordering::Less),
-                    Ordering::Greater => Some(Ordering::Greater),
-                    Ordering::Equal => {
-                        let values1 = fs1.iter().map(|f| Rc::clone(&f.1));
-                        let values2 = fs2.iter().map(|f| Rc::clone(&f.1));
-                        values1.partial_cmp(values2)
-                    }
-                }
-            }
-            (Record(_), Variant(..)) | (Record(_), Closure(..)) => Some(Ordering::Less),
-            (Variant(..), Int(_)) | (Variant(..), Bool(_)) | (Variant(..), Record(_)) => {
+            (Record(..), Int(_)) | (Record(..), Bool(_)) => Some(Ordering::Greater),
+            (Record(_, values1), Record(_, values2)) => values1.partial_cmp(values2),
+            (Record(..), Variant(..)) | (Record(..), Closure(..)) => Some(Ordering::Less),
+            (Variant(..), Int(_)) | (Variant(..), Bool(_)) | (Variant(..), Record(..)) => {
                 Some(Ordering::Greater)
             }
             (Variant(c1, v1), Variant(c2, v2)) => match c1.cmp(c2) {
@@ -359,7 +344,7 @@ impl<'a> PartialOrd for Value<'a> {
             (Variant(..), Closure(..)) => Some(Ordering::Less),
             (Closure(..), Int(_))
             | (Closure(..), Bool(_))
-            | (Closure(..), Record(_))
+            | (Closure(..), Record(..))
             | (Closure(..), Variant(..)) => Some(Ordering::Greater),
             (Closure(..), Closure(..)) => None,
         }
@@ -371,12 +356,13 @@ impl<'a> fmt::Display for Value<'a> {
         match self {
             Value::Int(n) => write!(f, "{}", n),
             Value::Bool(b) => write!(f, "{}", b),
-            Value::Record(fields) => write!(
+            Value::Record(fields, values) => write!(
                 f,
                 "{{{}}}",
                 ", ".join(
                     fields
                         .iter()
+                        .zip(values.iter())
                         .map(|(field, value)| lazy_format!("{} = {}", field, value))
                 )
             ),

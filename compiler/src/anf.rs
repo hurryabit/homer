@@ -46,12 +46,14 @@ pub enum Bindee {
     AppFunc(ExprVar, Vec<Atom>),
     BinOp(Atom, OpCode, Atom),
     If(Atom, Box<Expr>, Box<Expr>),
-    Record(Vec<(ExprVar, Atom)>),
-    Project(Atom, ExprVar),
+    // NOTE(MH): Both vectors always have the same length. We split it here
+    // because we want to be able to borrow the first half without borrowing the
+    // other half.
+    Record(Vec<ExprVar>, Vec<Atom>),
+    Project(Atom, u32, ExprVar),
     Variant(ExprCon, Option<Atom>),
     Match(Atom, Vec<Branch>),
 }
-
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct IdxVar(pub u32, pub ExprVar);
@@ -189,18 +191,20 @@ impl Bindee {
                 (Self::If(cond, Box::new(then), Box::new(elze)), fvs)
             }
             syntax::Expr::Record(fields) => {
-                let (fields, fvss): (_, Vec<_>) = fields
+                let (fields, fvss): (Vec<_>, Vec<_>) = fields
                     .iter()
                     .map(|(field, expr)| {
                         let (expr, fvs) = Atom::from_syntax(env, expr, bindings);
                         ((field.locatee, expr), fvs)
                     })
                     .unzip();
-                (Self::Record(fields), FreeVars::unions(fvss))
+                let (names, values) = fields.into_iter().unzip();
+                (Self::Record(names, values), FreeVars::unions(fvss))
             }
-            syntax::Expr::Proj(record, field) => {
+            syntax::Expr::Proj(record, field, index) => {
+                let index = index.expect("Projection without index");
                 let (record, fvs) = Atom::from_syntax(env, record, bindings);
-                (Self::Project(record, field.locatee), fvs)
+                (Self::Project(record, index, field.locatee), fvs)
             }
             syntax::Expr::Variant(constr, None) => (Self::Variant(*constr, None), ordset![]),
             syntax::Expr::Variant(constr, Some(payload)) => {
@@ -364,12 +368,16 @@ impl Debug for Bindee {
                 writer.child("then", then)?;
                 writer.child("else", elze)
             }),
-            Record(fields) => writer.node("RECORD", |writer| {
-                writer.children_pair("field", "value", fields)
+            Record(fields, values) => writer.node("RECORD", |writer| {
+                for (field, value) in fields.iter().zip(values.iter()) {
+                    writer.child("field", field)?;
+                    writer.child("value", value)?;
+                }
+                Ok(())
             }),
-            Project(record, field) => writer.node("PROJECT", |writer| {
+            Project(record, index, field) => writer.node("PROJECT", |writer| {
                 writer.child("record", record)?;
-                writer.child("field", field)
+                writer.child("field", &(*field, *index))
             }),
             Variant(constr, opt_payload) => writer.node("VARIANT", |writer| {
                 writer.child("constr", constr)?;
@@ -451,16 +459,17 @@ impl fmt::Display for Bindee {
             AppFunc(fun, args) => write!(f, "{}({})", fun, ", ".join(args)),
             BinOp(lhs, op, rhs) => write!(f, "{} {} {}", lhs, op, rhs),
             If(cond, _, _) => write!(f, "if {} {{ .. }} else {{ .. }}", cond),
-            Record(fields) => write!(
+            Record(fields, values) => write!(
                 f,
                 "{{{}}}",
                 ", ".join(
                     fields
                         .iter()
+                        .zip(values.iter())
                         .map(|(field, value)| lazy_format!("{} = {}", field, value))
                 )
             ),
-            Project(record, field) => write!(f, "{}.{}", record, field),
+            Project(record, index, field) => write!(f, "{}.{}/{}", record, field, index),
             Variant(constr, payload) => write!(f, "{}{}", constr, in_parens_if_some(payload)),
             Match(scrut, branches) => write!(
                 f,

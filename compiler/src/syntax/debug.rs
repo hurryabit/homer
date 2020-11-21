@@ -93,6 +93,21 @@ impl Debug for ExprVar {
     }
 }
 
+impl Debug for (ExprVar, u32) {
+    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+        writer.leaf(&format!("{}/{}", self.0.as_str(), self.1))
+    }
+}
+
+impl Debug for (ExprVar, Option<u32>) {
+    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+        match self.1 {
+            None => self.0.write(writer),
+            Some(n) => (self.0, n).write(writer),
+        }
+    }
+}
+
 impl Debug for ExprCon {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
         writer.leaf(self.as_str())
@@ -141,9 +156,9 @@ impl Debug for Expr {
             Record(fields) => writer.node("RECORD", |writer| {
                 writer.children_pair("field", "value", fields)
             }),
-            Proj(record, field) => writer.node("PROJ", |writer| {
+            Proj(record, field, index) => writer.node("PROJ", |writer| {
                 writer.child("record", record)?;
-                writer.child("field", field)
+                writer.child("field", &field.map(|f| (f, *index)))
             }),
             Variant(constr, opt_payload) => writer.node("VARIANT", |writer| {
                 writer.child("constr", constr)?;

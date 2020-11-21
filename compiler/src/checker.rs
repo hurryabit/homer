@@ -348,7 +348,7 @@ impl Expr {
             | Self::BinOp(_, _, _)
             | Self::FuncInst(_, _)
             | Self::Record(_)
-            | Self::Proj(_, _) => {
+            | Self::Proj(_, _, _) => {
                 let found = self.infer(span, env)?;
                 if found.equiv(expected, &env.type_defs) {
                     Ok(())
@@ -504,13 +504,14 @@ impl Expr {
                     .collect::<Result<_, _>>()?;
                 Ok(RcType::new(Type::Record(fields)))
             }
-            Self::Proj(record, field) => {
+            Self::Proj(record, field, index) => {
                 let record_type = record.infer(env)?;
                 let field = field.locatee;
                 match record_type.weak_normalize_env(env).as_ref() {
                     Type::Record(fields) => {
-                        if let Some(field_typ) = find_by_key(&fields, &field) {
-                            Ok(field_typ.clone())
+                        if let Some(field_index) = fields.iter().position(|x| x.0 == field) {
+                            *index = Some(field_index as u32);
+                            Ok(fields[field_index].1.clone())
                         } else {
                             Err(Located::new(
                                 Error::BadRecordProj { record_type, field },

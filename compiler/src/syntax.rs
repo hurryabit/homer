@@ -65,7 +65,7 @@ pub enum Expr {
     Let(LExprVar, Option<LType>, Box<LExpr>, Box<LExpr>),
     If(Box<LExpr>, Box<LExpr>, Box<LExpr>),
     Record(Vec<(LExprVar, LExpr)>),
-    Proj(Box<LExpr>, LExprVar),
+    Proj(Box<LExpr>, LExprVar, Option<u32>),
     Variant(ExprCon, Option<Box<LExpr>>),
     Match(Box<LExpr>, Vec<Branch>),
 }

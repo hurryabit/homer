@@ -118,7 +118,7 @@ impl Expr {
                         yield_!(expr);
                     }
                 }
-                Proj(record, _field) => {
+                Proj(record, _field, _index) => {
                     yield_!(record);
                 }
                 Variant(_constr, opt_payload) => {

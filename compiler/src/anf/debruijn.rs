@@ -73,12 +73,12 @@ impl Bindee {
                 then.index(env);
                 elze.index(env);
             }
-            Record(fields) => {
-                for (_field, value) in fields {
+            Record(_fields, values) => {
+                for value in values {
                     value.index(env);
                 }
             }
-            Project(record, _field) => {
+            Project(record, _index, _field) => {
                 record.index(env);
             }
             Variant(_constr, payload) => {
