@@ -14,11 +14,10 @@ fn check_output(input: &str) -> Module {
     assert!(diagnostics.is_empty());
     let module = result.unwrap();
     match module.check(&humanizer) {
-        Err(diagnostic) =>
-            panic!(
-                "Expected module to type check but got error\n{:?}: {}",
-                diagnostic.span, diagnostic.message
-            ),
+        Err(diagnostic) => panic!(
+            "Expected module to type check but got error\n{:?}: {}",
+            diagnostic.span, diagnostic.message
+        ),
         Ok(module) => module,
     }
 }
@@ -28,9 +27,7 @@ fn check_output_type(name: &str, input: &str) -> Type {
         .decls
         .into_iter()
         .find_map(|decl| match decl {
-            Decl::Type(decl) if decl.name.locatee.as_str() == name => {
-                Some(decl.body.locatee)
-            }
+            Decl::Type(decl) if decl.name.locatee.as_str() == name => Some(decl.body.locatee),
             _ => None,
         })
         .unwrap()

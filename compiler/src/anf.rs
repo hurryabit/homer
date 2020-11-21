@@ -90,19 +90,10 @@ impl syntax::Module {
 
 impl syntax::FuncDecl {
     fn to_anf(&self) -> FuncDecl {
-        let Self {
-            name,
-            type_params: _,
-            expr_params,
-            return_type: _,
-            body,
-        } = self;
+        let Self { name, type_params: _, expr_params, return_type: _, body } = self;
         let name = name.locatee;
         let env = &mut Env::default();
-        let params: Vec<_> = expr_params
-            .iter()
-            .map(|(param, _)| env.intro_binder(param))
-            .collect();
+        let params: Vec<_> = expr_params.iter().map(|(param, _)| env.intro_binder(param)).collect();
         let (body, _fvs) = Expr::from_syntax(env, body);
         let mut decl = FuncDecl { name, params, body };
         decl.index();
@@ -137,30 +128,19 @@ impl Bindee {
             syntax::Expr::Lam(params, body) => {
                 let (params, body, fvs) = {
                     let env = &mut env.clone();
-                    let params: Vec<_> = params
-                        .iter()
-                        .map(|(param, _)| env.intro_binder(param))
-                        .collect();
+                    let params: Vec<_> =
+                        params.iter().map(|(param, _)| env.intro_binder(param)).collect();
                     let (body, fvs) = Expr::from_syntax(env, body);
                     let fvs = params.iter().fold(fvs, |fvs, param| fvs.without(param));
                     (params, Box::new(body), fvs)
                 };
                 let mut captured: Vec<_> = fvs.iter().map(|x| IdxVar(0, *x)).collect();
                 captured.sort_by_cached_key(|IdxVar(_, x)| env.get_index(x));
-                (
-                    Self::MakeClosure(MakeClosure {
-                        captured,
-                        params,
-                        body,
-                    }),
-                    fvs,
-                )
+                (Self::MakeClosure(MakeClosure { captured, params, body }), fvs)
             }
             syntax::Expr::App(fun, args) => {
-                let (args, fvss): (_, Vec<_>) = args
-                    .iter()
-                    .map(|arg| Atom::from_syntax(env, arg, bindings))
-                    .unzip();
+                let (args, fvss): (_, Vec<_>) =
+                    args.iter().map(|arg| Atom::from_syntax(env, arg, bindings)).unzip();
                 let fvs = FreeVars::unions(fvss);
                 if let syntax::Expr::FuncInst(func, _) = &fun.locatee {
                     (Self::AppFunc(func.locatee, args), fvs)
@@ -208,11 +188,8 @@ impl Bindee {
                 (Self::Project(record, index, field.locatee), fvs)
             }
             syntax::Expr::Variant(constr, rank, None) => {
-                let variant = Self::Variant(
-                    rank.expect("Variant constructor without rank"),
-                    *constr,
-                    None,
-                );
+                let variant =
+                    Self::Variant(rank.expect("Variant constructor without rank"), *constr, None);
                 (variant, ordset![])
             }
             syntax::Expr::Variant(constr, rank, Some(payload)) => {
@@ -230,10 +207,7 @@ impl Bindee {
                     .iter()
                     .map(|branch| Branch::from_syntax(&mut env.clone(), branch))
                     .unzip();
-                (
-                    Self::Match(scrut, branches),
-                    fvs0.union(FreeVars::unions(fvss)),
-                )
+                (Self::Match(scrut, branches), fvs0.union(FreeVars::unions(fvss)))
             }
         }
     }
@@ -241,18 +215,10 @@ impl Bindee {
 
 impl Pattern {
     fn from_syntax(env: &mut Env, pattern: &syntax::LPattern) -> Self {
-        let syntax::Pattern {
-            constr,
-            rank,
-            binder,
-        } = pattern.locatee;
+        let syntax::Pattern { constr, rank, binder } = pattern.locatee;
         let rank = rank.expect("Variant pattern without rank");
         let binder = binder.as_ref().map(|binder| env.intro_binder(binder));
-        Self {
-            rank,
-            constr,
-            binder,
-        }
+        Self { rank, constr, binder }
     }
 }
 
@@ -424,11 +390,7 @@ impl Debug for Atom {
 
 impl Debug for MakeClosure {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        let MakeClosure {
-            captured,
-            params,
-            body,
-        } = self;
+        let MakeClosure { captured, params, body } = self;
         writer.node("MAKE_CLOSURE", |writer| {
             writer.children("captured", captured.iter().map(|idx| idx.to_string()))?;
             writer.children("param", params)?;
@@ -449,11 +411,7 @@ impl Debug for Branch {
 
 impl Debug for Pattern {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        let Self {
-            rank,
-            constr,
-            binder,
-        } = self;
+        let Self { rank, constr, binder } = self;
         writer.node("PATTERN", |writer| {
             writer.child("constr", &(*constr, *rank))?;
             writer.child_if_some("binder", binder)
@@ -506,11 +464,7 @@ impl fmt::Display for Bindee {
                 "match {} {{ {}, }}",
                 scrut,
                 ", ".join(branches.iter().map(|branch| {
-                    let Pattern {
-                        rank,
-                        constr,
-                        binder,
-                    } = branch.pattern;
+                    let Pattern { rank, constr, binder } = branch.pattern;
                     lazy_format!("{}/{}{} => ...", constr, rank, in_parens_if_some(&binder))
                 }))
             ),
@@ -532,11 +486,7 @@ impl fmt::Display for Atom {
 
 impl fmt::Display for MakeClosure {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let MakeClosure {
-            captured,
-            params,
-            body: _,
-        } = self;
+        let MakeClosure { captured, params, body: _ } = self;
         write!(f, "[{}; {}; ...]", ", ".join(captured), ", ".join(params))
     }
 }

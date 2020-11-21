@@ -20,14 +20,8 @@ impl Humanizer {
     }
 
     pub fn run(&self, loc: ParserLoc) -> HumanLoc {
-        let line = self
-            .line_starts
-            .binary_search(&loc)
-            .unwrap_or_else(|x| x - 1);
-        HumanLoc {
-            line: line as u32,
-            column: loc.0 - self.line_starts[line].0,
-        }
+        let line = self.line_starts.binary_search(&loc).unwrap_or_else(|x| x - 1);
+        HumanLoc { line: line as u32, column: loc.0 - self.line_starts[line].0 }
     }
 }
 
@@ -49,10 +43,8 @@ mod tests {
         ];
         for (input, expected_line_starts) in cases {
             let humanizer = Humanizer::new(input);
-            let expected_line_starts = expected_line_starts
-                .into_iter()
-                .map(ParserLoc)
-                .collect::<Vec<_>>();
+            let expected_line_starts =
+                expected_line_starts.into_iter().map(ParserLoc).collect::<Vec<_>>();
             assert_eq!(humanizer.line_starts, expected_line_starts);
         }
     }

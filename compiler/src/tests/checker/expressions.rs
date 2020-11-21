@@ -23,68 +23,84 @@ use super::*;
 
 #[test]
 fn rule_check_infer() {
-    check_success(r#"
-    fn f() -> Int { 0 }
-    "#);
+    check_success(
+        r#"
+        fn f() -> Int { 0 }
+        "#,
+    );
 }
 
 #[test]
 fn rule_check_infer_expected_syn() {
-    check_success(r#"
-    type A = Int
-    fn f() -> A { 0 }
-    "#);
+    check_success(
+        r#"
+        type A = Int
+        fn f() -> A { 0 }
+        "#,
+    );
 }
 
 #[test]
 fn rule_check_infer_found_syn() {
-    check_success(r#"
-    type A = Int
-    fn f(x: A) -> Int { x }
-    "#);
+    check_success(
+        r#"
+        type A = Int
+        fn f(x: A) -> Int { x }
+        "#,
+    );
 }
 
 #[test]
 fn rule_check_infer_both_same_syn() {
-    check_success(r#"
-    type A = Int
-    fn f(x: A) -> A { x }
-    "#);
+    check_success(
+        r#"
+        type A = Int
+        fn f(x: A) -> A { x }
+        "#,
+    );
 }
 
 #[test]
 fn rule_check_infer_both_same_diverging_syn() {
-    check_success(r#"
-    type A = A
-    fn f(x: A) -> A { x }
-    "#);
+    check_success(
+        r#"
+        type A = A
+        fn f(x: A) -> A { x }
+        "#,
+    );
 }
 
 #[test]
 fn rule_check_infer_different_syns() {
-    check_success(r#"
-    type A = Int
-    type B = Int
-    fn f(x: A) -> B { x }
-    "#);
+    check_success(
+        r#"
+        type A = Int
+        type B = Int
+        fn f(x: A) -> B { x }
+        "#,
+    );
 }
 
 #[test]
 fn rule_check_infer_expected_double_syn() {
-    check_success(r#"
-    type A = Int
-    type B = A
-    fn f(x: Int) -> B { x }
-    "#);
+    check_success(
+        r#"
+        type A = Int
+        type B = A
+        fn f(x: Int) -> B { x }
+        "#,
+    );
 }
 
 #[test]
 fn rule_check_infer_found_double_syn() {
-    check_success(r#"
-    type A = Int
-    type B = A
-    fn f(x: B) -> Int { x }
-    "#);
+    check_success(
+        r#"
+        type A = Int
+        type B = A
+        fn f(x: B) -> Int { x }
+        "#,
+    );
 }
 
 #[test]
@@ -100,12 +116,14 @@ fn rule_check_infer_mismatch() {
 
 #[test]
 fn rule_var() {
-    check_success(r#"
-    fn f(x: Int) -> Int {
-        let y = x;
-        y
-    }
-    "#);
+    check_success(
+        r#"
+        fn f(x: Int) -> Int {
+            let y = x;
+            y
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -136,72 +154,86 @@ fn rule_var_unknown_as_func() {
 
 #[test]
 fn rule_lit_int_0() {
-    check_success(r#"
-    fn f() -> Int {
-        let x = 0;
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> Int {
+            let x = 0;
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_lit_int_1() {
-    check_success(r#"
-    fn f() -> Int {
-        let x = 1;
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> Int {
+            let x = 1;
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_lit_bool_true() {
-    check_success(r#"
-    fn f() -> Bool {
-        let x = true;
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> Bool {
+            let x = true;
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_lit_bool_false() {
-    check_success(r#"
-    fn f() -> Bool {
-        let x = false;
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> Bool {
+            let x = false;
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_lam_infer_0() {
-    check_success(r#"
-    fn f() -> () -> Int {
-        let f = fn () { 1 };
-        f
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> () -> Int {
+            let f = fn () { 1 };
+            f
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_lam_infer_1() {
-    check_success(r#"
-    fn f() -> (Int) -> Int {
-        let f = fn (x: Int) { x };
-        f
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> (Int) -> Int {
+            let f = fn (x: Int) { x };
+            f
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_lam_infer_2() {
-    check_success(r#"
-    fn f<A>() -> (A, A) -> Bool {
-        let f = fn (x: A, y: A) { x == y };
-        f
-    }
-    "#);
+    check_success(
+        r#"
+        fn f<A>() -> (A, A) -> Bool {
+            let f = fn (x: A, y: A) { x == y };
+            f
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -270,39 +302,47 @@ fn rule_lam_infer_not_inferrable() {
 
 #[test]
 fn rule_lam_check_0() {
-    check_success(r#"
+    check_success(
+        r#"
     fn f() -> () -> Int {
         fn () { 1 }
     }
-    "#);
+    "#,
+    );
 }
 
 #[test]
 fn rule_lam_check_1() {
-    check_success(r#"
-    fn f() -> (Int) -> Int {
-        fn (x) { x }
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> (Int) -> Int {
+            fn (x) { x }
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_lam_check_2() {
-    check_success(r#"
-    fn f<A>() -> (A, A) -> A {
-        fn (x: A, y) { x }
-    }
-    "#);
+    check_success(
+        r#"
+        fn f<A>() -> (A, A) -> A {
+            fn (x: A, y) { x }
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_lam_check_syn() {
-    check_success(r#"
-    type F = (Int) -> Int
-    fn f() -> F {
-        fn (x) { x }
-    }
-    "#);
+    check_success(
+        r#"
+        type F = (Int) -> Int
+        fn f() -> F {
+            fn (x) { x }
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -438,24 +478,28 @@ fn rule_lam_check_illformed_type_ann() {
 
 #[test]
 fn rule_func_inst_1() {
-    check_success(r#"
-    fn g<A>(x: A) -> A { x }
-    fn f() -> Int {
-        let x = g@<Int>(0);
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn g<A>(x: A) -> A { x }
+        fn f() -> Int {
+            let x = g@<Int>(0);
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_func_inst_2() {
-    check_success(r#"
-    fn g<A>(x: A, y: A) -> Bool { x == y }
-    fn f<B>(b: B) -> Bool {
-        let x = g@<B>(b, b);
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn g<A>(x: A, y: A) -> Bool { x == y }
+        fn f<B>(b: B) -> Bool {
+            let x = g@<B>(b, b);
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -655,68 +699,80 @@ fn rule_func_inst_illformed_type_arg() {
 
 #[test]
 fn rule_app_func_0() {
-    check_success(r#"
-    fn f() -> Int { 0 }
-    fn g() -> Int {
-        let x = f();
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> Int { 0 }
+        fn g() -> Int {
+            let x = f();
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_app_func_1() {
-    check_success(r#"
-    fn f(x: Int) -> Int { x }
-    fn g() -> Int {
-        let x = f(1);
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn f(x: Int) -> Int { x }
+        fn g() -> Int {
+            let x = f(1);
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_app_func_2() {
-    check_success(r#"
-    fn f(x: Int, y: Int) -> Int { x + y }
-    fn g() -> Int {
-        let x = f(1, 2);
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn f(x: Int, y: Int) -> Int { x + y }
+        fn g() -> Int {
+            let x = f(1, 2);
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_app_func_poly() {
-    check_success(r#"
-    fn f<A>(x: A) -> A { x }
-    fn g() -> Int {
-        let x = f@<Int>(1);
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn f<A>(x: A) -> A { x }
+        fn g() -> Int {
+            let x = f@<Int>(1);
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_app_var() {
-    check_success(r#"
-    fn g() -> Int {
-        let f = fn (x: Int) { x };
-        let x = f(1);
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn g() -> Int {
+            let f = fn (x: Int) { x };
+            let x = f(1);
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_app_syn() {
-    check_success(r#"
-    type F = (Int) -> Int
-    fn g(f: F) -> Int {
-        let x = f(1);
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        type F = (Int) -> Int
+        fn g(f: F) -> Int {
+            let x = f(1);
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -818,12 +874,14 @@ fn rule_app_var_mismatch_arg2() {
 
 #[test]
 fn rule_binop_arith() {
-    check_success(r#"
-    fn f() -> Int {
-        let x = 1 + 1;
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> Int {
+            let x = 1 + 1;
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -854,12 +912,14 @@ fn rule_binop_arith_mismatch_rhs() {
 
 #[test]
 fn rule_binop_cmp() {
-    check_success(r#"
-    fn f() -> Bool {
-        let x = 1 == 1;
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> Bool {
+            let x = 1 == 1;
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -890,15 +950,17 @@ fn rule_binop_cmp_mismatch() {
 
 #[test]
 fn rule_let_infer_infer() {
-    check_success(r#"
-    fn f() -> Int {
-        let x = {
-            let y = 1;
-            y
-        };
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> Int {
+            let x = {
+                let y = 1;
+                y
+            };
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -937,28 +999,32 @@ fn rule_let_infer_infer_tail_not_inferrable() {
 
 #[test]
 fn rule_let_check_infer() {
-    check_success(r#"
-    fn f() -> Int {
-        let x = {
-            let y: [CheckMe] = CheckMe;
-            0
-        };
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> Int {
+            let x = {
+                let y: [CheckMe] = CheckMe;
+                0
+            };
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_let_check_infer_poly() {
-    check_success(r#"
-    fn f<A>(a: A) -> Int {
-        let x = {
-            let y: A = a;
-            0
-        };
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn f<A>(a: A) -> Int {
+            let x = {
+                let y: A = a;
+                0
+            };
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -1032,12 +1098,14 @@ fn rule_let_check_infer_illformed_type_ann() {
 
 #[test]
 fn rule_let_infer_check() {
-    check_success(r#"
-    fn f() -> [CheckMe] {
-        let x = 0;
-        CheckMe
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> [CheckMe] {
+            let x = 0;
+            CheckMe
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -1070,12 +1138,14 @@ fn rule_let_infer_check_mismatch_tail() {
 
 #[test]
 fn rule_let_check_check() {
-    check_success(r#"
-    fn f() -> [CheckMe1] {
-        let x: [CheckMe2] = CheckMe2;
-        CheckMe1
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> [CheckMe1] {
+            let x: [CheckMe2] = CheckMe2;
+            CheckMe1
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -1137,17 +1207,19 @@ fn rule_let_check_check_illformed_type_ann() {
 
 #[test]
 fn rule_if_infer() {
-    check_success(r#"
-    fn check_me() -> [CheckMe] { CheckMe }
-    fn f() -> [CheckMe] {
-        let x = if true {
-            check_me()
-        } else {
-            CheckMe
-        };
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn check_me() -> [CheckMe] { CheckMe }
+        fn f() -> [CheckMe] {
+            let x = if true {
+                check_me()
+            } else {
+                CheckMe
+            };
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -1194,15 +1266,17 @@ fn rule_if_infer_else_mismatch() {
 
 #[test]
 fn rule_if_check() {
-    check_success(r#"
-    fn f() -> [CheckMe] {
-        if true {
-            CheckMe
-        } else {
-            CheckMe
+    check_success(
+        r#"
+        fn f() -> [CheckMe] {
+            if true {
+                CheckMe
+            } else {
+                CheckMe
+            }
         }
-    }
-    "#);
+        "#,
+    );
 }
 
 #[test]
@@ -1246,12 +1320,14 @@ fn rule_if_check_else_bad() {
 
 #[test]
 fn rule_record_infer() {
-    check_success(r#"
-    fn f() -> {a: Int, b: Bool} {
-        let x = {a = 0, b = true};
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> {a: Int, b: Bool} {
+            let x = {a = 0, b = true};
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -1284,28 +1360,32 @@ fn rule_record_infer_field_2_not_inferrable() {
 
 #[test]
 fn rule_proj() {
-    check_success(r#"
-    fn f() -> Int {
-        let x = {
-            let r = {a = 0, b = true};
-            r.a
-        };
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> Int {
+            let x = {
+                let r = {a = 0, b = true};
+                r.a
+            };
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_proj_syn() {
-    check_success(r#"
-    type R = {a: Int, b: Bool}
-    fn f(r: R) -> Int {
-        let x = {
-            r.a
-        };
-        x
-    }
-    "#);
+    check_success(
+        r#"
+        type R = {a: Int, b: Bool}
+        fn f(r: R) -> Int {
+            let x = {
+                r.a
+            };
+            x
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -1361,30 +1441,36 @@ fn rule_proj_bad_field() {
 
 #[test]
 fn rule_variant_without_payload_1() {
-    check_success(r#"
-    fn f() -> [CheckMe] {
-        CheckMe
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> [CheckMe] {
+            CheckMe
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_variant_without_payload_2() {
-    check_success(r#"
-    fn f() -> [IgnoreMe | CheckMe] {
-        CheckMe
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> [IgnoreMe | CheckMe] {
+            CheckMe
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_variant_without_payload_syn() {
-    check_success(r#"
-    type T = [CheckMe]
-    fn f() -> T {
-        CheckMe
-    }
-    "#);
+    check_success(
+        r#"
+        type T = [CheckMe]
+        fn f() -> T {
+            CheckMe
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -1459,30 +1545,36 @@ fn rule_variant_without_payload_constructor_with_payload() {
 
 #[test]
 fn rule_variant_with_payload_1() {
-    check_success(r#"
-    fn f() -> [CheckMe((Int) -> Int)] {
-        CheckMe(fn (x) { x })
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> [CheckMe((Int) -> Int)] {
+            CheckMe(fn (x) { x })
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_variant_with_payload_2() {
-    check_success(r#"
-    fn f() -> [IgnoreMe | CheckMe([CheckMeToo])] {
-        CheckMe(CheckMeToo)
-    }
-    "#);
+    check_success(
+        r#"
+        fn f() -> [IgnoreMe | CheckMe([CheckMeToo])] {
+            CheckMe(CheckMeToo)
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_variant_with_payload_syn() {
-    check_success(r#"
-    type T = [CheckMe(Int)]
-    fn f() -> T {
-        CheckMe(0)
-    }
-    "#);
+    check_success(
+        r#"
+        type T = [CheckMe(Int)]
+        fn f() -> T {
+            CheckMe(0)
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -1553,75 +1645,85 @@ fn rule_variant_with_payload_mismatch() {
 
 #[test]
 fn rule_match_infer_without_without_payload() {
-    check_success(r#"
-    fn check_me() -> [CheckMe] { CheckMe }
-    fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
-        let r = match x {
-            A => check_me(),
-            B => CheckMe,
-        };
-        r
-    }
-    "#);
+    check_success(
+        r#"
+        fn check_me() -> [CheckMe] { CheckMe }
+        fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
+            let r = match x {
+                A => check_me(),
+                B => CheckMe,
+            };
+            r
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_match_infer_with_without_payload() {
-    check_success(r#"
-    fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
-        let r = match x {
-            C(y) => y,
-            B => CheckMe,
-        };
-        r
-    }
-    "#);
+    check_success(
+        r#"
+        fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
+            let r = match x {
+                C(y) => y,
+                B => CheckMe,
+            };
+            r
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_match_infer_without_with_payload() {
-    check_success(r#"
-    fn check_me() -> [CheckMe] { CheckMe }
-    fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
-        let r = match x {
-            A => check_me(),
-            C(y) => {
-                let u: [CheckMe] = y;
-                CheckMe
-            }
-        };
-        r
-    }
-    "#);
+    check_success(
+        r#"
+        fn check_me() -> [CheckMe] { CheckMe }
+        fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
+            let r = match x {
+                A => check_me(),
+                C(y) => {
+                    let u: [CheckMe] = y;
+                    CheckMe
+                }
+            };
+            r
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_match_infer_with_with_payload() {
-    check_success(r#"
-    fn f(x: [A | B([CheckMe]) | C([CheckMe])]) -> [CheckMe] {
-        let r = match x {
-            B(y) => y,
-            C(z) => {
-                let u: [CheckMe] = z;
-                CheckMe
-            }
-        };
-        r
-    }
-    "#);
+    check_success(
+        r#"
+        fn f(x: [A | B([CheckMe]) | C([CheckMe])]) -> [CheckMe] {
+            let r = match x {
+                B(y) => y,
+                C(z) => {
+                    let u: [CheckMe] = z;
+                    CheckMe
+                }
+            };
+            r
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_match_infer_syn() {
-    check_success(r#"
-    type A = [InferMe]
-    fn f(x: A) -> Int {
-        let r = match x {
-            InferMe => 0,
-        };
-        r
-    }
-    "#);
+    check_success(
+        r#"
+        type A = [InferMe]
+        fn f(x: A) -> Int {
+            let r = match x {
+                InferMe => 0,
+            };
+            r
+        }
+        "#,
+    );
 }
 
 #[test]
@@ -1829,64 +1931,74 @@ fn rule_match_infer_unknown_constructor_after_mismatch() {
 
 #[test]
 fn rule_match_check_without_without_payload() {
-    check_success(r#"
-    fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
-        match x {
-            A => CheckMe,
-            B => CheckMe,
+    check_success(
+        r#"
+        fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
+            match x {
+                A => CheckMe,
+                B => CheckMe,
+            }
         }
-    }
-    "#);
+        "#,
+    );
 }
 
 #[test]
 fn rule_match_check_with_without_payload() {
-    check_success(r#"
-    fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
-        match x {
-            C(y) => y,
-            B => CheckMe,
+    check_success(
+        r#"
+        fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
+            match x {
+                C(y) => y,
+                B => CheckMe,
+            }
         }
-    }
-    "#);
+        "#,
+    );
 }
 
 #[test]
 fn rule_match_check_without_with_payload() {
-    check_success(r#"
-    fn check_me() -> [CheckMe] { CheckMe }
-    fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
-        match x {
-            A => CheckMe,
-            C(y) => y,
+    check_success(
+        r#"
+        fn check_me() -> [CheckMe] { CheckMe }
+        fn f(x: [A | B | C([CheckMe])]) -> [CheckMe] {
+            match x {
+                A => CheckMe,
+                C(y) => y,
+            }
         }
-    }
-    "#);
+        "#,
+    );
 }
 
 #[test]
 fn rule_match_check_with_with_payload() {
-    check_success(r#"
-    fn f(x: [A | B([CheckMe]) | C([CheckMe])]) -> [CheckMe] {
-        let r = match x {
-            B(y) => y,
-            C(z) => z,
-        };
-        r
-    }
-    "#);
+    check_success(
+        r#"
+        fn f(x: [A | B([CheckMe]) | C([CheckMe])]) -> [CheckMe] {
+            let r = match x {
+                B(y) => y,
+                C(z) => z,
+            };
+            r
+        }
+        "#,
+    );
 }
 
 #[test]
 fn rule_match_check_syn() {
-    check_success(r#"
-    type A = [InferMe]
-    fn f(x: A) -> Int {
-        match x {
-            InferMe => 0,
+    check_success(
+        r#"
+        type A = [InferMe]
+        fn f(x: A) -> Int {
+            match x {
+                InferMe => 0,
+            }
         }
-    }
-    "#);
+        "#,
+    );
 }
 
 #[test]

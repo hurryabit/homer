@@ -63,9 +63,7 @@ fn checked_module(db: &dyn Compiler, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<
 }
 
 fn anf_module(db: &dyn Compiler, uri: Uri) -> Option<Arc<anf::Module>> {
-    db.checked_module(uri)
-        .0
-        .map(|checked_module| Arc::new(checked_module.to_anf()))
+    db.checked_module(uri).0.map(|checked_module| Arc::new(checked_module.to_anf()))
 }
 
 #[salsa::database(CompilerStorage)]
@@ -80,9 +78,7 @@ impl CompilerDB {
     pub fn new() -> Self {
         // NOTE(MH): We force the initialization of the interner to avoid races.
         crate::INTERNER.len();
-        Self {
-            storage: salsa::Storage::default(),
-        }
+        Self { storage: salsa::Storage::default() }
     }
 
     pub fn set_input(&mut self, uri: Uri, input: Arc<String>) {

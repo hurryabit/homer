@@ -28,20 +28,16 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     let (connection, io_threads) = Connection::stdio();
 
     // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
-    let text_document_sync = Some(TextDocumentSyncCapability::Options(
-        TextDocumentSyncOptions {
-            open_close: Some(true),
-            change: Some(TextDocumentSyncKind::Full),
-            save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
-                include_text: Some(true),
-            })),
-            ..TextDocumentSyncOptions::default()
-        },
-    ));
-    let server_capabilities = ServerCapabilities {
-        text_document_sync,
-        ..ServerCapabilities::default()
-    };
+    let text_document_sync = Some(TextDocumentSyncCapability::Options(TextDocumentSyncOptions {
+        open_close: Some(true),
+        change: Some(TextDocumentSyncKind::Full),
+        save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
+            include_text: Some(true),
+        })),
+        ..TextDocumentSyncOptions::default()
+    }));
+    let server_capabilities =
+        ServerCapabilities { text_document_sync, ..ServerCapabilities::default() };
     let initialization_params =
         connection.initialize(serde_json::to_value(server_capabilities).unwrap())?;
     let db = &mut build::CompilerDB::new();
@@ -73,11 +69,7 @@ fn main_loop(
                     info!("got gotoDefinition request #{}: {:?}", id, params);
                     let result = Some(GotoDefinitionResponse::Array(Vec::new()));
                     let result = serde_json::to_value(&result).unwrap();
-                    let resp = Response {
-                        id,
-                        result: Some(result),
-                        error: None,
-                    };
+                    let resp = Response { id, result: Some(result), error: None };
                     connection.sender.send(Message::Response(resp))?;
                     continue;
                 }
@@ -138,16 +130,10 @@ fn validate_document(
     }
 
     let diagnostics: Vec<_> = db.with_diagnostics(uri, |diagnostics| {
-        diagnostics
-            .map(homer_compiler::diagnostic::Diagnostic::to_lsp)
-            .collect()
+        diagnostics.map(homer_compiler::diagnostic::Diagnostic::to_lsp).collect()
     });
     info!("Sending {} diagnostics", diagnostics.len());
-    let params = PublishDiagnosticsParams {
-        uri: lsp_uri,
-        diagnostics,
-        version: None,
-    };
+    let params = PublishDiagnosticsParams { uri: lsp_uri, diagnostics, version: None };
     let not = lsp_server::Notification::new(
         PublishDiagnostics::METHOD.to_string(),
         serde_json::to_value(params).unwrap(),

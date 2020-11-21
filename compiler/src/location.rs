@@ -51,10 +51,7 @@ impl<Loc> Span<Loc> {
 impl Span<ParserLoc> {
     pub fn humanize(self, humanizer: &Humanizer) -> Span<HumanLoc> {
         let Self { start, end } = self;
-        Span {
-            start: start.humanize(humanizer),
-            end: end.humanize(humanizer),
-        }
+        Span { start: start.humanize(humanizer), end: end.humanize(humanizer) }
     }
 }
 
@@ -70,10 +67,7 @@ impl<T, Loc> Located<T, Loc> {
 
 impl<T, Loc: Copy> Located<T, Loc> {
     pub fn as_ref(&self) -> Located<&T, Loc> {
-        Located {
-            locatee: &self.locatee,
-            span: self.span,
-        }
+        Located { locatee: &self.locatee, span: self.span }
     }
 }
 
@@ -87,10 +81,7 @@ impl<T, Loc: Default> Located<T, Loc> {
 
 impl<Pos> Span<Pos> {
     pub fn map<Pos2, F: Fn(Pos) -> Pos2>(self, f: F) -> Span<Pos2> {
-        Span {
-            start: f(self.start),
-            end: f(self.end),
-        }
+        Span { start: f(self.start), end: f(self.end) }
     }
 }
 

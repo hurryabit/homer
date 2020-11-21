@@ -10,10 +10,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let address = match std::env::var(ADDRESS_VAR) {
         Ok(val) => val,
         Err(VarError::NotPresent) => String::from("../examples/bench.doh:main"),
-        Err(VarError::NotUnicode(_)) => panic!(
-            "Environment variable {} contains non-unicode characters.",
-            ADDRESS_VAR,
-        ),
+        Err(VarError::NotUnicode(_)) => {
+            panic!("Environment variable {} contains non-unicode characters.", ADDRESS_VAR)
+        }
     };
     let address_parts: Vec<&str> = address.split(':').collect();
     if address_parts.len() != 2 {

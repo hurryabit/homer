@@ -33,13 +33,7 @@ impl Debug for TypeDecl {
 
 impl Debug for FuncDecl {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        let Self {
-            name,
-            type_params,
-            expr_params,
-            return_type,
-            body,
-        } = self;
+        let Self { name, type_params, expr_params, return_type, body } = self;
         writer.node("FUNCDECL", |writer| {
             writer.child("name", name)?;
             writer.children("type_param", type_params)?;
@@ -71,9 +65,9 @@ impl Debug for Type {
                 writer.children("param", params)?;
                 writer.child("result", result)
             }),
-            Self::Record(fields) => writer.node("RECORD", |writer| {
-                writer.children_pair("field", "type", fields)
-            }),
+            Self::Record(fields) => {
+                writer.node("RECORD", |writer| writer.children_pair("field", "type", fields))
+            }
             Self::Variant(constrs) => writer.node("VARIANT", |writer| {
                 for (constr, opt_typ) in constrs {
                     writer.child("constr", constr)?;
@@ -165,9 +159,9 @@ impl Debug for Expr {
                 writer.child("then", then)?;
                 writer.child("else", elze)
             }),
-            Self::Record(fields) => writer.node("RECORD", |writer| {
-                writer.children_pair("field", "value", fields)
-            }),
+            Self::Record(fields) => {
+                writer.node("RECORD", |writer| writer.children_pair("field", "value", fields))
+            }
             Self::Proj(record, field, index) => writer.node("PROJ", |writer| {
                 writer.child("record", record)?;
                 writer.child("field", &field.map(|f| (f, *index)))
@@ -197,11 +191,7 @@ impl Debug for Branch {
 
 impl Debug for Pattern {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        let Self {
-            constr,
-            rank,
-            binder,
-        } = self;
+        let Self { constr, rank, binder } = self;
         writer.node("PATTERN", |writer| {
             writer.child("constr", &(*constr, *rank))?;
             if let Some(binder) = binder {
@@ -274,11 +264,7 @@ impl<'a> DebugWriter<'a> {
     const INDENT_SIZE: usize = 4;
 
     pub fn new(writer: &'a mut dyn fmt::Write) -> Self {
-        Self {
-            writer,
-            indent_level: 0,
-            next_span: None,
-        }
+        Self { writer, indent_level: 0, next_span: None }
     }
 
     pub fn fmt(debug: &dyn Debug, writer: &'a mut dyn fmt::Write) -> fmt::Result {
@@ -346,8 +332,7 @@ impl<'a> DebugWriter<'a> {
     }
 
     fn indent(&mut self) -> fmt::Result {
-        self.writer
-            .write_str(&" ".repeat(Self::INDENT_SIZE * self.indent_level))
+        self.writer.write_str(&" ".repeat(Self::INDENT_SIZE * self.indent_level))
     }
 }
 

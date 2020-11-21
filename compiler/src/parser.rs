@@ -45,13 +45,8 @@ fn parse_error_to_diagnostic<'a>(
         ParseError::InvalidToken { location } | ParseError::UnrecognizedEOF { location, .. } => {
             Span::new(location, location)
         }
-        ParseError::UnrecognizedToken {
-            token: (start, _, end),
-            ..
-        }
-        | ParseError::ExtraToken {
-            token: (start, _, end),
-        } => Span::new(start, end),
+        ParseError::UnrecognizedToken { token: (start, _, end), .. }
+        | ParseError::ExtraToken { token: (start, _, end) } => Span::new(start, end),
         ParseError::User { .. } => Span::default(),
     };
     Diagnostic {

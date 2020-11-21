@@ -22,12 +22,7 @@ pub struct Diagnostic {
 
 impl Diagnostic {
     pub fn to_lsp(&self) -> lsp_types::Diagnostic {
-        let Self {
-            span,
-            severity,
-            source,
-            message,
-        } = self;
+        let Self { span, severity, source, message } = self;
         use lsp_types::*;
         lsp_types::Diagnostic {
             range: span.to_lsp(),
@@ -83,10 +78,7 @@ impl Diagnostic {
                 span.start.line + 1, // NOTE(MH): We're 0-base internal, and 1-based for users.
                 line,
                 " ".repeat((span.start.column + 6) as usize),
-                "~".repeat(std::cmp::max(
-                    (span.end.column - span.start.column) as usize,
-                    1,
-                )),
+                "~".repeat(std::cmp::max((span.end.column - span.start.column) as usize, 1,)),
                 message
             )
         } else {

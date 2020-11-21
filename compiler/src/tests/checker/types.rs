@@ -2,9 +2,11 @@ use super::*;
 
 #[test]
 fn rule_type_var() {
-    check_success(r#"
-    type T<A> = A
-    "#);
+    check_success(
+        r#"
+        type T<A> = A
+        "#,
+    );
 }
 
 #[test]
@@ -20,26 +22,32 @@ fn rule_type_var_unknown() {
 
 #[test]
 fn rule_type_synapp_0() {
-    check_success(r#"
-    type A = Int
-    type T = A
-    "#);
+    check_success(
+        r#"
+        type A = Int
+        type T = A
+        "#,
+    );
 }
 
 #[test]
 fn rule_type_synapp_1() {
-    check_success(r#"
-    type F<A> = A
-    type T = F<Int>
-    "#);
+    check_success(
+        r#"
+        type F<A> = A
+        type T = F<Int>
+        "#,
+    );
 }
 
 #[test]
 fn rule_type_synapp_2() {
-    check_success(r#"
-    type F<A, B> = {a: A, b: B}
-    type T<A> = F<A, Int>
-    "#);
+    check_success(
+        r#"
+        type F<A, B> = {a: A, b: B}
+        type T<A> = F<A, Int>
+        "#,
+    );
 }
 
 #[test]
@@ -128,38 +136,48 @@ fn rule_type_synapp_illformed_arg_2() {
 
 #[test]
 fn rule_type_int() {
-    check_success(r#"
-    type T = Int
-    "#);
+    check_success(
+        r#"
+        type T = Int
+        "#,
+    );
 }
 
 #[test]
 fn rule_type_bool() {
-    check_success(r#"
-    type T = Bool
-    "#);
+    check_success(
+        r#"
+        type T = Bool
+        "#,
+    );
 }
 
 #[test]
 fn rule_type_fun_0() {
-    check_success(r#"
-    type T = () -> Bool
-    "#);
+    check_success(
+        r#"
+        type T = () -> Bool
+        "#,
+    );
 }
 
 #[test]
 fn rule_type_fun_1() {
-    check_success(r#"
-    type T = (Int) -> Int
-    "#);
+    check_success(
+        r#"
+        type T = (Int) -> Int
+        "#,
+    );
 }
 
 #[test]
 fn rule_type_fun_2() {
-    check_success(r#"
-    type B = Int
-    type T<A> = (A, B) -> A
-    "#);
+    check_success(
+        r#"
+        type B = Int
+        type T<A> = (A, B) -> A
+        "#,
+    );
 }
 
 #[test]
@@ -200,28 +218,34 @@ fn rule_type_fun_illformed_result() {
 
 #[test]
 fn rule_type_record_0() {
-    check_success(r#"
-    type T = {}
-    "#);
+    check_success(
+        r#"
+        type T = {}
+        "#,
+    );
 }
 
 #[test]
 fn rule_type_record_1() {
-    check_success(r#"
-    type T<A> = {a: A}
-    "#);
+    check_success(
+        r#"
+        type T<A> = {a: A}
+        "#,
+    );
 }
 
 #[test]
 fn rule_type_record_2() {
-    check_success(r#"
-    type T = {y: Int, x: Int}
-    "#);
+    check_success(
+        r#"
+        type T = {y: Int, x: Int}
+        "#,
+    );
 }
 
 #[test]
 fn rule_type_record_illformed_1() {
-  insta::assert_snapshot!(check_error(r#"
+    insta::assert_snapshot!(check_error(r#"
   type F<A> = A
   type T = {f: F}
   "#), @r###"
@@ -233,7 +257,7 @@ fn rule_type_record_illformed_1() {
 
 #[test]
 fn rule_type_record_illformed_2() {
-  insta::assert_snapshot!(check_error(r#"
+    insta::assert_snapshot!(check_error(r#"
   type F<A> = A
   type T = {x: Int, f: F}
   "#), @r###"
@@ -268,44 +292,56 @@ fn rule_type_record_illformed_2() {
 
 #[test]
 fn rule_variant_with() {
-    check_success(r#"
-    type T<A> = [A(A)]
-    "#);
+    check_success(
+        r#"
+        type T<A> = [A(A)]
+        "#,
+    );
 }
 
 #[test]
 fn rule_variant_without() {
-  check_success(r#"
-  type T = [A]
-  "#);
+    check_success(
+        r#"
+        type T = [A]
+        "#,
+    );
 }
 
 #[test]
 fn rule_variant_with_with() {
-  check_success(r#"
-  type T<A, B> = [A(A) | B(B)]
-  "#);
+    check_success(
+        r#"
+        type T<A, B> = [A(A) | B(B)]
+        "#,
+    );
 }
 
 #[test]
 fn rule_variant_with_without() {
-  check_success(r#"
-  type T = [A(Int) | B]
-  "#);
+    check_success(
+        r#"
+        type T = [A(Int) | B]
+        "#,
+    );
 }
 
 #[test]
 fn rule_variant_without_with() {
-  check_success(r#"
-  type T = [C | D(Bool)]
-  "#);
+    check_success(
+        r#"
+        type T = [C | D(Bool)]
+        "#,
+    );
 }
 
 #[test]
 fn rule_variant_without_without() {
-  check_success(r#"
-  type T = [C | D]
-  "#);
+    check_success(
+        r#"
+        type T = [C | D]
+        "#,
+    );
 }
 
 // TODO(MH): The check is not yet implemented.
@@ -322,60 +358,60 @@ fn rule_variant_without_without() {
 
 #[test]
 fn rule_type_variant_illformed_with_1() {
-  insta::assert_snapshot!(check_error(r#"
-  type F<A> = A
-  type T = [A(F)]
-  "#), @r###"
-    3 |   type T = [A(F)]
-                      ~
-  Expected a type but found the generic type `F`.
-  "###);
+    insta::assert_snapshot!(check_error(r#"
+    type F<A> = A
+    type T = [A(F)]
+    "#), @r###"
+      3 |     type T = [A(F)]
+                          ~
+    Expected a type but found the generic type `F`.
+    "###);
 }
 
 #[test]
 fn rule_type_variant_illformed_with_with_1() {
-  insta::assert_snapshot!(check_error(r#"
-  type F<A> = A
-  type T = [A(F) | B(Int)]
-  "#), @r###"
-    3 |   type T = [A(F) | B(Int)]
-                      ~
-  Expected a type but found the generic type `F`.
-  "###);
+    insta::assert_snapshot!(check_error(r#"
+    type F<A> = A
+    type T = [A(F) | B(Int)]
+    "#), @r###"
+      3 |     type T = [A(F) | B(Int)]
+                          ~
+    Expected a type but found the generic type `F`.
+    "###);
 }
 
 #[test]
 fn rule_type_variant_illformed_with_without_1() {
-  insta::assert_snapshot!(check_error(r#"
-  type F<A> = A
-  type T = [A(F) | B]
-  "#), @r###"
-    3 |   type T = [A(F) | B]
-                      ~
-  Expected a type but found the generic type `F`.
-  "###);
+    insta::assert_snapshot!(check_error(r#"
+    type F<A> = A
+    type T = [A(F) | B]
+    "#), @r###"
+      3 |     type T = [A(F) | B]
+                          ~
+    Expected a type but found the generic type `F`.
+    "###);
 }
 
 #[test]
 fn rule_type_variant_illformed_without_with_2() {
-  insta::assert_snapshot!(check_error(r#"
-  type F<A> = A
-  type T = [B | A(F)]
-  "#), @r###"
-    3 |   type T = [B | A(F)]
-                          ~
-  Expected a type but found the generic type `F`.
-  "###);
+    insta::assert_snapshot!(check_error(r#"
+    type F<A> = A
+    type T = [B | A(F)]
+    "#), @r###"
+      3 |     type T = [B | A(F)]
+                              ~
+    Expected a type but found the generic type `F`.
+    "###);
 }
 
 #[test]
 fn rule_type_variant_illformed_with_with_2() {
-  insta::assert_snapshot!(check_error(r#"
-  type F<A> = A
-  type T = [A(Bool) | B(F)]
-  "#), @r###"
-    3 |   type T = [A(Bool) | B(F)]
-                                ~
-  Expected a type but found the generic type `F`.
-  "###);
+    insta::assert_snapshot!(check_error(r#"
+    type F<A> = A
+    type T = [A(Bool) | B(F)]
+    "#), @r###"
+      3 |     type T = [A(Bool) | B(F)]
+                                    ~
+    Expected a type but found the generic type `F`.
+    "###);
 }

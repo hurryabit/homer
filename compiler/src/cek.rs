@@ -48,16 +48,9 @@ pub struct Machine<'a> {
 
 impl<'a> Machine<'a> {
     pub fn new(module: &'a Module, main: ExprVar) -> Self {
-        let funcs: im::HashMap<_, _> = module
-            .func_decls
-            .iter()
-            .map(|decl| (decl.name, decl))
-            .collect();
-        let FuncDecl {
-            name: _,
-            params,
-            body,
-        } = funcs.get(&main).unwrap();
+        let funcs: im::HashMap<_, _> =
+            module.func_decls.iter().map(|decl| (decl.name, decl)).collect();
+        let FuncDecl { name: _, params, body } = funcs.get(&main).unwrap();
         assert!(params.is_empty());
         Self {
             ctrl: Ctrl::from_expr(body),
@@ -96,8 +89,7 @@ impl<'a> Machine<'a> {
         let head = match bindings.split_first() {
             Some((Binding { binder, bindee }, bindings)) => {
                 let stack_level = self.stack.len();
-                self.kont
-                    .push((stack_level, Kont::Let(*binder, bindings, tail)));
+                self.kont.push((stack_level, Kont::Let(*binder, bindings, tail)));
                 bindee
             }
             None => tail,
@@ -122,28 +114,15 @@ impl<'a> Machine<'a> {
     }
 
     fn step_make_closure(&self, closure: &'a MakeClosure) -> Ctrl<'a> {
-        let MakeClosure {
-            captured,
-            params,
-            body,
-        } = closure;
-        let env = captured
-            .iter()
-            .map(|index| (index.1, Rc::clone(self.get_index(index))))
-            .collect();
-        Ctrl::Value(Rc::new(Value::Closure(Box::new(Closure {
-            env,
-            params,
-            body,
-        }))))
+        let MakeClosure { captured, params, body } = closure;
+        let env =
+            captured.iter().map(|index| (index.1, Rc::clone(self.get_index(index)))).collect();
+        Ctrl::Value(Rc::new(Value::Closure(Box::new(Closure { env, params, body }))))
     }
 
     #[allow(clippy::ptr_arg)]
     fn step_record(&self, fields: &'a Vec<ExprVar>, values: &'a [Atom]) -> Ctrl<'a> {
-        let values = values
-            .iter()
-            .map(|atom| Rc::clone(self.get_atom(atom)))
-            .collect();
+        let values = values.iter().map(|atom| Rc::clone(self.get_atom(atom))).collect();
         Ctrl::Value(Rc::new(Value::Record(fields, values)))
     }
 
@@ -156,9 +135,7 @@ impl<'a> Machine<'a> {
     }
 
     fn step_variant(&self, rank: u32, constr: &'a ExprCon, payload: &'a Option<Atom>) -> Ctrl<'a> {
-        let payload = payload
-            .as_ref()
-            .map(|payload| Rc::clone(self.get_atom(payload)));
+        let payload = payload.as_ref().map(|payload| Rc::clone(self.get_atom(payload)));
         Ctrl::Value(Rc::new(Value::Variant(rank, *constr, payload)))
     }
 
@@ -170,8 +147,7 @@ impl<'a> Machine<'a> {
             for (param, arg) in params.iter().zip(args.iter()) {
                 self.args_tmp.push((*param, Rc::clone(self.get_atom(arg))));
             }
-            self.stack
-                .truncate(self.kont.last().map_or(0, |kont| kont.0));
+            self.stack.truncate(self.kont.last().map_or(0, |kont| kont.0));
             self.stack.extend_from_slice(env);
             self.stack.append(&mut self.args_tmp);
             Ctrl::from_expr(body)
@@ -181,17 +157,12 @@ impl<'a> Machine<'a> {
     }
 
     fn step_app_func(&mut self, fun: &'a ExprVar, args: &'a [Atom]) -> Ctrl<'a> {
-        let FuncDecl {
-            name: _,
-            params,
-            body,
-        } = self.funcs.get(fun).unwrap();
+        let FuncDecl { name: _, params, body } = self.funcs.get(fun).unwrap();
         assert_eq!(params.len(), args.len());
         for (param, arg) in params.iter().zip(args.iter()) {
             self.args_tmp.push((*param, Rc::clone(self.get_atom(arg))));
         }
-        self.stack
-            .truncate(self.kont.last().map_or(0, |kont| kont.0));
+        self.stack.truncate(self.kont.last().map_or(0, |kont| kont.0));
         self.stack.append(&mut self.args_tmp);
         Ctrl::from_expr(body)
     }
@@ -209,11 +180,7 @@ impl<'a> Machine<'a> {
             if let Some(Branch { pattern, rhs }) =
                 branches.iter().find(|branch| branch.pattern.rank == *rank)
             {
-                let Pattern {
-                    rank: _,
-                    constr: _,
-                    binder,
-                } = pattern;
+                let Pattern { rank: _, constr: _, binder } = pattern;
                 match (binder.as_ref(), payload.as_ref().cloned()) {
                     (None, Some(_)) | (Some(_), None) => panic!("Pattern/payload mismatch"),
                     (None, None) => (),
@@ -244,13 +211,7 @@ impl<'a> Machine<'a> {
 
     #[allow(dead_code)]
     fn print_debug(&self) {
-        let Self {
-            ctrl,
-            stack,
-            kont,
-            funcs: _,
-            args_tmp: _,
-        } = self;
+        let Self { ctrl, stack, kont, funcs: _, args_tmp: _ } = self;
         print!("Control: ");
         match ctrl {
             Ctrl::Evaluating => println!("???"),
@@ -379,17 +340,12 @@ impl<'a> fmt::Display for Value<'a> {
                 write!(f, "{}/{}{}", constr, rank, in_parens_if_some(value))
             }
             Self::Closure(closure) => {
-                let Closure {
-                    env,
-                    params,
-                    body: _,
-                } = closure.as_ref();
+                let Closure { env, params, body: _ } = closure.as_ref();
                 write!(
                     f,
                     "[{env}; {params}; ...]",
                     env = ", ".join(
-                        env.iter()
-                            .map(|(binder, value)| lazy_format!("{} = {}", binder, value))
+                        env.iter().map(|(binder, value)| lazy_format!("{} = {}", binder, value))
                     ),
                     params = ", ".join(*params),
                 )

@@ -46,20 +46,14 @@ impl Module {
         if let Some((span, name)) = find_duplicate(self.type_decls().map(|decl| decl.name.as_ref()))
         {
             return Err(Located::new(
-                Error::DuplicateTypeDecl {
-                    var: *name.locatee,
-                    original: span,
-                },
+                Error::DuplicateTypeDecl { var: *name.locatee, original: span },
                 name.span,
             ));
         }
         if let Some((span, name)) = find_duplicate(self.func_decls().map(|decl| decl.name.as_ref()))
         {
             return Err(Located::new(
-                Error::DuplicateFuncDecl {
-                    var: *name.locatee,
-                    original: span,
-                },
+                Error::DuplicateFuncDecl { var: *name.locatee, original: span },
                 name.span,
             ));
         }
@@ -97,11 +91,7 @@ impl Module {
 
 impl TypeDecl {
     fn check(&mut self, env: &Env) -> Result<(), LError> {
-        let Self {
-            name: _,
-            params,
-            body,
-        } = self;
+        let Self { name: _, params, body } = self;
         LTypeVar::check_unique(params.iter())?;
         let env = &mut env.clone();
         env.type_vars = params.iter().map(|param| param.locatee).collect();
@@ -111,13 +101,7 @@ impl TypeDecl {
 
 impl FuncDecl {
     fn check_signature(&mut self, env: &Env) -> Result<TypeScheme, LError> {
-        let Self {
-            name: _,
-            type_params,
-            expr_params,
-            return_type,
-            body: _,
-        } = self;
+        let Self { name: _, type_params, expr_params, return_type, body: _ } = self;
         LTypeVar::check_unique(type_params.iter())?;
         let env = &mut env.clone();
         env.type_vars = type_params.iter().map(|param| param.locatee).collect();
@@ -128,29 +112,18 @@ impl FuncDecl {
         Ok(TypeScheme {
             params: type_params.iter().map(|param| param.locatee).collect(),
             body: RcType::new(Type::Fun(
-                expr_params
-                    .iter()
-                    .map(|(_, typ)| RcType::from_lsyntax(typ))
-                    .collect(),
+                expr_params.iter().map(|(_, typ)| RcType::from_lsyntax(typ)).collect(),
                 RcType::from_lsyntax(return_type),
             )),
         })
     }
 
     fn check(&mut self, env: &Env) -> Result<(), LError> {
-        let Self {
-            name: _,
-            type_params,
-            expr_params,
-            return_type,
-            body,
-        } = self;
+        let Self { name: _, type_params, expr_params, return_type, body } = self;
         let env = &mut env.clone();
         env.type_vars = type_params.iter().map(|param| param.locatee).collect();
         env.intro_params(
-            expr_params
-                .iter()
-                .map(|(var, typ)| Ok((*var, RcType::from_lsyntax(typ)))),
+            expr_params.iter().map(|(var, typ)| Ok((*var, RcType::from_lsyntax(typ)))),
             |env| body.check(env, &RcType::from_lsyntax(return_type)),
         )
     }
@@ -291,10 +264,7 @@ impl Expr {
                             |env| body.check(env, result),
                         )
                     }
-                    _ => Err(Located::new(
-                        Error::BadLam(expected.clone(), params.len()),
-                        span,
-                    )),
+                    _ => Err(Located::new(Error::BadLam(expected.clone(), params.len()), span)),
                 }
             }
             Self::Let(binder, opt_type_ann, bindee, tail) => {
@@ -324,16 +294,12 @@ impl Expr {
                             ),
                         }
                     } else {
-                        Err(Located::new(
-                            Error::BadVariantConstr(expected.clone(), *constr),
-                            span,
-                        ))
+                        Err(Located::new(Error::BadVariantConstr(expected.clone(), *constr), span))
                     }
                 }
-                _ => Err(Located::new(
-                    Error::UnexpectedVariantType(expected.clone(), *constr),
-                    span,
-                )),
+                _ => {
+                    Err(Located::new(Error::UnexpectedVariantType(expected.clone(), *constr), span))
+                }
             },
             Self::Match(scrut, branches) => {
                 let branches = check_match_patterns(env, scrut, branches)?;
@@ -356,10 +322,7 @@ impl Expr {
                     Ok(())
                 } else {
                     Err(Located::new(
-                        Error::TypeMismatch {
-                            found,
-                            expected: expected.clone(),
-                        },
+                        Error::TypeMismatch { found, expected: expected.clone() },
                         span,
                     ))
                 }
@@ -427,14 +390,7 @@ impl Expr {
                             Expr::FuncInst(func, _) => Some(func.locatee),
                             _ => None,
                         };
-                        Err(Located::new(
-                            Error::BadApp {
-                                func,
-                                func_type,
-                                num_args,
-                            },
-                            span,
-                        ))
+                        Err(Located::new(Error::BadApp { func, func_type, num_args }, span))
                     }
                 }
             }
@@ -515,16 +471,10 @@ impl Expr {
                             *index = Some(field_index as u32);
                             Ok(fields[field_index].1.clone())
                         } else {
-                            Err(Located::new(
-                                Error::BadRecordProj { record_type, field },
-                                span,
-                            ))
+                            Err(Located::new(Error::BadRecordProj { record_type, field }, span))
                         }
                     }
-                    _ => Err(Located::new(
-                        Error::BadRecordProj { record_type, field },
-                        span,
-                    )),
+                    _ => Err(Located::new(Error::BadRecordProj { record_type, field }, span)),
                 }
             }
             Self::Match(scrut, branches) => {
@@ -584,10 +534,7 @@ impl Env {
             let (var, typ) = binder_or_err?;
             if let Some(&original) = seen.get(&var.locatee) {
                 return Err(Located::new(
-                    Error::DuplicateParam {
-                        var: var.locatee,
-                        original,
-                    },
+                    Error::DuplicateParam { var: var.locatee, original },
                     var.span,
                 ));
             } else {
@@ -613,10 +560,7 @@ impl LTypeVar {
     fn check_unique<'a, I: Iterator<Item = &'a LTypeVar>>(iter: I) -> Result<(), LError> {
         if let Some((span, lvar)) = find_duplicate(iter.map(Located::as_ref)) {
             Err(Located::new(
-                Error::DuplicateTypeVar {
-                    var: *lvar.locatee,
-                    original: span,
-                },
+                Error::DuplicateTypeVar { var: *lvar.locatee, original: span },
                 lvar.span,
             ))
         } else {
@@ -657,11 +601,7 @@ fn check_match_patterns<'a>(
                 branches
                     .iter_mut()
                     .map(|Branch { pattern, rhs }| {
-                        let Pattern {
-                            constr,
-                            rank,
-                            binder,
-                        } = &mut pattern.locatee;
+                        let Pattern { constr, rank, binder } = &mut pattern.locatee;
                         if let Some(constr_rank) = constrs.iter().position(|x| x.0 == *constr) {
                             *rank = Some(constr_rank as u32);
                             match (binder, &constrs[constr_rank].1) {

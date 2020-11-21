@@ -80,10 +80,7 @@ impl RcType {
         match (&**self, &**expected) {
             (Type::SynApp(var1, args1), Type::SynApp(var2, args2)) if var1 == var2 => {
                 assert_eq!(args1.len(), args2.len());
-                args1
-                    .iter()
-                    .zip(args2.iter())
-                    .all(|(arg1, arg2)| arg1.equiv(arg2, type_defs))
+                args1.iter().zip(args2.iter()).all(|(arg1, arg2)| arg1.equiv(arg2, type_defs))
             }
             _ => match (
                 self.weak_normalize(type_defs).as_ref(),
@@ -208,10 +205,7 @@ impl Type {
                 let constrs = constrs
                     .iter()
                     .map(|(name, opt_typ)| {
-                        (
-                            Located::gen(*name),
-                            opt_typ.as_ref().map(|typ| typ.to_lsyntax()),
-                        )
+                        (Located::gen(*name), opt_typ.as_ref().map(|typ| typ.to_lsyntax()))
                     })
                     .collect();
                 SynType::Variant(constrs)
@@ -275,10 +269,7 @@ impl<T> Type<T> {
                 Type::Fun(params, result)
             }
             Self::Record(fields) => {
-                let fields = fields
-                    .iter()
-                    .map(|(name, child)| (*name, f(child)))
-                    .collect();
+                let fields = fields.iter().map(|(name, child)| (*name, f(child))).collect();
                 Type::Record(fields)
             }
             Self::Variant(constrs) => {
@@ -306,11 +297,7 @@ impl AsRef<Type> for RcType {
 }
 
 pub fn same_keys<'a, K: Eq, V>(vec1: &'a [(K, V)], vec2: &'a [(K, V)]) -> bool {
-    vec1.len() == vec2.len()
-        && vec1
-            .iter()
-            .zip(vec2.iter())
-            .all(|((k1, _), (k2, _))| k1 == k2)
+    vec1.len() == vec2.len() && vec1.iter().zip(vec2.iter()).all(|((k1, _), (k2, _))| k1 == k2)
 }
 
 impl fmt::Display for RcType {
@@ -340,11 +327,7 @@ impl fmt::Display for Type {
             Self::Record(fields) => write!(
                 f,
                 "{{{}}}",
-                ", ".join(
-                    fields
-                        .iter()
-                        .map(|(field, typ)| lazy_format!("{}: {}", field, typ))
-                )
+                ", ".join(fields.iter().map(|(field, typ)| lazy_format!("{}: {}", field, typ)))
             ),
             Self::Variant(constrs) => {
                 write!(

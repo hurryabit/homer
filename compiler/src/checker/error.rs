@@ -10,60 +10,20 @@ pub enum Error<Pos = ParserLoc> {
     UnknownTypeVar(TypeVar),
     UnknownExprVar(ExprVar),
     UnexpectedGeneric(TypeVar, Arity),
-    GenericTypeArityMismatch {
-        type_var: TypeVar,
-        expected: Arity,
-        found: Arity,
-    },
-    GenericFuncArityMismatch {
-        expr_var: ExprVar,
-        expected: Arity,
-        found: Arity,
-    },
-    TypeMismatch {
-        expected: RcType,
-        found: RcType,
-    },
-    ParamTypeMismatch {
-        param: ExprVar,
-        expected: RcType,
-        found: RcType,
-    },
+    GenericTypeArityMismatch { type_var: TypeVar, expected: Arity, found: Arity },
+    GenericFuncArityMismatch { expr_var: ExprVar, expected: Arity, found: Arity },
+    TypeMismatch { expected: RcType, found: RcType },
+    ParamTypeMismatch { param: ExprVar, expected: RcType, found: RcType },
     ParamNeedsType(ExprVar),
-    DuplicateTypeVar {
-        var: TypeVar,
-        original: Span<Pos>,
-    },
-    DuplicateTypeDecl {
-        var: TypeVar,
-        original: Span<Pos>,
-    },
-    DuplicateParam {
-        var: ExprVar,
-        original: Span<Pos>,
-    },
-    DuplicateFuncDecl {
-        var: ExprVar,
-        original: Span<Pos>,
-    },
-    BadApp {
-        func: Option<ExprVar>,
-        func_type: RcType,
-        num_args: Arity,
-    },
-    BadRecordProj {
-        record_type: RcType,
-        field: ExprVar,
-    },
+    DuplicateTypeVar { var: TypeVar, original: Span<Pos> },
+    DuplicateTypeDecl { var: TypeVar, original: Span<Pos> },
+    DuplicateParam { var: ExprVar, original: Span<Pos> },
+    DuplicateFuncDecl { var: ExprVar, original: Span<Pos> },
+    BadApp { func: Option<ExprVar>, func_type: RcType, num_args: Arity },
+    BadRecordProj { record_type: RcType, field: ExprVar },
     BadLam(RcType, Arity),
-    VariantExpectedPayload {
-        variant_type: RcType,
-        constr: ExprCon,
-    },
-    VariantUnexpectedPayload {
-        variant_type: RcType,
-        constr: ExprCon,
-    },
+    VariantExpectedPayload { variant_type: RcType, constr: ExprCon },
+    VariantUnexpectedPayload { variant_type: RcType, constr: ExprCon },
     BadVariantConstr(RcType, ExprCon),
     UnexpectedVariantType(RcType, ExprCon),
     BadMatch(RcType),
@@ -88,14 +48,8 @@ impl LError {
             (None, None) | (Some(_), Some(_)) => {
                 panic!("IMPOSSIBLE: Error::variant_payload with None/None or Some/Some")
             }
-            (None, Some(_)) => Error::VariantExpectedPayload {
-                variant_type,
-                constr,
-            },
-            (Some(_), None) => Error::VariantUnexpectedPayload {
-                variant_type,
-                constr,
-            },
+            (None, Some(_)) => Error::VariantExpectedPayload { variant_type, constr },
+            (Some(_), None) => Error::VariantUnexpectedPayload { variant_type, constr },
         };
         Err(Located::new(error, span))
     }

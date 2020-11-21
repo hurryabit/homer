@@ -18,14 +18,8 @@ impl Env {
 
 impl FuncDecl {
     pub fn index(&mut self) {
-        let Self {
-            name: _,
-            params,
-            body,
-        } = self;
-        let env = params
-            .iter()
-            .fold(Env::default(), |env, param| env.intro_binder(*param));
+        let Self { name: _, params, body } = self;
+        let env = params.iter().fold(Env::default(), |env, param| env.intro_binder(*param));
         body.index(&env);
     }
 }
@@ -33,12 +27,10 @@ impl FuncDecl {
 impl Expr {
     fn index(&mut self, env: &Env) {
         let Self { bindings, tail } = self;
-        let env = bindings
-            .iter_mut()
-            .fold(env.clone(), |env, Binding { binder, bindee }| {
-                bindee.index(&env);
-                env.intro_binder(*binder)
-            });
+        let env = bindings.iter_mut().fold(env.clone(), |env, Binding { binder, bindee }| {
+            bindee.index(&env);
+            env.intro_binder(*binder)
+        });
         tail.index(&env);
     }
 }
@@ -112,11 +104,7 @@ impl Atom {
 impl Branch {
     fn index(&mut self, env: &Env) {
         let Self { pattern, rhs } = self;
-        let Pattern {
-            rank: _,
-            constr: _,
-            binder,
-        } = pattern;
+        let Pattern { rank: _, constr: _, binder } = pattern;
         match binder {
             None => rhs.index(env),
             Some(binder) => rhs.index(&env.clone().intro_binder(*binder)),
@@ -126,20 +114,12 @@ impl Branch {
 
 impl MakeClosure {
     fn index(&mut self, env: &Env) {
-        let Self {
-            captured,
-            params,
-            body,
-        } = self;
+        let Self { captured, params, body } = self;
         for var in captured.iter_mut() {
             var.index(env);
         }
-        let env = captured
-            .iter()
-            .fold(Env::default(), |env, var| env.intro_binder(var.1));
-        let env = params
-            .iter()
-            .fold(env, |env, param| env.intro_binder(*param));
+        let env = captured.iter().fold(Env::default(), |env, var| env.intro_binder(var.1));
+        let env = params.iter().fold(env, |env, param| env.intro_binder(*param));
         body.index(&env);
     }
 }
