@@ -31,6 +31,7 @@ lazy_static! {
 mod tests {
     mod anf;
     mod build;
+    mod cek;
     mod checker;
     mod parser;
 }
