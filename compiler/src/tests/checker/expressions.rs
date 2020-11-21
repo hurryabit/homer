@@ -1930,7 +1930,7 @@ fn rule_match_infer_unknown_constructor_after_mismatch() {
 }
 
 #[test]
-fn rule_match_infer_missing_1() {
+fn rule_match_infer_non_exhaustive_1() {
     insta::assert_snapshot!(check_error(r#"
     fn f(x: [A | B]) -> Int {
         let r = match x {
@@ -1946,11 +1946,10 @@ fn rule_match_infer_missing_1() {
 }
 
 #[test]
-fn rule_match_infer_missing_2() {
+fn rule_match_infer_non_exhaustive_2() {
     insta::assert_snapshot!(check_error(r#"
     fn f(x: [A(Int) | B(Bool)]) -> Int {
         let r = match x {
-            A(x) => x,
             A(x) => x,
         };
         r
@@ -1959,6 +1958,59 @@ fn rule_match_infer_missing_2() {
       3 |         let r = match x {
                                 ~
     Constructor `B` is not covered in pattern match on type `[A(Int) | B(Bool)]`.
+    "###);
+}
+
+#[test]
+fn rule_match_infer_overlap_1() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f(x: [A | B]) -> Int {
+        let r = match x {
+            A => 0,
+            A => 1,
+            B => 2,
+        };
+        r
+    }
+    "#), @r###"
+      5 |             A => 1,
+                      ~
+    Constructor `A` is covered repeatedly in pattern match.
+    "###);
+}
+
+#[test]
+fn rule_match_infer_overlap_2() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f(x: [A(Int) | B(Bool)]) -> Int {
+        let r = match x {
+            B(x) => 0,
+            A(x) => x,
+            B(x) => 1,
+        };
+        r
+    }
+    "#), @r###"
+      6 |             B(x) => 1,
+                      ~~~~
+    Constructor `B` is covered repeatedly in pattern match.
+    "###);
+}
+
+#[test]
+fn rule_match_infer_overlap_non_exhaustive() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f(x: [A | B]) -> Int {
+        let r = match x {
+            A => 0,
+            A => 1,
+        };
+        r
+    }
+    "#), @r###"
+      5 |             A => 1,
+                      ~
+    Constructor `A` is covered repeatedly in pattern match.
     "###);
 }
 
@@ -2187,7 +2239,7 @@ fn rule_match_check_unknown_constructor_after_mismatch() {
 }
 
 #[test]
-fn rule_match_check_missing_1() {
+fn rule_match_check_non_exhaustive_1() {
     insta::assert_snapshot!(check_error(r#"
     fn f(x: [A | B]) -> Int {
         match x {
@@ -2202,11 +2254,10 @@ fn rule_match_check_missing_1() {
 }
 
 #[test]
-fn rule_match_check_missing_2() {
+fn rule_match_check_non_exhaustive_2() {
     insta::assert_snapshot!(check_error(r#"
     fn f(x: [A(Int) | B(Bool)]) -> Int {
         match x {
-            A(x) => x,
             A(x) => x,
         }
     }
@@ -2214,5 +2265,55 @@ fn rule_match_check_missing_2() {
       3 |         match x {
                         ~
     Constructor `B` is not covered in pattern match on type `[A(Int) | B(Bool)]`.
+    "###);
+}
+
+#[test]
+fn rule_match_check_overlap_1() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f(x: [A | B]) -> Int {
+        match x {
+            A => 0,
+            A => 1,
+            B => 2,
+        }
+    }
+    "#), @r###"
+      5 |             A => 1,
+                      ~
+    Constructor `A` is covered repeatedly in pattern match.
+    "###);
+}
+
+#[test]
+fn rule_match_check_overlap_2() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f(x: [A(Int) | B(Bool)]) -> Int {
+        match x {
+            B(x) => 0,
+            A(x) => x,
+            B(x) => 1,
+        }
+    }
+    "#), @r###"
+      6 |             B(x) => 1,
+                      ~~~~
+    Constructor `B` is covered repeatedly in pattern match.
+    "###);
+}
+
+#[test]
+fn rule_match_check_overlap_non_exhaustive() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f(x: [A | B]) -> Int {
+        match x {
+            A => 0,
+            A => 1,
+        }
+    }
+    "#), @r###"
+      5 |             A => 1,
+                      ~
+    Constructor `A` is covered repeatedly in pattern match.
     "###);
 }

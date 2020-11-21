@@ -604,20 +604,27 @@ fn check_match_patterns<'a>(
                     .map(|Branch { pattern, rhs }| {
                         let Pattern { constr, rank, binder } = &mut pattern.locatee;
                         if let Some(constr_rank) = constrs.iter().position(|x| x.0 == *constr) {
-                            matched.insert(constr_rank);
-                            *rank = Some(constr_rank as u32);
-                            match (binder, &constrs[constr_rank].1) {
-                                (None, None) => Ok((None, rhs)),
-                                (Some(binder), Some(typ)) => {
-                                    Ok((Some((&*binder, typ.clone())), rhs))
-                                }
-                                (opt_binder, opt_typ) => LError::variant_payload(
-                                    opt_binder,
-                                    opt_typ,
-                                    &scrut_type,
-                                    *constr,
+                            if matched.contains(&constr_rank) {
+                                Err(Located::new(
+                                    Error::OverlappingMatch(scrut_type.clone(), *constr),
                                     pattern.span,
-                                ),
+                                ))
+                            } else {
+                                matched.insert(constr_rank);
+                                *rank = Some(constr_rank as u32);
+                                match (binder, &constrs[constr_rank].1) {
+                                    (None, None) => Ok((None, rhs)),
+                                    (Some(binder), Some(typ)) => {
+                                        Ok((Some((&*binder, typ.clone())), rhs))
+                                    }
+                                    (opt_binder, opt_typ) => LError::variant_payload(
+                                        opt_binder,
+                                        opt_typ,
+                                        &scrut_type,
+                                        *constr,
+                                        pattern.span,
+                                    ),
+                                }
                             }
                         } else {
                             Err(Located::new(
@@ -626,7 +633,7 @@ fn check_match_patterns<'a>(
                             ))
                         }
                     })
-                    .collect::<Result<_, _>>()?;
+                    .collect::<Result<Vec<_>, _>>()?;
                 if matched.len() < constrs.len() {
                     let missing_rank = (0..constrs.len())
                         .find(|rank| !matched.contains(rank))

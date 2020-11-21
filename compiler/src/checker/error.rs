@@ -30,6 +30,7 @@ pub enum Error<Pos = ParserLoc> {
     BadBranch(RcType, ExprCon),
     EmptyMatch,
     NonExhaustiveMatch(RcType, ExprCon),
+    OverlappingMatch(RcType, ExprCon),
     TypeAnnsNeeded,
 }
 
@@ -186,6 +187,11 @@ impl fmt::Display for Error {
                 f,
                 "Constructor `{}` is not covered in pattern match on type `{}`.",
                 constr, scrut_type
+            ),
+            Self::OverlappingMatch(_scrut_type, constr) => write!(
+                f,
+                "Constructor `{}` is covered repeatedly in pattern match.",
+                constr
             ),
             Self::TypeAnnsNeeded => write!(f, "Cannot infer the type of the expression. Further type annotations are required."),
         }
