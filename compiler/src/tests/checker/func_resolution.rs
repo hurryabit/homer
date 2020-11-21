@@ -208,14 +208,14 @@ fn resolve_match() {
             type: FUN @ 76...85
                 result: INT @ 82...85
         bindee: VARIANT @ 90...104
-            constr: F
+            constr: F/0
             payload: LAM @ 92...103
                 body: 0 @ 100...101
         tail: MATCH @ 114...176
             scrut: f @ 120...121
             branch: BRANCH
                 pattern: PATTERN @ 136...149
-                    constr: F
+                    constr: F/0
                     binder: resolve_me @ 138...148
                 rhs: APP @ 153...165
                     fun: resolve_me @ 153...163

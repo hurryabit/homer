@@ -9,7 +9,7 @@ pub enum Value<'a> {
     Int(i64),
     Bool(bool),
     Record(&'a Vec<ExprVar>, Vec<RcValue<'a>>),
-    Variant(ExprCon, Option<RcValue<'a>>),
+    Variant(u32, ExprCon, Option<RcValue<'a>>),
     Closure(Box<Closure<'a>>),
 }
 
@@ -110,7 +110,7 @@ impl<'a> Machine<'a> {
             Bindee::MakeClosure(closure) => self.step_make_closure(closure),
             Bindee::Record(fields, values) => self.step_record(fields, values),
             Bindee::Project(record, index, _field) => self.step_proj(record, *index),
-            Bindee::Variant(constr, payload) => self.step_variant(constr, payload),
+            Bindee::Variant(rank, constr, payload) => self.step_variant(*rank, constr, payload),
             Bindee::BinOp(lhs, op, rhs) => {
                 Ctrl::Value(op.execute(self.get_atom(lhs), self.get_atom(rhs)))
             }
@@ -155,11 +155,11 @@ impl<'a> Machine<'a> {
         }
     }
 
-    fn step_variant(&self, constr: &'a ExprCon, payload: &'a Option<Atom>) -> Ctrl<'a> {
+    fn step_variant(&self, rank: u32, constr: &'a ExprCon, payload: &'a Option<Atom>) -> Ctrl<'a> {
         let payload = payload
             .as_ref()
             .map(|payload| Rc::clone(self.get_atom(payload)));
-        Ctrl::Value(Rc::new(Value::Variant(*constr, payload)))
+        Ctrl::Value(Rc::new(Value::Variant(rank, *constr, payload)))
     }
 
     fn step_app_closure(&mut self, clo: &'a Atom, args: &'a [Atom]) -> Ctrl<'a> {
@@ -205,12 +205,15 @@ impl<'a> Machine<'a> {
     }
 
     fn step_match(&mut self, scrut: &'a Atom, branches: &'a [Branch]) -> Ctrl<'a> {
-        if let Value::Variant(constr, payload) = self.get_atom(scrut).as_ref() {
-            if let Some(Branch { pattern, rhs }) = branches
-                .iter()
-                .find(|branch| branch.pattern.constr == *constr)
+        if let Value::Variant(rank, constr, payload) = self.get_atom(scrut).as_ref() {
+            if let Some(Branch { pattern, rhs }) =
+                branches.iter().find(|branch| branch.pattern.rank == *rank)
             {
-                let Pattern { constr: _, binder } = pattern;
+                let Pattern {
+                    rank: _,
+                    constr: _,
+                    binder,
+                } = pattern;
                 match (binder.as_ref(), payload.as_ref().cloned()) {
                     (None, Some(_)) | (Some(_), None) => panic!("Pattern/payload mismatch"),
                     (None, None) => (),
@@ -336,11 +339,13 @@ impl<'a> PartialOrd for Value<'a> {
             (Variant(..), Int(_)) | (Variant(..), Bool(_)) | (Variant(..), Record(..)) => {
                 Some(Ordering::Greater)
             }
-            (Variant(c1, v1), Variant(c2, v2)) => match c1.cmp(c2) {
-                Ordering::Less => Some(Ordering::Less),
-                Ordering::Greater => Some(Ordering::Greater),
-                Ordering::Equal => v1.partial_cmp(v2),
-            },
+            (Variant(rank1, _constr1, payload1), Variant(rank2, _constr2, payload2)) => {
+                match rank1.cmp(rank2) {
+                    Ordering::Less => Some(Ordering::Less),
+                    Ordering::Greater => Some(Ordering::Greater),
+                    Ordering::Equal => payload1.partial_cmp(payload2),
+                }
+            }
             (Variant(..), Closure(..)) => Some(Ordering::Less),
             (Closure(..), Int(_))
             | (Closure(..), Bool(_))
@@ -366,7 +371,9 @@ impl<'a> fmt::Display for Value<'a> {
                         .map(|(field, value)| lazy_format!("{} = {}", field, value))
                 )
             ),
-            Value::Variant(constr, value) => write!(f, "{}{}", constr, in_parens_if_some(value)),
+            Value::Variant(rank, constr, value) => {
+                write!(f, "{}/{}{}", constr, rank, in_parens_if_some(value))
+            }
             Value::Closure(closure) => {
                 let Closure {
                     env,

@@ -124,7 +124,7 @@ fn pattern_shadowing() {
                     scrut: x/1
                     branch: BRANCH
                         pattern: PATTERN
-                            constr: C
+                            constr: C/0
                             binder: $v1
                         rhs: EXPR
                             tail: BINOP

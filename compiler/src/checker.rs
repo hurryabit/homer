@@ -307,10 +307,11 @@ impl Expr {
                 elze.check(env, &expected)?;
                 Ok(())
             }
-            Self::Variant(constr, opt_payload) => match expected.weak_normalize_env(env).as_ref() {
-                Type::Variant(cons) => {
-                    if let Some(opt_typ) = find_by_key(&cons, constr) {
-                        match (opt_payload, opt_typ) {
+            Self::Variant(constr, rank, payload) => match expected.weak_normalize_env(env).as_ref() {
+                Type::Variant(constrs) => {
+                    if let Some(constr_rank) = constrs.iter().position(|x| x.0 == *constr) {
+                        *rank = Some(constr_rank as u32);
+                        match (payload, &constrs[constr_rank].1) {
                             (None, None) => Ok(()),
                             (Some(payload), Some(typ)) => payload.check(env, typ),
                             (opt_payload, opt_typ) => LError::variant_payload(
@@ -537,7 +538,7 @@ impl Expr {
                 }
                 Ok(rhs_type)
             }
-            Self::Variant(_, _) => Err(Located::new(Error::TypeAnnsNeeded, span)),
+            Self::Variant(_, _, _) => Err(Located::new(Error::TypeAnnsNeeded, span)),
         }
     }
 }
@@ -656,22 +657,23 @@ fn check_match_patterns<'a>(
                 branches
                     .iter_mut()
                     .map(|Branch { pattern, rhs }| {
-                        let constr = pattern.locatee.constr;
-                        if let Some(opt_typ) = find_by_key(constrs, &constr) {
-                            match (&pattern.locatee.binder, opt_typ) {
+                        let Pattern { constr, rank, binder } = &mut pattern.locatee;
+                        if let Some(constr_rank) = constrs.iter().position(|x| x.0 == *constr) {
+                            *rank = Some(constr_rank as u32);
+                            match (binder, &constrs[constr_rank].1) {
                                 (None, None) => Ok((None, rhs)),
-                                (Some(var), Some(typ)) => Ok((Some((var, typ.clone())), rhs)),
-                                (opt_payload, opt_typ) => LError::variant_payload(
-                                    opt_payload,
+                                (Some(binder), Some(typ)) => Ok((Some((&*binder, typ.clone())), rhs)),
+                                (opt_binder, opt_typ) => LError::variant_payload(
+                                    opt_binder,
                                     opt_typ,
                                     &scrut_type,
-                                    constr,
+                                    *constr,
                                     pattern.span,
                                 ),
                             }
                         } else {
                             Err(Located::new(
-                                Error::BadBranch(scrut_type.clone(), constr),
+                                Error::BadBranch(scrut_type.clone(), *constr),
                                 pattern.span,
                             ))
                         }
@@ -697,9 +699,4 @@ fn find_duplicate<T: Eq + Hash, I: Iterator<Item = Located<T>>>(
         }
     }
     None
-}
-
-fn find_by_key<'a, K: Eq, V>(vec: &'a [(K, V)], key: &K) -> Option<&'a V> {
-    vec.iter()
-        .find_map(|(k, v)| if k == key { Some(v) } else { None })
 }

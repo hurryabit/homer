@@ -51,7 +51,7 @@ pub enum Bindee {
     // other half.
     Record(Vec<ExprVar>, Vec<Atom>),
     Project(Atom, u32, ExprVar),
-    Variant(ExprCon, Option<Atom>),
+    Variant(u32, ExprCon, Option<Atom>),
     Match(Atom, Vec<Branch>),
 }
 
@@ -76,6 +76,7 @@ pub struct Branch {
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Pattern {
+    pub rank: u32,
     pub constr: ExprCon,
     pub binder: Option<ExprVar>,
 }
@@ -206,10 +207,22 @@ impl Bindee {
                 let (record, fvs) = Atom::from_syntax(env, record, bindings);
                 (Self::Project(record, index, field.locatee), fvs)
             }
-            syntax::Expr::Variant(constr, None) => (Self::Variant(*constr, None), ordset![]),
-            syntax::Expr::Variant(constr, Some(payload)) => {
+            syntax::Expr::Variant(constr, rank, None) => {
+                let variant = Self::Variant(
+                    rank.expect("Variant constructor without rank"),
+                    *constr,
+                    None,
+                );
+                (variant, ordset![])
+            }
+            syntax::Expr::Variant(constr, rank, Some(payload)) => {
                 let (payload, fvs) = Atom::from_syntax(env, payload, bindings);
-                (Self::Variant(*constr, Some(payload)), fvs)
+                let variant = Self::Variant(
+                    rank.expect("Variant constructor without rank"),
+                    *constr,
+                    Some(payload),
+                );
+                (variant, fvs)
             }
             syntax::Expr::Match(scrut, branches) => {
                 let (scrut, fvs0) = Atom::from_syntax(env, scrut, bindings);
@@ -228,9 +241,18 @@ impl Bindee {
 
 impl Pattern {
     fn from_syntax(env: &mut Env, pattern: &syntax::LPattern) -> Self {
-        let syntax::Pattern { constr, binder } = pattern.locatee;
+        let syntax::Pattern {
+            constr,
+            rank,
+            binder,
+        } = pattern.locatee;
+        let rank = rank.expect("Variant pattern without rank");
         let binder = binder.as_ref().map(|binder| env.intro_binder(binder));
-        Self { constr, binder }
+        Self {
+            rank,
+            constr,
+            binder,
+        }
     }
 }
 
@@ -379,9 +401,9 @@ impl Debug for Bindee {
                 writer.child("record", record)?;
                 writer.child("field", &(*field, *index))
             }),
-            Variant(constr, opt_payload) => writer.node("VARIANT", |writer| {
-                writer.child("constr", constr)?;
-                writer.child_if_some("payload", opt_payload)
+            Variant(rank, constr, payload) => writer.node("VARIANT", |writer| {
+                writer.child("constr", &(*constr, *rank))?;
+                writer.child_if_some("payload", payload)
             }),
             Match(scrut, branches) => writer.node("MATCH", |writer| {
                 writer.child("scrut", scrut)?;
@@ -429,9 +451,13 @@ impl Debug for Branch {
 
 impl Debug for Pattern {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        let Self { constr, binder } = self;
+        let Self {
+            rank,
+            constr,
+            binder,
+        } = self;
         writer.node("PATTERN", |writer| {
-            writer.child("constr", constr)?;
+            writer.child("constr", &(*constr, *rank))?;
             writer.child_if_some("binder", binder)
         })
     }
@@ -475,14 +501,20 @@ impl fmt::Display for Bindee {
                 )
             ),
             Project(record, index, field) => write!(f, "{}.{}/{}", record, field, index),
-            Variant(constr, payload) => write!(f, "{}{}", constr, in_parens_if_some(payload)),
+            Variant(rank, constr, payload) => {
+                write!(f, "{}/{}{}", constr, rank, in_parens_if_some(payload))
+            }
             Match(scrut, branches) => write!(
                 f,
                 "match {} {{ {}, }}",
                 scrut,
                 ", ".join(branches.iter().map(|branch| {
-                    let Pattern { constr, binder } = branch.pattern;
-                    lazy_format!("{}{} => ...", constr, in_parens_if_some(&binder))
+                    let Pattern {
+                        rank,
+                        constr,
+                        binder,
+                    } = branch.pattern;
+                    lazy_format!("{}/{}{} => ...", constr, rank, in_parens_if_some(&binder))
                 }))
             ),
         }

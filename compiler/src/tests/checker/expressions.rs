@@ -1388,6 +1388,23 @@ fn rule_variant_without_payload_syn() {
 }
 
 #[test]
+fn rule_variant_rank() {
+    insta::assert_debug_snapshot!(check_output_func_body("f", r#"
+    fn f(b: Bool) -> [A | B(Int)] {
+        if b { A } else { B(0) }
+    }
+    "#), @r###"
+    IF
+        cond: b @ 48...49
+        then: VARIANT @ 52...53
+            constr: A/0
+        else: VARIANT @ 63...67
+            constr: B/1
+            payload: 0 @ 65...66
+    "###);
+}
+
+#[test]
 fn rule_variant_without_payload_not_inferrable() {
     insta::assert_snapshot!(check_error(r#"
     fn f() -> Int {
@@ -1605,6 +1622,30 @@ fn rule_match_infer_syn() {
         r
     }
     "#);
+}
+
+#[test]
+fn rule_match_rank() {
+    insta::assert_debug_snapshot!(check_output_func_body("f", r#"
+    fn f(x: [A | B(Int)]) -> Int {
+        match x {
+            A => 0,
+            B(y) => y,
+        }
+    }
+    "#), @r###"
+    MATCH
+        scrut: x @ 50...51
+        branch: BRANCH
+            pattern: PATTERN @ 66...67
+                constr: A/0
+            rhs: 0 @ 71...72
+        branch: BRANCH
+            pattern: PATTERN @ 86...90
+                constr: B/1
+                binder: y @ 88...89
+            rhs: y @ 94...95
+    "###);
 }
 
 #[test]

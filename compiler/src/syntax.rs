@@ -66,7 +66,7 @@ pub enum Expr {
     If(Box<LExpr>, Box<LExpr>, Box<LExpr>),
     Record(Vec<(LExprVar, LExpr)>),
     Proj(Box<LExpr>, LExprVar, Option<u32>),
-    Variant(ExprCon, Option<Box<LExpr>>),
+    Variant(ExprCon, Option<u32>, Option<Box<LExpr>>),
     Match(Box<LExpr>, Vec<Branch>),
 }
 
@@ -81,6 +81,7 @@ pub struct Branch {
 #[derive(Clone, Eq, PartialEq)]
 pub struct Pattern {
     pub constr: ExprCon,
+    pub rank: Option<u32>,
     pub binder: Option<LExprVar>,
 }
 

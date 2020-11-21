@@ -106,7 +106,7 @@ AtomExpr: Expr = {
     <Box<Located<FuncInst>>> "(" <List0<LExpr, ",">> ")" => Expr::App(<>),
     "{" <List0<RecordAssign, ",">> "}" => Expr::Record(<>),
     <record: Box<LAtomExpr>> "." <field: LExprVar> => Expr::Proj(record, field, None),
-    <con: ExprCon> <payload: Box<InParens<LExpr>>?> => Expr::Variant(con, payload),
+    <constr: ExprCon> <payload: Box<InParens<LExpr>>?> => Expr::Variant(constr, None, payload),
     ! => { errors.push(<>.error.map_location(ParserLoc::from_usize)); Expr::Error },
 }
 
@@ -144,7 +144,7 @@ Branch: Branch = {
 }
 
 Pattern: Pattern = {
-    <constr: ExprCon> <binder: InParens<LExprVar>?> => Pattern { constr, binder },
+    <constr: ExprCon> <binder: InParens<LExprVar>?> => Pattern { constr, rank: None, binder },
 }
 
 TypeVar: TypeVar = {

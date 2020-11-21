@@ -121,8 +121,8 @@ impl Expr {
                 Proj(record, _field, _index) => {
                     yield_!(record);
                 }
-                Variant(_constr, opt_payload) => {
-                    if let Some(payload) = opt_payload {
+                Variant(_constr, _rank, payload) => {
+                    if let Some(payload) = payload {
                         yield_!(payload);
                     }
                 }

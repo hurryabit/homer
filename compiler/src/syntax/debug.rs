@@ -114,6 +114,21 @@ impl Debug for ExprCon {
     }
 }
 
+impl Debug for (ExprCon, u32) {
+    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+        writer.leaf(&format!("{}/{}", self.0.as_str(), self.1))
+    }
+}
+
+impl Debug for (ExprCon, Option<u32>) {
+    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+        match self.1 {
+            None => self.0.write(writer),
+            Some(n) => (self.0, n).write(writer),
+        }
+    }
+}
+
 impl Debug for Expr {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
         use Expr::*;
@@ -160,9 +175,9 @@ impl Debug for Expr {
                 writer.child("record", record)?;
                 writer.child("field", &field.map(|f| (f, *index)))
             }),
-            Variant(constr, opt_payload) => writer.node("VARIANT", |writer| {
-                writer.child("constr", constr)?;
-                writer.child_if_some("payload", opt_payload)?;
+            Variant(constr, rank, payload) => writer.node("VARIANT", |writer| {
+                writer.child("constr", &(*constr, *rank))?;
+                writer.child_if_some("payload", payload)?;
                 Ok(())
             }),
             Match(scrut, branches) => writer.node("MATCH", |writer| {
@@ -185,9 +200,9 @@ impl Debug for Branch {
 
 impl Debug for Pattern {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        let Self { constr, binder } = self;
+        let Self { constr, rank, binder } = self;
         writer.node("PATTERN", |writer| {
-            writer.child("constr", constr)?;
+            writer.child("constr", &(*constr, *rank))?;
             if let Some(binder) = binder {
                 writer.child("binder", binder)?;
             }

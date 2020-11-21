@@ -81,7 +81,7 @@ impl Bindee {
             Project(record, _index, _field) => {
                 record.index(env);
             }
-            Variant(_constr, payload) => {
+            Variant(_rank, _constr, payload) => {
                 if let Some(payload) = payload {
                     payload.index(env);
                 }
@@ -111,7 +111,7 @@ impl Atom {
 impl Branch {
     fn index(&mut self, env: &Env) {
         let Self { pattern, rhs } = self;
-        let Pattern { constr: _, binder } = pattern;
+        let Pattern { rank: _, constr: _, binder } = pattern;
         if let Some(binder) = binder {
             rhs.index(&env.clone().intro_binder(*binder))
         } else {
