@@ -307,7 +307,8 @@ impl Expr {
                 elze.check(env, &expected)?;
                 Ok(())
             }
-            Self::Variant(constr, rank, payload) => match expected.weak_normalize_env(env).as_ref() {
+            Self::Variant(constr, rank, payload) => match expected.weak_normalize_env(env).as_ref()
+            {
                 Type::Variant(constrs) => {
                     if let Some(constr_rank) = constrs.iter().position(|x| x.0 == *constr) {
                         *rank = Some(constr_rank as u32);
@@ -656,12 +657,18 @@ fn check_match_patterns<'a>(
                 branches
                     .iter_mut()
                     .map(|Branch { pattern, rhs }| {
-                        let Pattern { constr, rank, binder } = &mut pattern.locatee;
+                        let Pattern {
+                            constr,
+                            rank,
+                            binder,
+                        } = &mut pattern.locatee;
                         if let Some(constr_rank) = constrs.iter().position(|x| x.0 == *constr) {
                             *rank = Some(constr_rank as u32);
                             match (binder, &constrs[constr_rank].1) {
                                 (None, None) => Ok((None, rhs)),
-                                (Some(binder), Some(typ)) => Ok((Some((&*binder, typ.clone())), rhs)),
+                                (Some(binder), Some(typ)) => {
+                                    Ok((Some((&*binder, typ.clone())), rhs))
+                                }
                                 (opt_binder, opt_typ) => LError::variant_payload(
                                     opt_binder,
                                     opt_typ,

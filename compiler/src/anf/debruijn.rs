@@ -23,7 +23,9 @@ impl FuncDecl {
             params,
             body,
         } = self;
-        let env = params.iter().fold(Env::default(), |env, param| env.intro_binder(*param));
+        let env = params
+            .iter()
+            .fold(Env::default(), |env, param| env.intro_binder(*param));
         body.index(&env);
     }
 }
@@ -110,7 +112,11 @@ impl Atom {
 impl Branch {
     fn index(&mut self, env: &Env) {
         let Self { pattern, rhs } = self;
-        let Pattern { rank: _, constr: _, binder } = pattern;
+        let Pattern {
+            rank: _,
+            constr: _,
+            binder,
+        } = pattern;
         match binder {
             None => rhs.index(env),
             Some(binder) => rhs.index(&env.clone().intro_binder(*binder)),

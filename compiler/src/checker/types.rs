@@ -347,9 +347,13 @@ impl fmt::Display for Type {
                 )
             ),
             Self::Variant(constrs) => {
-                write!(f, "[{}]", " | ".join(constrs.iter().map(|(constr, typ)| {
-                    lazy_format!("{}{}", constr, in_parens_if_some(typ))
-                })))
+                write!(
+                    f,
+                    "[{}]",
+                    " | ".join(constrs.iter().map(|(constr, typ)| {
+                        lazy_format!("{}{}", constr, in_parens_if_some(typ))
+                    }))
+                )
             }
         }
     }

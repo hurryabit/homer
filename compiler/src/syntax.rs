@@ -2,7 +2,6 @@ use crate::location;
 use debug::DebugWriter;
 use std::fmt;
 
-mod debruijn;
 #[macro_use]
 pub mod debug;
 #[macro_use]

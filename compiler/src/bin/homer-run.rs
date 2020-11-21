@@ -31,7 +31,7 @@ fn run() -> std::io::Result<bool> {
 
 fn main() {
     match run() {
-        Ok(true) => {},
+        Ok(true) => {}
         Ok(false) => {
             eprintln!("\nThere were errors.");
             std::process::exit(1);

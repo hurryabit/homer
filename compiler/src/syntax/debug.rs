@@ -197,7 +197,11 @@ impl Debug for Branch {
 
 impl Debug for Pattern {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        let Self { constr, rank, binder } = self;
+        let Self {
+            constr,
+            rank,
+            binder,
+        } = self;
         writer.node("PATTERN", |writer| {
             writer.child("constr", &(*constr, *rank))?;
             if let Some(binder) = binder {
@@ -317,7 +321,11 @@ impl<'a> DebugWriter<'a> {
         Ok(())
     }
 
-    pub fn children<T: Debug, I: IntoIterator<Item = T>>(&mut self, label: &str, items: I) -> fmt::Result {
+    pub fn children<T, I>(&mut self, label: &str, items: I) -> fmt::Result
+    where
+        T: Debug,
+        I: IntoIterator<Item = T>,
+    {
         for item in items {
             self.child(label, &item)?;
         }
