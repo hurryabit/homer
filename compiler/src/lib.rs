@@ -4,6 +4,8 @@ extern crate im;
 extern crate lalrpop_util;
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate static_assertions;
 
 pub mod anf;
 pub mod build;

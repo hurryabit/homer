@@ -26,6 +26,7 @@ regex = "1.4.2"
 salsa = "0.16.0"
 serde = "1.0.117"
 serde_json = "1.0.59"
+static_assertions = "1.1.0"
 join-lazy-fmt = "0.9.2"
 
 [dev-dependencies]

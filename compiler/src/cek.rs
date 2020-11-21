@@ -10,10 +10,18 @@ pub enum Value<'a> {
     Bool(bool),
     Record(Vec<(ExprVar, RcValue<'a>)>),
     Variant(ExprCon, Option<RcValue<'a>>),
-    Closure(Stack<'a>, &'a [ExprVar], &'a Expr),
+    Closure(Box<Closure<'a>>),
 }
 
+assert_eq_size!(Value, [usize; 4]);
+
 pub type RcValue<'a> = Rc<Value<'a>>;
+
+pub struct Closure<'a> {
+    env: Stack<'a>,
+    params: &'a [ExprVar],
+    body: &'a Expr,
+}
 
 type Stack<'a> = Vec<(ExprVar, RcValue<'a>)>;
 
@@ -123,7 +131,11 @@ impl<'a> Machine<'a> {
             .iter()
             .map(|index| (index.1, Rc::clone(self.get_index(index))))
             .collect();
-        Ctrl::Value(Rc::new(Value::Closure(env, params, body)))
+        Ctrl::Value(Rc::new(Value::Closure(Box::new(Closure {
+            env,
+            params,
+            body,
+        }))))
     }
 
     fn step_record(&self, fields: &'a [(ExprVar, Atom)]) -> Ctrl<'a> {
@@ -155,14 +167,15 @@ impl<'a> Machine<'a> {
 
     fn step_app_closure(&mut self, clo: &'a Atom, args: &'a [Atom]) -> Ctrl<'a> {
         let closure = Rc::clone(self.get_atom(clo));
-        if let Value::Closure(captured, params, body) = closure.as_ref() {
+        if let Value::Closure(closure) = closure.as_ref() {
+            let Closure { env, params, body } = closure.as_ref();
             assert_eq!(params.len(), args.len());
             for (param, arg) in params.iter().zip(args.iter()) {
                 self.args_tmp.push((*param, Rc::clone(self.get_atom(arg))));
             }
             self.stack
                 .truncate(self.kont.last().map_or(0, |kont| kont.0));
-            self.stack.extend_from_slice(captured);
+            self.stack.extend_from_slice(env);
             self.stack.append(&mut self.args_tmp);
             Ctrl::from_expr(body)
         } else {
@@ -355,11 +368,10 @@ impl<'a> PartialOrd for Value<'a> {
 
 impl<'a> fmt::Display for Value<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Value::*;
         match self {
-            Int(n) => write!(f, "{}", n),
-            Bool(b) => write!(f, "{}", b),
-            Record(fields) => write!(
+            Value::Int(n) => write!(f, "{}", n),
+            Value::Bool(b) => write!(f, "{}", b),
+            Value::Record(fields) => write!(
                 f,
                 "{{{}}}",
                 ", ".join(
@@ -368,17 +380,23 @@ impl<'a> fmt::Display for Value<'a> {
                         .map(|(field, value)| lazy_format!("{} = {}", field, value))
                 )
             ),
-            Variant(constr, value) => write!(f, "{}{}", constr, in_parens_if_some(value)),
-            Closure(captured, params, _body) => write!(
-                f,
-                "[{captured}; {params}; ...]",
-                captured = ", ".join(
-                    captured
-                        .iter()
-                        .map(|(binder, value)| lazy_format!("{} = {}", binder, value))
-                ),
-                params = ", ".join(*params),
-            ),
+            Value::Variant(constr, value) => write!(f, "{}{}", constr, in_parens_if_some(value)),
+            Value::Closure(closure) => {
+                let Closure {
+                    env,
+                    params,
+                    body: _,
+                } = closure.as_ref();
+                write!(
+                    f,
+                    "[{env}; {params}; ...]",
+                    env = ", ".join(
+                        env.iter()
+                            .map(|(binder, value)| lazy_format!("{} = {}", binder, value))
+                    ),
+                    params = ", ".join(*params),
+                )
+            }
         }
     }
 }
