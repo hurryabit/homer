@@ -391,9 +391,14 @@ impl Debug for Bindee {
     }
 }
 
+impl Debug for IdxVar {
+    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+        (self.1, self.0).write(writer)
+    }
+}
 impl Debug for Atom {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        writer.leaf(&self.to_string())
+        self.0.write(writer)
     }
 }
 
