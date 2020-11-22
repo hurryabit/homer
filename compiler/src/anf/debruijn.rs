@@ -51,7 +51,7 @@ impl Bindee {
                     arg.index(env);
                 }
             }
-            Self::AppFunc(_fun, args) => {
+            Self::AppFunc(_index, _name, args) => {
                 for arg in args {
                     arg.index(env);
                 }

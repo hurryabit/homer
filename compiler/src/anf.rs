@@ -47,7 +47,7 @@ pub enum Bindee {
     Bool(bool),
     MakeClosure(MakeClosure),
     AppClosure(Atom, Vec<Atom>),
-    AppFunc(ExprVar, Vec<Atom>),
+    AppFunc(u32, ExprVar, Vec<Atom>),
     BinOp(Atom, OpCode, Atom),
     If(Atom, Box<Expr>, Box<Expr>),
     // NOTE(MH): Both vectors always have the same length. We split it here
@@ -87,16 +87,21 @@ pub struct Pattern {
 
 impl syntax::Module {
     pub fn to_anf(&self) -> Module {
-        let func_decls = self.func_decls().map(|decl| decl.to_anf()).collect();
+        let func_indices = self
+            .func_decls()
+            .enumerate()
+            .map(|(index, decl)| (decl.name.locatee, index as u32))
+            .collect();
+        let func_decls = self.func_decls().map(|decl| decl.to_anf(&func_indices)).collect();
         Module { func_decls }
     }
 }
 
 impl syntax::FuncDecl {
-    fn to_anf(&self) -> FuncDecl {
+    fn to_anf(&self, func_indices: &im::HashMap<ExprVar, u32>) -> FuncDecl {
         let Self { name, type_params: _, expr_params, return_type: _, body } = self;
         let name = name.locatee;
-        let env = &mut Env::default();
+        let env = &mut Env::new(func_indices);
         let params: Vec<_> = expr_params.iter().map(|(param, _)| env.intro_binder(param)).collect();
         let (body, _fvs) = Expr::from_syntax(env, body);
         let mut decl = FuncDecl { name, params, body };
@@ -148,7 +153,9 @@ impl Bindee {
                     args.iter().map(|arg| Atom::from_syntax(env, arg, bindings)).unzip();
                 let fvs = FreeVars::unions(fvss);
                 if let syntax::Expr::FuncInst(func, _) = &fun.locatee {
-                    (Self::AppFunc(func.locatee, args), fvs)
+                    let name = func.locatee;
+                    let index = env.func_indices.get(&name).unwrap();
+                    (Self::AppFunc(*index, name, args), fvs)
                 } else {
                     let (clo, fvs1) = Atom::from_syntax(env, fun, bindings);
                     (Self::AppClosure(clo, args), fvs.union(fvs1))
@@ -263,13 +270,22 @@ impl Atom {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 struct Env {
     bound: im::HashMap<ExprVar, usize>,
     renaming: im::HashMap<ExprVar, ExprVar>,
+    func_indices: im::HashMap<ExprVar, u32>,
 }
 
 impl Env {
+    fn new(func_indices: &im::HashMap<ExprVar, u32>) -> Self {
+        Self {
+            bound: im::HashMap::new(),
+            renaming: im::HashMap::new(),
+            func_indices: func_indices.clone(),
+        }
+    }
+
     fn intro_fresh_binder(&mut self) -> ExprVar {
         let mut n: usize = 1;
         loop {
@@ -350,8 +366,8 @@ impl Debug for Bindee {
                 writer.child("fun", clo)?;
                 writer.children("arg", args)
             }),
-            Self::AppFunc(fun, args) => writer.node("APP", |writer| {
-                writer.child("fun", fun)?;
+            Self::AppFunc(index, name, args) => writer.node("APP", |writer| {
+                writer.child("fun", &(*name, *index))?;
                 writer.children("arg", args)
             }),
             Self::BinOp(lhs, op, rhs) => writer.node("BINOP", |writer| {
@@ -452,7 +468,7 @@ impl fmt::Display for Bindee {
             Self::Bool(b) => write!(f, "{}", b),
             Self::MakeClosure(closure) => write!(f, "{}", closure),
             Self::AppClosure(clo, args) => write!(f, "{}({})", clo, ", ".join(args)),
-            Self::AppFunc(fun, args) => write!(f, "{}({})", fun, ", ".join(args)),
+            Self::AppFunc(index, fun, args) => write!(f, "{}/{}({})", fun, index, ", ".join(args)),
             Self::BinOp(lhs, op, rhs) => write!(f, "{} {} {}", lhs, op, rhs),
             Self::If(cond, _, _) => write!(f, "if {} {{ .. }} else {{ .. }}", cond),
             Self::Record(fields, values) => write!(

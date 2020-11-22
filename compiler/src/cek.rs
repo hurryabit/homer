@@ -23,7 +23,7 @@ pub struct Machine<'a> {
     stack: Stack<'a>,
     memory: Memory<'a>,
     kont: Vec<Kont<'a>>,
-    funcs: im::HashMap<ExprVar, &'a FuncDecl>,
+    module: &'a Module,
     args_tmp: Stack<'a>,
 }
 
@@ -38,7 +38,7 @@ impl<'a> Machine<'a> {
             stack: Stack::new(),
             memory: Memory::new(),
             kont: Vec::new(),
-            funcs,
+            module,
             args_tmp: Vec::new(),
         }
     }
@@ -77,7 +77,7 @@ impl<'a> Machine<'a> {
             Bindee::Variant(rank, _constr, payload) => self.alloc_variant(binder, *rank, payload),
             Bindee::BinOp(lhs, op, rhs) => self.step_binop(binder, &lhs, *op, &rhs),
             Bindee::AppClosure(clo, args) => self.step_app_closure(ctrl, binder, clo, args),
-            Bindee::AppFunc(fun, args) => self.step_app_func(ctrl, binder, fun, args),
+            Bindee::AppFunc(index, _name, args) => self.step_app_func(ctrl, binder, *index, args),
             Bindee::If(cond, then, elze) => self.step_if(ctrl, binder, cond, then, elze),
             Bindee::Match(scrut, branches) => self.step_match(ctrl, binder, scrut, branches),
         }
@@ -189,10 +189,10 @@ impl<'a> Machine<'a> {
         &mut self,
         ctrl: &mut Ctrl<'a>,
         binder: ExprVar,
-        fun: &'a ExprVar,
+        index: u32,
         args: &'a [Atom],
     ) {
-        let FuncDecl { name: _, params, body } = self.funcs.get(fun).unwrap();
+        let FuncDecl { name: _, params, body } = &self.module.func_decls[index as usize];
         assert_eq!(params.len(), args.len());
         for (param, arg) in params.iter().zip(args.iter()) {
             self.args_tmp.push((*param, self.get_atom(arg)));
@@ -285,7 +285,7 @@ impl<'a> Machine<'a> {
 
     #[allow(dead_code)]
     fn print_debug(&self, ctrl: &Ctrl<'a>) {
-        let Self { ctrl: _, stack, memory, kont, funcs: _, args_tmp: _ } = self;
+        let Self { ctrl: _, stack, memory, kont, module: _, args_tmp: _ } = self;
         println!("Control: (level = {})", ctrl.stack_level);
         for binding in ctrl.bindings {
             println!("    {}", binding);
