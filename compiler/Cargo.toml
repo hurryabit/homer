@@ -36,3 +36,6 @@ insta = "1.2.0"
 [[bench]]
 name = "run-cek"
 harness = false
+
+[features]
+cek-no-inlining = []

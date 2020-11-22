@@ -63,6 +63,7 @@ impl<'a> Machine<'a> {
     }
 
     /// Step when control contains an expression.
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn step_expr(&mut self, ctrl: &mut Ctrl<'a>, binding: &'a Binding) {
         let Binding { binder, ref bindee } = *binding;
         match bindee {
@@ -82,17 +83,20 @@ impl<'a> Machine<'a> {
         }
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn alloc_int(&mut self, binder: ExprVar, n: i64) {
         let addr = self.memory.alloc(Tag::Int, 0, 1);
         self.memory[addr + 1] = Data::from_int(n);
         self.return_(binder, addr);
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn alloc_bool(&mut self, binder: ExprVar, b: bool) {
         let addr = self.memory.alloc(Tag::Bool, b as u16, 0);
         self.return_(binder, addr);
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn alloc_closure(&mut self, binder: ExprVar, closure: &'a MakeClosure) {
         let size = closure.captured.len() as u32 + 1;
         let addr = self.memory.alloc(Tag::Closure, 0, size);
@@ -103,6 +107,7 @@ impl<'a> Machine<'a> {
         self.return_(binder, addr);
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn alloc_record(&mut self, binder: ExprVar, values: &'a [Atom]) {
         let addr = self.memory.alloc(Tag::Record, 0, values.len() as u32);
         for (value, offset) in values.iter().zip(1..) {
@@ -111,6 +116,7 @@ impl<'a> Machine<'a> {
         self.return_(binder, addr);
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn step_proj(&mut self, binder: ExprVar, record: &'a Atom, index: u32) {
         let addr = self.get_atom(record);
         let header = self.memory[addr].into_header();
@@ -119,6 +125,7 @@ impl<'a> Machine<'a> {
         self.return_(binder, self.memory[addr + index + 1].into_addr());
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn alloc_variant(&mut self, binder: ExprVar, rank: u32, payload: &'a Option<Atom>) {
         debug_assert!(rank <= u16::MAX as u32);
         let rank = rank as u16;
@@ -133,6 +140,7 @@ impl<'a> Machine<'a> {
         self.return_(binder, addr);
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn step_binop(&mut self, binder: ExprVar, lhs: &'a Atom, op: OpCode, rhs: &'a Atom) {
         let lhs = self.get_int(lhs);
         let rhs = self.get_int(rhs);
@@ -150,6 +158,7 @@ impl<'a> Machine<'a> {
         }
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn step_app_closure(
         &mut self,
         ctrl: &mut Ctrl<'a>,
@@ -175,6 +184,7 @@ impl<'a> Machine<'a> {
         self.stack.append(&mut self.args_tmp);
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn step_app_func(
         &mut self,
         ctrl: &mut Ctrl<'a>,
@@ -191,6 +201,7 @@ impl<'a> Machine<'a> {
         self.stack.append(&mut self.args_tmp);
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn step_if(
         &mut self,
         ctrl: &mut Ctrl<'a>,
@@ -205,6 +216,7 @@ impl<'a> Machine<'a> {
         self.call(ctrl, binder, if header.rank != 0 { then } else { elze });
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn step_match(
         &mut self,
         ctrl: &mut Ctrl<'a>,
@@ -229,10 +241,12 @@ impl<'a> Machine<'a> {
         }
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn return_(&mut self, binder: ExprVar, value: Addr) {
         self.stack.push((binder, value));
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn call(&mut self, ctrl: &mut Ctrl<'a>, binder: ExprVar, expr: &'a Expr) {
         let Expr { bindings } = expr;
         let stack_level = self.stack.len();
@@ -240,6 +254,7 @@ impl<'a> Machine<'a> {
         self.kont.push(Kont { binder, ctrl });
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn call_with_tco(&mut self, ctrl: &mut Ctrl<'a>, binder: ExprVar, expr: &'a Expr) {
         if ctrl.bindings.is_empty() {
             let Expr { bindings } = expr;
@@ -250,14 +265,17 @@ impl<'a> Machine<'a> {
         }
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn get_index(&self, index: &IdxVar) -> Addr {
         self.stack[self.stack.len() - index.0 as usize].1
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn get_atom(&self, atom: &Atom) -> Addr {
         self.get_index(&atom.0)
     }
 
+    #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn get_int(&self, atom: &Atom) -> i64 {
         let addr = self.get_atom(atom);
         let header = self.memory[addr].into_header();
