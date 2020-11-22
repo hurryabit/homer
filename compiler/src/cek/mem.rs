@@ -51,6 +51,10 @@ impl Header {
     }
 }
 
+impl Addr {
+    pub const NULL: Self = Self(0);
+}
+
 impl<'a> Data<'a> {
     const NULL: Self = Self { header: Header::NULL };
 

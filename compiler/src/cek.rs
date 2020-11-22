@@ -7,7 +7,6 @@ type Stack<'a> = Vec<(ExprVar, Addr)>;
 
 #[derive(Clone)]
 enum Ctrl<'a> {
-    Evaluating,
     Expr(&'a [Binding], &'a TailExpr),
     Value(Addr),
 }
@@ -44,11 +43,10 @@ impl<'a> Machine<'a> {
     }
 
     pub fn run(mut self) -> (Addr, Memory<'a>) {
+        let mut ctrl = std::mem::replace(&mut self.ctrl, Ctrl::Value(Addr::NULL));
         loop {
-            // self.print_debug();
-            let old_ctrl = std::mem::take(&mut self.ctrl);
-            let new_ctrl = match old_ctrl {
-                Ctrl::Evaluating => panic!("Machine control has not been set after step"),
+            // self.print_debug(&ctrl);
+            ctrl = match ctrl {
                 Ctrl::Expr(bindings, tail) => self.step_expr(bindings, tail),
                 Ctrl::Value(addr) => {
                     if let Some(kont) = self.kont.pop() {
@@ -62,7 +60,6 @@ impl<'a> Machine<'a> {
                     }
                 }
             };
-            self.ctrl = new_ctrl;
         }
     }
 
@@ -236,11 +233,10 @@ impl<'a> Machine<'a> {
     }
 
     #[allow(dead_code)]
-    fn print_debug(&self) {
-        let Self { ctrl, stack, memory, kont, funcs: _, args_tmp: _ } = self;
+    fn print_debug(&self, ctrl: &Ctrl<'a>) {
+        let Self { ctrl: _, stack, memory, kont, funcs: _, args_tmp: _ } = self;
         print!("Control: ");
         match ctrl {
-            Ctrl::Evaluating => println!("???"),
             Ctrl::Expr(bindings, tail) => {
                 println!();
                 for binding in *bindings {
@@ -269,11 +265,5 @@ impl<'a> Machine<'a> {
 impl<'a> Ctrl<'a> {
     fn from_expr(expr: &'a Expr) -> Self {
         Self::Expr(&expr.bindings, &expr.tail)
-    }
-}
-
-impl<'a> Default for Ctrl<'a> {
-    fn default() -> Self {
-        Self::Evaluating
     }
 }
