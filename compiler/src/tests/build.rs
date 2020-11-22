@@ -30,7 +30,8 @@ fn all_good() {
             name: f
             param: x
             body: EXPR
-                tail: x/1
+                binder: $result
+                bindee: x/1
     "###);
 }
 
@@ -62,7 +63,8 @@ fn recoverable_parse_error_types_good() {
                 bindee: ERROR
                 binder: $v2
                 bindee: ERROR
-                tail: BINOP
+                binder: $result
+                bindee: BINOP
                     lhs: $v1/2
                     op: ADD
                     rhs: $v2/1

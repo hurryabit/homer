@@ -22,7 +22,8 @@ fn simple() {
                 bindee: 1
                 binder: $v2
                 bindee: 2
-                tail: BINOP
+                binder: $result
+                bindee: BINOP
                     lhs: $v1/2
                     op: ADD
                     rhs: $v2/1
@@ -48,8 +49,10 @@ fn lambda_shadowing() {
                 bindee: MAKE_CLOSURE
                     param: $v1
                     body: EXPR
-                        tail: $v1/1
-                tail: APP
+                        binder: $result
+                        bindee: $v1/1
+                binder: $result
+                bindee: APP
                     fun: f/1
                     arg: x/2
     "###);
@@ -77,7 +80,8 @@ fn nested_shadowing() {
                 bindee: x/1
                 binder: $v2
                 bindee: $v1/1
-                tail: $v2/1
+                binder: $result
+                bindee: $v2/1
     "###);
 }
 
@@ -100,8 +104,10 @@ fn capture() {
                 bindee: MAKE_CLOSURE
                     captured: x/1
                     body: EXPR
-                        tail: x/1
-                tail: APP
+                        binder: $result
+                        bindee: x/1
+                binder: $result
+                bindee: APP
                     fun: f/1
     "###);
 }
@@ -120,14 +126,16 @@ fn pattern_shadowing() {
             name: f
             param: x
             body: EXPR
-                tail: MATCH
+                binder: $result
+                bindee: MATCH
                     scrut: x/1
                     branch: BRANCH
                         pattern: PATTERN
                             constr: C/0
                             binder: $v1
                         rhs: EXPR
-                            tail: BINOP
+                            binder: $result
+                            bindee: BINOP
                                 lhs: $v1/1
                                 op: ADD
                                 rhs: $v1/1
@@ -149,17 +157,20 @@ fn branch_sorting() {
             name: f
             param: x
             body: EXPR
-                tail: MATCH
+                binder: $result
+                bindee: MATCH
                     scrut: x/1
                     branch: BRANCH
                         pattern: PATTERN
                             constr: A/0
                         rhs: EXPR
-                            tail: 1
+                            binder: $result
+                            bindee: 1
                     branch: BRANCH
                         pattern: PATTERN
                             constr: B/1
                         rhs: EXPR
-                            tail: 0
+                            binder: $result
+                            bindee: 0
     "###);
 }

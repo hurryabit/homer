@@ -26,12 +26,11 @@ impl FuncDecl {
 
 impl Expr {
     fn index(&mut self, env: &Env) {
-        let Self { bindings, tail } = self;
-        let env = bindings.iter_mut().fold(env.clone(), |env, Binding { binder, bindee }| {
+        let Self { bindings } = self;
+        bindings.iter_mut().fold(env.clone(), |env, Binding { binder, bindee }| {
             bindee.index(&env);
             env.intro_binder(*binder)
         });
-        tail.index(&env);
     }
 }
 

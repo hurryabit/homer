@@ -23,8 +23,12 @@ pub struct FuncDecl {
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Expr {
+    // NOTE(MH): This vector is never empty. The vector
+    // `[(x_1, e_1), ..., (x_n, e_n)]` represents the expression
+    // `let x_1 = e_1; ...; let x_{n-1} = e_{n-1}; e_n`. `x_n` is always
+    // "$result" and is only there to make the presentation uniform for
+    // for the sake of easier interpretation.
     pub bindings: Vec<Binding>,
-    pub tail: TailExpr,
 }
 
 pub type TailExpr = Bindee;
@@ -107,7 +111,8 @@ impl Expr {
     fn from_syntax(env: &mut Env, expr: &syntax::LExpr) -> (Self, FreeVars) {
         let mut bindings = Vec::new();
         let (tail, fvs) = Bindee::from_syntax(env, expr, &mut bindings);
-        (Self { bindings, tail }, fvs)
+        bindings.push(Binding { binder: ExprVar::new("$result"), bindee: tail });
+        (Self { bindings }, fvs)
     }
 }
 
@@ -322,13 +327,13 @@ impl Debug for FuncDecl {
 
 impl Debug for Expr {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        let Self { bindings, tail } = self;
+        let Self { bindings } = self;
         writer.node("EXPR", |writer| {
             for Binding { binder, bindee } in bindings {
                 writer.child("binder", binder)?;
                 writer.child("bindee", bindee)?;
             }
-            writer.child("tail", tail)
+            Ok(())
         })
     }
 }
@@ -426,8 +431,8 @@ impl Debug for Pattern {
 
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { bindings, tail } = self;
-        write!(f, "{}\n{}", "\n".join(bindings), tail)
+        let Self { bindings } = self;
+        write!(f, "{}", "\n".join(bindings))
     }
 }
 
