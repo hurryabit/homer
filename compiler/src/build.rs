@@ -85,6 +85,14 @@ impl CompilerDB {
         (self as &mut dyn Compiler).set_input(uri, input);
     }
 
+    pub fn humanizer(&mut self, uri: Uri) -> Arc<Humanizer> {
+        (self as &dyn Compiler).humanizer(uri)
+    }
+
+    pub fn checked_module(&self, uri: Uri) -> Option<Arc<Module>> {
+        (self as &dyn Compiler).checked_module(uri).0
+    }
+
     pub fn anf_module(&self, uri: Uri) -> Option<Arc<anf::Module>> {
         (self as &dyn Compiler).anf_module(uri)
     }
@@ -94,7 +102,7 @@ impl CompilerDB {
         F: FnOnce(&mut dyn Iterator<Item = &Diagnostic>) -> R,
     {
         let parser_diagnostics = self.parsed_module(uri).1;
-        let checker_diagnostics = self.checked_module(uri).1;
+        let checker_diagnostics = (self as &dyn Compiler).checked_module(uri).1;
         f(&mut parser_diagnostics.iter().chain(checker_diagnostics.iter()))
     }
 }

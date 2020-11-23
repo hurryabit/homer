@@ -5,17 +5,24 @@ use log::info;
 use lsp_types::{
     notification::{
         DidChangeTextDocument, DidOpenTextDocument, DidSaveTextDocument, Notification,
-        PublishDiagnostics,
+        PublishDiagnostics, ShowMessage,
     },
-    request::GotoDefinition,
-    GotoDefinitionResponse, InitializeParams, PublishDiagnosticsParams, SaveOptions,
-    ServerCapabilities, TextDocumentItem, TextDocumentSyncCapability, TextDocumentSyncKind,
-    TextDocumentSyncOptions, TextDocumentSyncSaveOptions, Url,
+    request::{CodeLensRequest, ExecuteCommand, Request},
+    CodeLens, CodeLensOptions, Command, ExecuteCommandOptions, InitializeParams, MessageType,
+    PublishDiagnosticsParams, SaveOptions, ServerCapabilities, ShowMessageParams, TextDocumentItem,
+    TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
+    TextDocumentSyncSaveOptions, Url,
 };
 
-use lsp_server::{Connection, Message, Request, RequestId, Response};
+use lsp_server::{Connection, Message, RequestId, Response};
 
-use homer_compiler::build;
+use homer_compiler::*;
+
+#[derive(serde::Deserialize, serde::Serialize)]
+struct RunFnParams {
+    uri: String,
+    fun: String,
+}
 
 fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     // Set up logging. Because `stdio_transport` gets a lock on stdout and stdin, we must have
@@ -36,8 +43,17 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
         })),
         ..TextDocumentSyncOptions::default()
     }));
-    let server_capabilities =
-        ServerCapabilities { text_document_sync, ..ServerCapabilities::default() };
+    let code_lens_provider = Some(CodeLensOptions { resolve_provider: Some(true) });
+    let execute_command_provider = Some(ExecuteCommandOptions {
+        commands: vec!["run_fn".to_string()],
+        ..ExecuteCommandOptions::default()
+    });
+    let server_capabilities = ServerCapabilities {
+        text_document_sync,
+        code_lens_provider,
+        execute_command_provider,
+        ..ServerCapabilities::default()
+    };
     let initialization_params =
         connection.initialize(serde_json::to_value(server_capabilities).unwrap())?;
     let db = &mut build::CompilerDB::new();
@@ -55,8 +71,6 @@ fn main_loop(
     db: &mut build::CompilerDB,
 ) -> Result<(), Box<dyn Error + Sync + Send>> {
     let _params: InitializeParams = serde_json::from_value(params).unwrap();
-    // info!("_params = {:?}", _params);
-    // info!("starting example main loop");
     for msg in &connection.receiver {
         // info!("got msg: {:?}", msg);
         match msg {
@@ -65,15 +79,34 @@ fn main_loop(
                     return Ok(());
                 }
                 info!("got request: {:?}", req);
-                if let Ok((id, params)) = cast::<GotoDefinition>(req) {
-                    info!("got gotoDefinition request #{}: {:?}", id, params);
-                    let result = Some(GotoDefinitionResponse::Array(Vec::new()));
-                    let result = serde_json::to_value(&result).unwrap();
-                    let resp = Response { id, result: Some(result), error: None };
-                    connection.sender.send(Message::Response(resp))?;
-                    continue;
+                match req.method.as_ref() {
+                    CodeLensRequest::METHOD => {
+                        let (id, params) = cast_request::<CodeLensRequest>(req);
+                        let lsp_uri = params.text_document.uri;
+                        info!("got code lens request for uri {:?} with id {:?}", lsp_uri, id);
+                        let result = code_lenses(lsp_uri, db);
+                        let result = serde_json::to_value(&result).unwrap();
+                        let resp = Response { id, result: Some(result), error: None };
+                        connection.sender.send(Message::Response(resp))?;
+                    }
+                    ExecuteCommand::METHOD => {
+                        let (id, params) = cast_request::<ExecuteCommand>(req);
+                        info!(
+                            "got command execution request with params {:?} and id {:?}",
+                            params, id
+                        );
+                        let result = run_function(params.arguments, db);
+                        let result = serde_json::to_value(&result).unwrap();
+                        let not = lsp_server::Notification {
+                            method: ShowMessage::METHOD.to_owned(),
+                            params: result,
+                        };
+                        connection.sender.send(Message::Notification(not))?;
+                    }
+                    _ => {
+                        info!("got unhandled request: {:?}", req);
+                    }
                 }
-                // ...
             }
             Message::Response(resp) => {
                 info!("got unhandled response {:?}", resp);
@@ -143,6 +176,55 @@ fn validate_document(
     Ok(())
 }
 
+fn code_lenses(lsp_uri: Url, db: &mut build::CompilerDB) -> Option<Vec<CodeLens>> {
+    let uri = build::Uri::new(lsp_uri.as_str());
+    let humanizer = db.humanizer(uri);
+    db.checked_module(uri).map(|module| {
+        module
+            .func_decls()
+            .filter_map(|decl| {
+                if decl.expr_params.is_empty() {
+                    let range = decl.name.span.humanize(&humanizer).to_lsp();
+                    let arg = serde_json::to_value(RunFnParams {
+                        uri: uri.as_str().to_string(),
+                        fun: decl.name.locatee.as_str().to_string(),
+                    })
+                    .unwrap();
+                    let command = Some(Command {
+                        title: "▶︎ Run Function".to_string(),
+                        command: "run_fn".to_string(),
+                        arguments: Some(vec![arg]),
+                    });
+                    let code_lens = CodeLens { range, command, data: None };
+                    Some(code_lens)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    })
+}
+
+fn run_function(
+    arguments: Vec<serde_json::Value>,
+    db: &mut build::CompilerDB,
+) -> ShowMessageParams {
+    assert_eq!(arguments.len(), 1);
+    let argument = arguments.into_iter().next().unwrap();
+    let args: RunFnParams = serde_json::from_value(argument).unwrap();
+    if let Some(module) = db.anf_module(build::Uri::new(&args.uri)) {
+        let machine = cek::Machine::new(&module, syntax::ExprVar::new(&args.fun));
+        let (addr, mem) = machine.run();
+        let message = format!("{}() = {}", args.fun, mem.value_at(addr));
+        ShowMessageParams { typ: MessageType::Info, message }
+    } else {
+        ShowMessageParams {
+            typ: MessageType::Error,
+            message: "The module cannot be compiled.".to_string(),
+        }
+    }
+}
+
 fn cast_notification<N>(not: lsp_server::Notification) -> N::Params
 where
     N: Notification,
@@ -151,10 +233,10 @@ where
     not.extract(N::METHOD).unwrap()
 }
 
-fn cast<R>(req: Request) -> Result<(RequestId, R::Params), Request>
+fn cast_request<R>(req: lsp_server::Request) -> (RequestId, R::Params)
 where
-    R: lsp_types::request::Request,
+    R: Request,
     R::Params: serde::de::DeserializeOwned,
 {
-    req.extract(R::METHOD)
+    req.extract(R::METHOD).unwrap()
 }

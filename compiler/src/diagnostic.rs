@@ -42,7 +42,7 @@ impl HumanLoc {
 }
 
 impl Span<HumanLoc> {
-    fn to_lsp(&self) -> lsp_types::Range {
+    pub fn to_lsp(&self) -> lsp_types::Range {
         let Self { start, end } = self;
         lsp_types::Range::new(start.to_lsp(), end.to_lsp())
     }
