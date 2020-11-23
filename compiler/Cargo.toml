@@ -26,6 +26,11 @@ regex = "1.4.2"
 salsa = "0.16.0"
 serde = "1.0.117"
 serde_json = "1.0.59"
+cranelift = "0.68.0"
+cranelift-codegen = "0.68.0"
+cranelift-frontend = "0.68.0"
+cranelift-module = "0.68.0"
+cranelift-simplejit = "0.68.0"
 
 [dev-dependencies]
 insta = "1.2.0"
