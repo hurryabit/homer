@@ -11,6 +11,7 @@ struct Ctrl<'a> {
     stack_level: usize,
 }
 
+// NOTE(MH): We never push continuations with empty bindings.
 #[derive(Clone)]
 struct Kont<'a> {
     binder: ExprVar,
@@ -260,19 +261,25 @@ impl<'a> Machine<'a> {
     #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn call(&mut self, ctrl: &mut Ctrl<'a>, binder: ExprVar, expr: &'a Expr) {
         let Expr { bindings } = expr;
-        let stack_level = self.stack.len();
-        let ctrl = std::mem::replace(ctrl, Ctrl { bindings, stack_level });
-        self.kont.push(Kont { binder, ctrl });
+        if ctrl.bindings.is_empty() {
+            ctrl.bindings = bindings;
+        } else {
+            let stack_level = self.stack.len();
+            let ctrl = std::mem::replace(ctrl, Ctrl { bindings, stack_level });
+            self.kont.push(Kont { binder, ctrl });
+        }
     }
 
     #[cfg_attr(feature = "cek-no-inlining", inline(never))]
     fn call_with_tco(&mut self, ctrl: &mut Ctrl<'a>, binder: ExprVar, expr: &'a Expr) {
+        let Expr { bindings } = expr;
         if ctrl.bindings.is_empty() {
-            let Expr { bindings } = expr;
             self.stack.truncate(ctrl.stack_level);
             ctrl.bindings = bindings;
         } else {
-            self.call(ctrl, binder, expr);
+            let stack_level = self.stack.len();
+            let ctrl = std::mem::replace(ctrl, Ctrl { bindings, stack_level });
+            self.kont.push(Kont { binder, ctrl });
         }
     }
 

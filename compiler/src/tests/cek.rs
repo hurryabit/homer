@@ -80,3 +80,25 @@ fn output_closure() {
     }
     "#), @"[x = 1; fn (y) { ... }]");
 }
+
+#[test]
+fn tail_call_optimization() {
+    let input = r#"
+    fn sum_up_to(s: Int, n: Int) -> Int {
+        let b = n > 0;
+        if b {
+            sum_up_to(s + n, n - 1)
+        } else {
+            s
+        }
+    }
+
+    fn f() -> Int {
+        sum_up_to(0, 1000)
+    }
+    "#;
+    with_cek_result("f", input, |result| {
+        assert_eq!(&format!("{}", result.value()), "500500");
+        assert_eq!(result.stack_capacity(), 8);
+    });
+}
