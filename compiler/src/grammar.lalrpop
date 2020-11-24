@@ -50,8 +50,8 @@ VariantCaseType: (LExprCon, Option<LType>) = {
 pub Expr: Expr = {
     SumExpr,
     BinOp<LSumExpr, CompOp, LSumExpr>,
+    IfExpr,
     "fn" "(" <List0<Param<OptTypeAnn>, ",">> ")" <Box<LBlockExpr>> => Expr::Lam(<>),
-    "if" <Box<LExpr>> <Box<LBlockExpr>> "else" <Box<LBlockExpr>> => Expr::If(<>),
     "match" <Box<LExpr>> "{" <Branch*> "}" => Expr::Match(<>),
 }
 
@@ -63,7 +63,7 @@ pub BlockExpr: Expr = {
     "{" <Statements> "}"
 }
 
-// NOTE(MH): We want to take the location insider the curlies.
+// NOTE(MH): We want to take the location inside the curlies.
 LBlockExpr: LExpr = {
     "{" <LStatements> "}"
 }
@@ -76,6 +76,15 @@ Statements: Expr = {
 
 LStatements: LExpr = {
     Located<Statements>,
+}
+
+LIfExpr: LExpr = {
+    Located<IfExpr>,
+}
+
+IfExpr: Expr = {
+    "if" <Box<LExpr>> <Box<LBlockExpr>> "else" <Box<LBlockExpr>> => Expr::If(<>),
+    "if" <Box<LExpr>> <Box<LBlockExpr>> "else" <Box<LIfExpr>> => Expr::If(<>),
 }
 
 SumExpr: Expr = {

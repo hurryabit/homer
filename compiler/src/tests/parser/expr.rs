@@ -438,6 +438,19 @@ fn if_cmp() {
 }
 
 #[test]
+fn if_else_if() {
+    insta::assert_debug_snapshot!(parse_output("if true { 0 } else if false { 1 } else { 2 }"), @r###"
+    IF
+        cond: true @ 3...7
+        then: 0 @ 10...11
+        else: IF @ 19...44
+            cond: false @ 22...27
+            then: 1 @ 30...31
+            else: 2 @ 41...42
+    "###);
+}
+
+#[test]
 fn block_atom() {
     insta::assert_debug_snapshot!(parse_block_output("{ a }"), @"a");
 }
