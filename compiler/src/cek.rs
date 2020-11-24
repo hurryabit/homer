@@ -1,5 +1,5 @@
 use crate::anf::*;
-use mem::{Addr, Data, Memory, Tag};
+use mem::{Addr, Data, Memory, Tag, Value};
 
 pub mod mem;
 
@@ -27,6 +27,12 @@ pub struct Machine<'a> {
     args_tmp: Stack<'a>,
 }
 
+pub struct MachineResult<'a> {
+    addr: Addr,
+    memory: Memory<'a>,
+    stack_capacity: usize,
+}
+
 impl<'a> Machine<'a> {
     pub fn new(module: &'a Module, main: ExprVar) -> Self {
         let funcs: im::HashMap<_, _> =
@@ -43,7 +49,7 @@ impl<'a> Machine<'a> {
         }
     }
 
-    pub fn run(mut self) -> (Addr, Memory<'a>) {
+    pub fn run(mut self) -> MachineResult<'a> {
         let mut ctrl = Ctrl { ..self.ctrl };
         loop {
             // self.print_debug(&ctrl);
@@ -56,8 +62,13 @@ impl<'a> Machine<'a> {
                 self.stack.truncate(ctrl.stack_level + 1);
                 ctrl = next_ctrl;
             } else {
-                let result = self.stack.last().unwrap().1;
-                return (result, self.memory);
+                let addr = self.stack.last().unwrap().1;
+                let result = MachineResult {
+                    addr,
+                    memory: self.memory,
+                    stack_capacity: self.stack.capacity(),
+                };
+                return result;
             }
         }
     }
@@ -304,5 +315,15 @@ impl<'a> Machine<'a> {
             }
         }
         println!("{}", "=".repeat(60));
+    }
+}
+
+impl<'a> MachineResult<'a> {
+    pub fn value(&'a self) -> Value<'a> {
+        self.memory.value_at(self.addr)
+    }
+
+    pub fn stack_capacity(&self) -> usize {
+        self.stack_capacity
     }
 }

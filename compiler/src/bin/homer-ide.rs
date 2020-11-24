@@ -214,8 +214,8 @@ fn run_function(
     let args: RunFnParams = serde_json::from_value(argument).unwrap();
     if let Some(module) = db.anf_module(build::Uri::new(&args.uri)) {
         let machine = cek::Machine::new(&module, syntax::ExprVar::new(&args.fun));
-        let (addr, mem) = machine.run();
-        let message = format!("{}() = {}", args.fun, mem.value_at(addr));
+        let result = machine.run();
+        let message = format!("{}() = {}", args.fun, result.value());
         ShowMessageParams { typ: MessageType::Info, message }
     } else {
         ShowMessageParams {
