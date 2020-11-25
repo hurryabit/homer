@@ -8,7 +8,7 @@ use syntax::{ExprCon, ExprVar, TypeVar};
 #[derive(Debug)]
 pub enum Error<Pos = ParserLoc> {
     UnknownTypeVar(TypeVar),
-    UnknownExprVar(ExprVar),
+    UnknownExprVar(ExprVar, bool), // bool indicateds if there's a function of the same name.
     UnexpectedGeneric(TypeVar, Arity),
     GenericTypeArityMismatch { type_var: TypeVar, expected: Arity, found: Arity },
     GenericFuncArityMismatch { expr_var: ExprVar, expected: Arity, found: Arity },
@@ -69,7 +69,13 @@ impl fmt::Display for Error {
 
         match self {
             Self::UnknownTypeVar(var) => write!(f, "Undeclared type variable `{}`.", var),
-            Self::UnknownExprVar(var) => write!(f, "Undeclared variable `{}`.", var),
+            Self::UnknownExprVar(var, false) => write!(f, "Undeclared variable `{}`.", var),
+            Self::UnknownExprVar(var, true) => write!(f,
+                "Undeclared variable `{var}`. There is a function of the same name.\n\
+                If you want to use the function as a closure, you have to wrap it\n\
+                explicitly: `fn (...) {{ {var}(...) }}`.",
+                var = var
+            ),
             Self::UnexpectedGeneric(var, _arity) => {
                 write!(f, "Expected a type but found the generic type `{}`.", var)
             }

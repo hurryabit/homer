@@ -135,18 +135,19 @@ impl Debug for Expr {
                 }
                 writer.child("body", body)
             }),
-            Self::App(fun, args) => writer.node("APP", |writer| {
+            Self::AppClo(fun, args) => writer.node("APPCLO", |writer| {
+                writer.child("clo", fun)?;
+                writer.children("arg", args)
+            }),
+            Self::AppFun(fun, types, args) => writer.node("APPFUN", |writer| {
                 writer.child("fun", fun)?;
+                writer.children("type_arg", types)?;
                 writer.children("arg", args)
             }),
             Self::BinOp(lhs, op, rhs) => writer.node("BINOP", |writer| {
                 writer.child("lhs", lhs)?;
                 writer.child("op", op)?;
                 writer.child("rhs", rhs)
-            }),
-            Self::FuncInst(fun, types) => writer.node("FUNCINST", |writer| {
-                writer.child("fun", fun)?;
-                writer.children("type_arg", types)
             }),
             Self::Let(binder, opt_typ, bindee, tail) => writer.node("LET", |writer| {
                 writer.child("binder", binder)?;

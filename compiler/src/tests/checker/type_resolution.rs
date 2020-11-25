@@ -703,10 +703,9 @@ fn resolve_func_inst_int() {
     FUNCDECL
         name: f @ 39...40
         result: BOOL @ 46...50
-        body: APP @ 53...62
-            fun: FUNCINST @ 53...60
-                fun: g @ 53...54
-                type_arg: INT @ 56...59
+        body: APPFUN @ 53...62
+            fun: g @ 53...54
+            type_arg: INT @ 56...59
     "###);
 }
 
@@ -720,11 +719,10 @@ fn resolve_func_inst_def_int() {
     FUNCDECL
         name: f @ 59...60
         result: BOOL @ 66...70
-        body: APP @ 73...82
-            fun: FUNCINST @ 73...80
-                fun: g @ 73...74
-                type_arg: APP @ 76...79
-                    syn: Int @ 76...79
+        body: APPFUN @ 73...82
+            fun: g @ 73...74
+            type_arg: APP @ 76...79
+                syn: Int @ 76...79
     "###);
 }
 
@@ -738,11 +736,10 @@ fn resolve_func_inst_var_def() {
     FUNCDECL
         name: f @ 64...65
         result: BOOL @ 71...75
-        body: APP @ 78...93
-            fun: FUNCINST @ 78...91
-                fun: g @ 78...79
-                type_arg: APP @ 81...90
-                    syn: ResolveMe @ 81...90
+        body: APPFUN @ 78...93
+            fun: g @ 78...79
+            type_arg: APP @ 81...90
+                syn: ResolveMe @ 81...90
     "###);
 }
 
@@ -756,9 +753,8 @@ fn resolve_func_inst_var_int() {
         name: f @ 39...40
         type_param: Int @ 41...44
         result: BOOL @ 51...55
-        body: APP @ 58...67
-            fun: FUNCINST @ 58...65
-                fun: g @ 58...59
-                type_arg: Int @ 61...64
+        body: APPFUN @ 58...67
+            fun: g @ 58...59
+            type_arg: Int @ 61...64
     "###);
 }

@@ -537,7 +537,7 @@ fn rule_func_inst_on_var_0() {
     }
     "#), @r###"
       4 |         g@<>()
-                  ~~~~
+                  ~
     `g` is not a generic function and must be called as `g(...)`.
     "###);
 }
@@ -551,7 +551,7 @@ fn rule_func_inst_on_var_1() {
     }
     "#), @r###"
       4 |         g@<Int>()
-                  ~~~~~~~
+                  ~
     `g` is not a generic function but is applied to 1 type argument.
     "###);
 }
@@ -565,7 +565,7 @@ fn rule_func_inst_on_mono_func_0() {
     }
     "#), @r###"
       4 |         g@<>()
-                  ~~~~
+                  ~
     `g` is not a generic function and must be called as `g(...)`.
     "###);
 }
@@ -579,7 +579,7 @@ fn rule_func_inst_on_mono_func_1() {
     }
     "#), @r###"
       4 |         g@<Int>()
-                  ~~~~~~~
+                  ~
     `g` is not a generic function but is applied to 1 type argument.
     "###);
 }
@@ -607,7 +607,7 @@ fn rule_func_inst_zero_types_on_poly_func() {
     }
     "#), @r###"
       4 |         g@<>(1)
-                  ~~~~
+                  ~
     Generic function `g` expects 1 type argument but is applied to 0 type arguments.
     "###);
 }
@@ -621,7 +621,7 @@ fn rule_func_inst_too_many_types() {
     }
     "#), @r###"
       4 |         g@<Int, Bool>(1)
-                  ~~~~~~~~~~~~~
+                  ~
     Generic function `g` expects 1 type argument but is applied to 2 type arguments.
     "###);
 }
@@ -635,7 +635,7 @@ fn rule_func_inst_too_few_types() {
     }
     "#), @r###"
       4 |         g@<Int>(1)
-                  ~~~~~~~
+                  ~
     Generic function `g` expects 2 type arguments but is applied to 1 type argument.
     "###);
 }

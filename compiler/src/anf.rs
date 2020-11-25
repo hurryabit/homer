@@ -148,21 +148,18 @@ impl Bindee {
                 captured.sort_by_cached_key(|IdxVar(_, x)| env.get_index(x));
                 (Self::MakeClosure(MakeClosure { captured, params, body }), fvs)
             }
-            syntax::Expr::App(fun, args) => {
+            syntax::Expr::AppClo(fun, args) => {
+                let (fun, fvs) = Atom::from_syntax(env, &fun.map(syntax::Expr::Var), bindings);
                 let (args, fvss): (_, Vec<_>) =
                     args.iter().map(|arg| Atom::from_syntax(env, arg, bindings)).unzip();
-                let fvs = FreeVars::unions(fvss);
-                if let syntax::Expr::FuncInst(func, _) = &fun.locatee {
-                    let name = func.locatee;
-                    let index = env.func_indices.get(&name).unwrap();
-                    (Self::AppFunc(*index, name, args), fvs)
-                } else {
-                    let (clo, fvs1) = Atom::from_syntax(env, fun, bindings);
-                    (Self::AppClosure(clo, args), fvs.union(fvs1))
-                }
+                (Self::AppClosure(fun, args), fvs.union(FreeVars::unions(fvss)))
             }
-            expr @ syntax::Expr::FuncInst(..) => {
-                panic!("Standalone function instantiation: {:?}", expr)
+            syntax::Expr::AppFun(fun, _types, args) => {
+                let (args, fvss): (_, Vec<_>) =
+                    args.iter().map(|arg| Atom::from_syntax(env, arg, bindings)).unzip();
+                let name = fun.locatee;
+                let index = env.func_indices.get(&name).unwrap();
+                (Self::AppFunc(*index, name, args), FreeVars::unions(fvss))
             }
             syntax::Expr::BinOp(lhs, op, rhs) => {
                 let (lhs, fvs1) = Atom::from_syntax(env, lhs, bindings);

@@ -312,9 +312,9 @@ impl Expr {
             | Self::Var(_)
             | Self::Num(_)
             | Self::Bool(_)
-            | Self::App(_, _)
+            | Self::AppClo(_, _)
+            | Self::AppFun(_, _, _)
             | Self::BinOp(_, _, _)
-            | Self::FuncInst(_, _)
             | Self::Record(_)
             | Self::Proj(_, _, _) => {
                 let found = self.infer(span, env)?;
@@ -331,30 +331,10 @@ impl Expr {
     }
 
     fn infer(&mut self, span: Span, env: &Env) -> Result<RcType, LError> {
+        self.resolve(span, env)?;
         match self {
             Self::Error => Ok(RcType::new(Type::Error)),
-            Self::Var(var) => {
-                if let Some(found) = env.expr_vars.get(var) {
-                    Ok(found.clone())
-                } else if let Some(TypeScheme { params, body }) = env.func_sigs.get(var) {
-                    let arity = params.len();
-                    if arity == 0 {
-                        *self = Self::FuncInst(Located::new(*var, span), vec![]);
-                        Ok(body.clone())
-                    } else {
-                        Err(Located::new(
-                            Error::GenericFuncArityMismatch {
-                                expr_var: *var,
-                                expected: arity,
-                                found: 0,
-                            },
-                            span,
-                        ))
-                    }
-                } else {
-                    Err(Located::new(Error::UnknownExprVar(*var), span))
-                }
-            }
+            Self::Var(var) => Ok(env.expr_vars.get(var).unwrap().clone()),
             Self::Num(_) => Ok(RcType::new(Type::Int)),
             Self::Bool(_) => Ok(RcType::new(Type::Bool)),
             Self::Lam(params, body) => {
@@ -374,24 +354,61 @@ impl Expr {
                 )?;
                 Ok(RcType::new(Type::Fun(param_types, result)))
             }
-            Self::App(func, args) => {
-                let func_type = func.infer(env)?;
-                let num_args = args.len();
-                match func_type.weak_normalize_env(env).as_ref() {
-                    Type::Fun(params, result) if params.len() == num_args => {
+            Self::AppClo(clo, args) => {
+                let clo_type = env.expr_vars.get(&clo.locatee).unwrap();
+                match clo_type.weak_normalize_env(env).as_ref() {
+                    Type::Fun(params, result) if args.len() == params.len() => {
                         for (arg, typ) in args.iter_mut().zip(params.iter()) {
                             arg.check(env, typ)?;
                         }
                         Ok(result.clone())
                     }
-                    _ => {
-                        let func = match func.locatee {
-                            Expr::Var(var) => Some(var),
-                            Expr::FuncInst(func, _) => Some(func.locatee),
-                            _ => None,
-                        };
-                        Err(Located::new(Error::BadApp { func, func_type, num_args }, span))
+                    _ => Err(Located::new(
+                        Error::BadApp {
+                            func: Some(clo.locatee),
+                            func_type: clo_type.clone(),
+                            num_args: args.len(),
+                        },
+                        span,
+                    )),
+                }
+            }
+            Self::AppFun(fun, types, args) => {
+                for typ in types.iter_mut() {
+                    typ.check(env)?;
+                }
+                let scheme = env.func_sigs.get(&fun.locatee).unwrap();
+                if types.len() == scheme.params.len() {
+                    let types: Vec<_> = types.iter().map(RcType::from_lsyntax).collect();
+                    let fun_type = scheme.instantiate(&types);
+                    if let Type::Fun(params, result) = fun_type.as_ref() {
+                        if args.len() == params.len() {
+                            for (arg, typ) in args.iter_mut().zip(params.iter()) {
+                                arg.check(env, typ)?;
+                            }
+                            Ok(result.clone())
+                        } else {
+                            Err(Located::new(
+                                Error::BadApp {
+                                    func: Some(fun.locatee),
+                                    func_type: fun_type.clone(),
+                                    num_args: args.len(),
+                                },
+                                span,
+                            ))
+                        }
+                    } else {
+                        panic!("IMPOSSIBLE: function signatures are always function types")
                     }
+                } else {
+                    Err(Located::new(
+                        Error::GenericFuncArityMismatch {
+                            expr_var: fun.locatee,
+                            expected: scheme.params.len(),
+                            found: types.len(),
+                        },
+                        fun.span,
+                    ))
                 }
             }
             Self::BinOp(lhs, op, rhs) => match op {
@@ -412,39 +429,6 @@ impl Expr {
                     Ok(RcType::new(Type::Bool))
                 }
             },
-            Self::FuncInst(var, types) => {
-                let num_types = types.len();
-                for typ in types.iter_mut() {
-                    typ.check(env)?;
-                }
-                if env.expr_vars.contains_key(&var.locatee) {
-                    Err(Located::new(
-                        Error::GenericFuncArityMismatch {
-                            expr_var: var.locatee,
-                            expected: 0,
-                            found: num_types,
-                        },
-                        span,
-                    ))
-                } else if let Some(scheme) = env.func_sigs.get(&var.locatee) {
-                    let arity = scheme.params.len();
-                    if arity == num_types && num_types > 0 {
-                        let types: Vec<_> = types.iter().map(RcType::from_lsyntax).collect();
-                        Ok(scheme.instantiate(&types))
-                    } else {
-                        Err(Located::new(
-                            Error::GenericFuncArityMismatch {
-                                expr_var: var.locatee,
-                                expected: arity,
-                                found: num_types,
-                            },
-                            span,
-                        ))
-                    }
-                } else {
-                    Err(Located::new(Error::UnknownExprVar(var.locatee), var.span))
-                }
-            }
             Self::Let(binder, opt_type_ann, bindee, tail) => {
                 let binder_typ = check_let_bindee(env, binder, opt_type_ann, bindee)?;
                 env.intro_binder(binder, binder_typ, |env| tail.infer(env))
@@ -490,6 +474,64 @@ impl Expr {
                 Ok(rhs_type)
             }
             Self::Variant(_, _, _) => Err(Located::new(Error::TypeAnnsNeeded, span)),
+        }
+    }
+
+    fn resolve(&mut self, span: Span, env: &Env) -> Result<(), LError> {
+        match self {
+            Self::Var(var) => {
+                if env.expr_vars.contains_key(var) {
+                    Ok(())
+                } else if env.func_sigs.contains_key(var) {
+                    Err(Located::new(Error::UnknownExprVar(*var, true), span))
+                } else {
+                    Err(Located::new(Error::UnknownExprVar(*var, false), span))
+                }
+            }
+            Self::AppClo(clo, args) => {
+                if env.expr_vars.contains_key(&clo.locatee) {
+                    Ok(())
+                } else if env.func_sigs.contains_key(&clo.locatee) {
+                    *self = Self::AppFun(*clo, vec![], std::mem::take(args));
+                    Ok(())
+                } else {
+                    Err(Located::new(Error::UnknownExprVar(clo.locatee, false), clo.span))
+                }
+            }
+            Self::AppFun(fun, types, _args) => {
+                let mismatch = || {
+                    Err(Located::new(
+                        Error::GenericFuncArityMismatch {
+                            expr_var: fun.locatee,
+                            expected: 0,
+                            found: types.len(),
+                        },
+                        fun.span,
+                    ))
+                };
+                if env.expr_vars.contains_key(&fun.locatee) {
+                    mismatch()
+                } else if let Some(scheme) = env.func_sigs.get(&fun.locatee) {
+                    if scheme.params.is_empty() {
+                        mismatch()
+                    } else {
+                        Ok(())
+                    }
+                } else {
+                    Err(Located::new(Error::UnknownExprVar(fun.locatee, false), fun.span))
+                }
+            }
+            Self::Error
+            | Self::Num(_)
+            | Self::Bool(_)
+            | Self::Lam(_, _)
+            | Self::BinOp(_, _, _)
+            | Self::Let(_, _, _, _)
+            | Self::If(_, _, _)
+            | Self::Record(_)
+            | Self::Proj(_, _, _)
+            | Self::Variant(_, _, _)
+            | Self::Match(_, _) => Ok(()),
         }
     }
 }

@@ -110,9 +110,11 @@ AtomExpr: Expr = {
     ExprVar => Expr::Var(<>),
     Num => Expr::Num(<>),
     Bool => Expr::Bool(<>),
-    // TODO(MH): Merge the two rules below.
-    <fun: LExprVar> "(" <args: List0<LExpr, ",">> ")" => Expr::App(Box::new(fun.map(Expr::Var)), args),
-    <Box<Located<FuncInst>>> "(" <List0<LExpr, ",">> ")" => Expr::App(<>),
+    <LExprVar> "(" <List0<LExpr, ",">> ")" => Expr::AppClo(<>),
+    // NOTE(MH): Ideally, we would not have the "@" symbol before the angle
+    // brackets, but that would make the expression `f(g<a, b>(c))` ambiguous
+    // to parse. With `f(g@<a, b>(c))` there's no ambiguity.
+    <LExprVar> "@" "<" <List0<LType, ",">> ">" "(" <List0<LExpr, ",">> ")" => Expr::AppFun(<>),
     "{" <List0<RecordAssign, ",">> "}" => Expr::Record(<>),
     <record: Box<LAtomExpr>> "." <field: LExprVar> => Expr::Proj(record, field, None),
     <constr: ExprCon> <payload: Box<InParens<LExpr>>?> => Expr::Variant(constr, None, payload),
@@ -121,13 +123,6 @@ AtomExpr: Expr = {
 
 LAtomExpr: LExpr = {
     Located<AtomExpr>,
-}
-
-// NOTE(MH): Ideally, we would not have the "@" symbol before the angle
-// brackets, but that would make the expression `f(g<a, b>(c))` ambiguous
-// to parse. With `f(g@<a, b>(c))` there's no ambiguity.
-FuncInst: Expr = {
-    <LExprVar> "@" "<" <List0<LType, ",">> ">" => Expr::FuncInst(<>),
 }
 
 TypeAnn: LType = {

@@ -36,16 +36,16 @@ fn bool_false() {
 #[test]
 fn app0() {
     insta::assert_debug_snapshot!(parse_output("f()"), @r###"
-    APP
-        fun: f @ 0...1
+    APPCLO
+        clo: f @ 0...1
     "###);
 }
 
 #[test]
 fn app1() {
     insta::assert_debug_snapshot!(parse_output("f(1)"), @r###"
-    APP
-        fun: f @ 0...1
+    APPCLO
+        clo: f @ 0...1
         arg: 1 @ 2...3
     "###);
 }
@@ -53,8 +53,8 @@ fn app1() {
 #[test]
 fn app1_trailing() {
     insta::assert_debug_snapshot!(parse_output("f(1,)"), @r###"
-    APP
-        fun: f @ 0...1
+    APPCLO
+        clo: f @ 0...1
         arg: 1 @ 2...3
     "###);
 }
@@ -62,8 +62,8 @@ fn app1_trailing() {
 #[test]
 fn app2() {
     insta::assert_debug_snapshot!(parse_output("f(1, 2)"), @r###"
-    APP
-        fun: f @ 0...1
+    APPCLO
+        clo: f @ 0...1
         arg: 1 @ 2...3
         arg: 2 @ 5...6
     "###);
@@ -71,10 +71,9 @@ fn app2() {
 #[test]
 fn app_ty() {
     insta::assert_debug_snapshot!(parse_output("f@<Int>(1)"), @r###"
-    APP
-        fun: FUNCINST @ 0...7
-            fun: f @ 0...1
-            type_arg: Int @ 3...6
+    APPFUN
+        fun: f @ 0...1
+        type_arg: Int @ 3...6
         arg: 1 @ 8...9
     "###);
 }

@@ -89,8 +89,14 @@ impl Expr {
                 Self::Lam(_params, body) => {
                     yield_!(body.as_mut());
                 }
-                Self::App(fun, args) => {
-                    yield_!(fun);
+                Self::AppClo(clo, args) => {
+                    let _: &LExprVar = clo; // We want this to fail if we change the type of `clo`.
+                    for arg in args {
+                        yield_!(arg);
+                    }
+                }
+                Self::AppFun(fun, _types, args) => {
+                    let _: &LExprVar = fun; // We want this to fail if we change the type of `fun`.
                     for arg in args {
                         yield_!(arg);
                     }
@@ -98,9 +104,6 @@ impl Expr {
                 Self::BinOp(lhs, _opcode, rhs) => {
                     yield_!(lhs);
                     yield_!(rhs);
-                }
-                Self::FuncInst(fun, _types) => {
-                    let _: &LExprVar = fun; // We want this to fail if we change the type of `fun`.
                 }
                 Self::Let(_binder, _type, bindee, tail) => {
                     yield_!(bindee);
