@@ -373,13 +373,21 @@ impl Expr {
                     )),
                 }
             }
-            Self::AppFun(fun, types, args) => {
-                for typ in types.iter_mut() {
-                    typ.check(env)?;
+            Self::AppFun(fun, opt_types, args) => {
+                let num_types = opt_types.as_ref().map_or(0, |types| types.len());
+                if let Some(types) = opt_types {
+                    for typ in types.iter_mut() {
+                        typ.check(env)?;
+                    }
                 }
                 let scheme = env.func_sigs.get(&fun.locatee).unwrap();
-                if types.len() == scheme.params.len() {
-                    let types: Vec<_> = types.iter().map(RcType::from_lsyntax).collect();
+                if num_types == scheme.params.len() {
+                    let types: Vec<_> = opt_types
+                        .as_ref()
+                        .unwrap_or(&vec![])
+                        .iter()
+                        .map(RcType::from_lsyntax)
+                        .collect();
                     let fun_type = scheme.instantiate(&types);
                     if let Type::Fun(params, result) = fun_type.as_ref() {
                         if args.len() == params.len() {
@@ -405,7 +413,7 @@ impl Expr {
                         Error::GenericFuncArityMismatch {
                             expr_var: fun.locatee,
                             expected: scheme.params.len(),
-                            found: types.len(),
+                            found: num_types,
                         },
                         fun.span,
                     ))
@@ -492,19 +500,19 @@ impl Expr {
                 if env.expr_vars.contains_key(&clo.locatee) {
                     Ok(())
                 } else if env.func_sigs.contains_key(&clo.locatee) {
-                    *self = Self::AppFun(*clo, vec![], std::mem::take(args));
+                    *self = Self::AppFun(*clo, None, std::mem::take(args));
                     Ok(())
                 } else {
                     Err(Located::new(Error::UnknownExprVar(clo.locatee, false), clo.span))
                 }
             }
-            Self::AppFun(fun, types, _args) => {
+            Self::AppFun(fun, opt_types, _args) => {
                 let mismatch = || {
                     Err(Located::new(
                         Error::GenericFuncArityMismatch {
                             expr_var: fun.locatee,
                             expected: 0,
-                            found: types.len(),
+                            found: opt_types.as_ref().map_or(0, |types| types.len()),
                         },
                         fun.span,
                     ))

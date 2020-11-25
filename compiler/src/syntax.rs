@@ -59,7 +59,7 @@ pub enum Expr {
     Bool(bool),
     Lam(Vec<(LExprVar, Option<LType>)>, Box<LExpr>),
     AppClo(LExprVar, Vec<LExpr>),
-    AppFun(LExprVar, Vec<LType>, Vec<LExpr>),
+    AppFun(LExprVar, Option<Vec<LType>>, Vec<LExpr>),
     BinOp(Box<LExpr>, OpCode, Box<LExpr>),
     Let(LExprVar, Option<LType>, Box<LExpr>, Box<LExpr>),
     If(Box<LExpr>, Box<LExpr>, Box<LExpr>),

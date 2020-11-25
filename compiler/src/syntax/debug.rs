@@ -141,7 +141,7 @@ impl Debug for Expr {
             }),
             Self::AppFun(fun, types, args) => writer.node("APPFUN", |writer| {
                 writer.child("fun", fun)?;
-                writer.children("type_arg", types)?;
+                writer.children("type_arg", types.as_ref().unwrap_or(&vec![]))?;
                 writer.children("arg", args)
             }),
             Self::BinOp(lhs, op, rhs) => writer.node("BINOP", |writer| {
