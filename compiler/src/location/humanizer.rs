@@ -23,6 +23,15 @@ impl Humanizer {
         let line = self.line_starts.binary_search(&loc).unwrap_or_else(|x| x - 1);
         HumanLoc { line: line as u32, column: loc.0 - self.line_starts[line].0 }
     }
+
+    pub fn unrun(&self, loc: HumanLoc) -> ParserLoc {
+        let line = loc.line as usize;
+        if line < self.line_starts.len() {
+            ParserLoc(self.line_starts[line].0 + loc.column)
+        } else {
+            *self.line_starts.last().expect("IMPOSSIBLE: line_starts is never empty")
+        }
+    }
 }
 
 #[cfg(test)]
@@ -50,7 +59,7 @@ mod tests {
     }
 
     #[test]
-    fn test_position() {
+    fn test_translation() {
         let humanizer = Humanizer::new("ab\nc\nde\n\nf");
         let cases = vec![
             (0, 0, 0),
@@ -68,10 +77,10 @@ mod tests {
             (100, 5, 89),
         ];
         for (parser_loc, line, column) in cases {
-            assert_eq!(
-                ParserLoc::from_usize(parser_loc).humanize(&humanizer),
-                HumanLoc { line, column }
-            );
+            let parser_loc = ParserLoc::from_usize(parser_loc);
+            let human_loc = HumanLoc { line, column };
+            assert_eq!(parser_loc.humanize(&humanizer), human_loc);
+            assert_eq!(human_loc.parserize(&humanizer), parser_loc);
         }
     }
 }

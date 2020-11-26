@@ -13,8 +13,7 @@ pub enum SymbolInfo {
 impl SymbolInfo {
     pub fn span(&self) -> Span {
         match self {
-            Self::ExprBinder { var, .. } => var.span,
-            Self::ExprVar { var, .. } => var.span,
+            Self::ExprBinder { var, .. } | Self::ExprVar { var, .. } => var.span,
         }
     }
 }

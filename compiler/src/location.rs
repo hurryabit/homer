@@ -40,6 +40,10 @@ impl HumanLoc {
     pub fn new(line: u32, column: u32) -> Self {
         Self { line, column }
     }
+
+    pub fn parserize(self, humanizer: &Humanizer) -> ParserLoc {
+        humanizer.unrun(self)
+    }
 }
 
 impl<Loc> Span<Loc> {
@@ -52,6 +56,10 @@ impl Span<ParserLoc> {
     pub fn humanize(self, humanizer: &Humanizer) -> Span<HumanLoc> {
         let Self { start, end } = self;
         Span { start: start.humanize(humanizer), end: end.humanize(humanizer) }
+    }
+
+    pub fn contains(&self, loc: ParserLoc) -> bool {
+        self.start <= loc && loc <= self.end
     }
 }
 
@@ -79,8 +87,8 @@ impl<T, Loc: Default> Located<T, Loc> {
     }
 }
 
-impl<Pos> Span<Pos> {
-    pub fn map<Pos2, F: Fn(Pos) -> Pos2>(self, f: F) -> Span<Pos2> {
+impl<Loc> Span<Loc> {
+    pub fn map<Loc2, F: Fn(Loc) -> Loc2>(self, f: F) -> Span<Loc2> {
         Span { start: f(self.start), end: f(self.end) }
     }
 }

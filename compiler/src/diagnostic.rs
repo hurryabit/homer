@@ -35,6 +35,11 @@ impl Diagnostic {
 }
 
 impl HumanLoc {
+    pub fn from_lsp(lsp: lsp_types::Position) -> Self {
+        let lsp_types::Position { line, character: column } = lsp;
+        Self { line, column }
+    }
+
     fn to_lsp(&self) -> lsp_types::Position {
         let Self { line, column } = self;
         lsp_types::Position::new(*line, *column)

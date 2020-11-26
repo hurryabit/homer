@@ -7,8 +7,9 @@ use lsp_types::{
         DidChangeTextDocument, DidOpenTextDocument, DidSaveTextDocument, Notification,
         PublishDiagnostics, ShowMessage,
     },
-    request::{CodeLensRequest, ExecuteCommand, Request},
-    CodeLens, CodeLensOptions, Command, ExecuteCommandOptions, InitializeParams, MessageType,
+    request::{CodeLensRequest, ExecuteCommand, HoverRequest, Request},
+    CodeLens, CodeLensOptions, Command, ExecuteCommandOptions, Hover, HoverContents, HoverParams,
+    HoverProviderCapability, InitializeParams, MarkupContent, MarkupKind, MessageType,
     PublishDiagnosticsParams, SaveOptions, ServerCapabilities, ShowMessageParams, TextDocumentItem,
     TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
     TextDocumentSyncSaveOptions, Url,
@@ -48,10 +49,12 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
         commands: vec!["run_fn".to_string()],
         ..ExecuteCommandOptions::default()
     });
+    let hover_provider = Some(HoverProviderCapability::Simple(true));
     let server_capabilities = ServerCapabilities {
         text_document_sync,
         code_lens_provider,
         execute_command_provider,
+        hover_provider,
         ..ServerCapabilities::default()
     };
     let initialization_params =
@@ -102,6 +105,13 @@ fn main_loop(
                             params: result,
                         };
                         connection.sender.send(Message::Notification(not))?;
+                    }
+                    HoverRequest::METHOD => {
+                        let (id, params) = cast_request::<HoverRequest>(req);
+                        let result = hover(params, db);
+                        let result = serde_json::to_value(&result).unwrap();
+                        let resp = Response { id, result: Some(result), error: None };
+                        connection.sender.send(Message::Response(resp))?;
                     }
                     _ => {
                         info!("got unhandled request: {:?}", req);
@@ -223,6 +233,28 @@ fn run_function(
             message: "The module cannot be compiled.".to_string(),
         }
     }
+}
+
+fn hover(params: HoverParams, db: &mut build::CompilerDB) -> Option<Hover> {
+    let position_params = params.text_document_position_params;
+    let uri = build::Uri::new(position_params.text_document.uri.as_str());
+    let humanizer = db.humanizer(uri);
+    let symbols = db.symbols(uri);
+
+    let loc = location::HumanLoc::from_lsp(position_params.position).parserize(&humanizer);
+    // FIXME(MH): We should do a binary search here.
+    symbols.iter().find(|symbol| symbol.span().contains(loc)).map(|symbol| {
+        use checker::SymbolInfo;
+        let typ = match symbol {
+            SymbolInfo::ExprBinder { typ, .. } | SymbolInfo::ExprVar { typ, .. } => typ,
+        };
+        let range = Some(symbol.span().humanize(&humanizer).to_lsp());
+        let contents = HoverContents::Markup(MarkupContent {
+            kind: MarkupKind::Markdown,
+            value: format!("```homer\n{}\n```", typ),
+        });
+        Hover { contents, range }
+    })
 }
 
 fn cast_notification<N>(not: lsp_server::Notification) -> N::Params
