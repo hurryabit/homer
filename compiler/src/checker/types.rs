@@ -11,7 +11,7 @@ type Located<T> = location::Located<T, location::ParserLoc>;
 
 type SynType = syntax::Type;
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Type<T = RcType> {
     Error,
     Var(TypeVar),
@@ -23,7 +23,7 @@ pub enum Type<T = RcType> {
     Variant(Vec<(ExprCon, Option<T>)>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RcType(Rc<Type>);
 
 #[derive(Debug)]

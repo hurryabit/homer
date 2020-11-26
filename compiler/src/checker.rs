@@ -2,6 +2,7 @@ use crate::*;
 use diagnostic::*;
 use error::{Error, LError};
 use location::Humanizer;
+use std::cell::Cell;
 use std::collections;
 use std::hash::Hash;
 use std::rc::Rc;
@@ -9,6 +10,7 @@ use syntax::*;
 use types::*;
 
 mod error;
+pub mod info;
 mod types;
 
 type Span = location::Span<location::ParserLoc>;
@@ -17,7 +19,8 @@ type Located<T> = location::Located<T, location::ParserLoc>;
 
 type Arity = usize;
 
-type Type = types::Type;
+pub use info::SymbolInfo;
+pub use types::Type;
 
 #[derive(Clone)]
 struct Env {
@@ -25,14 +28,15 @@ struct Env {
     type_defs: Rc<collections::HashMap<TypeVar, TypeScheme>>,
     func_sigs: Rc<collections::HashMap<ExprVar, TypeScheme>>,
     type_vars: im::HashSet<TypeVar>,
-    expr_vars: im::HashMap<ExprVar, RcType>,
+    expr_vars: im::HashMap<ExprVar, (Span, RcType)>,
+    symbols: Rc<Cell<Vec<SymbolInfo>>>,
 }
 
 impl Module {
-    pub fn check(&self, humanizer: &Humanizer) -> Result<Self, Diagnostic> {
+    pub fn check(&self, humanizer: &Humanizer) -> Result<(Self, Vec<SymbolInfo>), Diagnostic> {
         let mut module = self.clone();
         match module.check_impl() {
-            Ok(()) => Ok(module),
+            Ok(symbols) => Ok((module, symbols)),
             Err(error) => Err(Diagnostic {
                 span: error.span.humanize(humanizer),
                 severity: Severity::Error,
@@ -42,7 +46,7 @@ impl Module {
         }
     }
 
-    fn check_impl(&mut self) -> Result<(), LError> {
+    fn check_impl(&mut self) -> Result<Vec<SymbolInfo>, LError> {
         if let Some((span, name)) = find_duplicate(self.type_decls().map(|decl| decl.name.as_ref()))
         {
             return Err(Located::new(
@@ -71,7 +75,9 @@ impl Module {
         for decl in self.func_decls_mut() {
             decl.check(&env)?;
         }
-        Ok(())
+        let mut symbols = env.symbols.take();
+        symbols.sort_by_key(|symbol| symbol.span().start);
+        Ok(symbols)
     }
 
     fn type_defs(&self) -> collections::HashMap<TypeVar, TypeScheme> {
@@ -334,7 +340,12 @@ impl Expr {
         self.resolve(span, env)?;
         match self {
             Self::Error => Ok(RcType::new(Type::Error)),
-            Self::Var(var) => Ok(env.expr_vars.get(var).unwrap().clone()),
+            Self::Var(var) => {
+                let (def, typ) = env.expr_vars.get(var).unwrap();
+                let var = Located::new(*var, span);
+                env.add_symbol(SymbolInfo::ExprVar { var, typ: typ.clone(), def: *def });
+                Ok(typ.clone())
+            }
             Self::Num(_) => Ok(RcType::new(Type::Int)),
             Self::Bool(_) => Ok(RcType::new(Type::Bool)),
             Self::Lam(params, body) => {
@@ -355,7 +366,8 @@ impl Expr {
                 Ok(RcType::new(Type::Fun(param_types, result)))
             }
             Self::AppClo(clo, args) => {
-                let clo_type = env.expr_vars.get(&clo.locatee).unwrap();
+                let (def, clo_type) = env.expr_vars.get(&clo.locatee).unwrap();
+                env.add_symbol(SymbolInfo::ExprVar { var: *clo, typ: clo_type.clone(), def: *def });
                 match clo_type.weak_normalize_env(env).as_ref() {
                     Type::Fun(params, result) if args.len() == params.len() => {
                         for (arg, typ) in args.iter_mut().zip(params.iter()) {
@@ -561,6 +573,7 @@ impl Env {
             func_sigs: Rc::new(collections::HashMap::new()),
             type_vars: im::HashSet::new(),
             expr_vars: im::HashMap::new(),
+            symbols: Rc::new(Cell::new(Vec::new())),
         }
     }
 
@@ -569,7 +582,8 @@ impl Env {
         F: FnOnce(&Self) -> Result<R, LError>,
     {
         let mut env = self.clone();
-        env.expr_vars.insert(var.locatee, typ);
+        env.expr_vars.insert(var.locatee, (var.span, typ.clone()));
+        self.add_symbol(SymbolInfo::ExprBinder { var: *var, typ });
         f(&env)
     }
 
@@ -578,7 +592,7 @@ impl Env {
         I: IntoIterator<Item = Result<(LExprVar, RcType), LError>>,
         F: FnOnce(&Self) -> Result<R, LError>,
     {
-        let mut seen = std::collections::HashMap::new();
+        let mut seen = collections::HashMap::new();
         let mut env = self.clone();
         for binder_or_err in params {
             let (var, typ) = binder_or_err?;
@@ -589,7 +603,8 @@ impl Env {
                 ));
             } else {
                 seen.insert(var.locatee, var.span);
-                env.expr_vars.insert(var.locatee, typ.clone());
+                env.expr_vars.insert(var.locatee, (var.span, typ.clone()));
+                self.add_symbol(SymbolInfo::ExprBinder { var, typ });
             }
         }
         f(&env)
@@ -603,6 +618,12 @@ impl Env {
             None => f(self),
             Some((var, typ)) => self.intro_binder(var, typ, f),
         }
+    }
+
+    fn add_symbol(&self, info: SymbolInfo) {
+        let mut symbols = self.symbols.take();
+        symbols.push(info);
+        self.symbols.set(symbols);
     }
 }
 

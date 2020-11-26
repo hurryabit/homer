@@ -1,4 +1,5 @@
 use crate::*;
+use checker::SymbolInfo;
 use diagnostic::Diagnostic;
 use location::Humanizer;
 use std::fmt;
@@ -24,6 +25,8 @@ impl fmt::Debug for Uri {
     }
 }
 
+type CheckedModuleOutcome = (Option<Arc<Module>>, Arc<Vec<SymbolInfo>>, Arc<Vec<Diagnostic>>);
+
 #[salsa::query_group(CompilerStorage)]
 trait Compiler: salsa::Database {
     #[salsa::input]
@@ -33,7 +36,7 @@ trait Compiler: salsa::Database {
 
     fn parsed_module(&self, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>);
 
-    fn checked_module(&self, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>);
+    fn checked_module(&self, uri: Uri) -> CheckedModuleOutcome;
 
     fn anf_module(&self, uri: Uri) -> Option<Arc<anf::Module>>;
 }
@@ -50,16 +53,16 @@ fn parsed_module(db: &dyn Compiler, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<D
     (opt_parsed_module.map(Arc::new), Arc::new(diagnostics))
 }
 
-fn checked_module(db: &dyn Compiler, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>) {
+fn checked_module(db: &dyn Compiler, uri: Uri) -> CheckedModuleOutcome {
     let humanizer = db.humanizer(uri);
-    let (opt_checked_module, diagnostics) = match db.parsed_module(uri).0 {
-        None => (None, vec![]),
+    let (opt_checked_module, symbols, diagnostics) = match db.parsed_module(uri).0 {
+        None => (None, vec![], vec![]),
         Some(parsed_module) => match parsed_module.check(&humanizer) {
-            Ok(checked_module) => (Some(checked_module), vec![]),
-            Err(diagnostic) => (None, vec![diagnostic]),
+            Err(diagnostic) => (None, vec![], vec![diagnostic]),
+            Ok((checked_module, symbols)) => (Some(checked_module), symbols, vec![]),
         },
     };
-    (opt_checked_module.map(Arc::new), Arc::new(diagnostics))
+    (opt_checked_module.map(Arc::new), Arc::new(symbols), Arc::new(diagnostics))
 }
 
 fn anf_module(db: &dyn Compiler, uri: Uri) -> Option<Arc<anf::Module>> {
@@ -93,6 +96,10 @@ impl CompilerDB {
         (self as &dyn Compiler).checked_module(uri).0
     }
 
+    pub fn symbols(&self, uri: Uri) -> Arc<Vec<SymbolInfo>> {
+        (self as &dyn Compiler).checked_module(uri).1
+    }
+
     pub fn anf_module(&self, uri: Uri) -> Option<Arc<anf::Module>> {
         (self as &dyn Compiler).anf_module(uri)
     }
@@ -102,7 +109,7 @@ impl CompilerDB {
         F: FnOnce(&mut dyn Iterator<Item = &Diagnostic>) -> R,
     {
         let parser_diagnostics = self.parsed_module(uri).1;
-        let checker_diagnostics = (self as &dyn Compiler).checked_module(uri).1;
+        let checker_diagnostics = (self as &dyn Compiler).checked_module(uri).2;
         f(&mut parser_diagnostics.iter().chain(checker_diagnostics.iter()))
     }
 }
