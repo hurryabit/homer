@@ -19,7 +19,8 @@ type Located<T> = location::Located<T, location::ParserLoc>;
 
 type Arity = usize;
 
-pub use info::SymbolInfo;
+pub type SymbolInfo = info::SymbolInfo<location::ParserLoc>;
+
 pub use types::Type;
 
 #[derive(Clone)]

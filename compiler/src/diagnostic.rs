@@ -40,7 +40,7 @@ impl HumanLoc {
         Self { line, column }
     }
 
-    fn to_lsp(&self) -> lsp_types::Position {
+    pub fn to_lsp(&self) -> lsp_types::Position {
         let Self { line, column } = self;
         lsp_types::Position::new(*line, *column)
     }

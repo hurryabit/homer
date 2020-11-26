@@ -79,6 +79,12 @@ impl<T, Loc: Copy> Located<T, Loc> {
     }
 }
 
+impl<T> Located<T, ParserLoc> {
+    pub fn humanize(self, humanizer: &Humanizer) -> Located<T, HumanLoc> {
+        Located { locatee: self.locatee, span: self.span.humanize(humanizer) }
+    }
+}
+
 // TODO(MH): Make this function obsolete by putting better location information
 // instead.
 impl<T, Loc: Default> Located<T, Loc> {

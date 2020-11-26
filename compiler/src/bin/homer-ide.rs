@@ -7,17 +7,21 @@ use lsp_types::{
         DidChangeTextDocument, DidOpenTextDocument, DidSaveTextDocument, Notification,
         PublishDiagnostics, ShowMessage,
     },
-    request::{CodeLensRequest, ExecuteCommand, HoverRequest, Request},
-    CodeLens, CodeLensOptions, Command, ExecuteCommandOptions, Hover, HoverContents, HoverParams,
-    HoverProviderCapability, InitializeParams, MarkupContent, MarkupKind, MessageType,
+    request::{CodeLensRequest, ExecuteCommand, GotoDefinition, HoverRequest, Request},
+    CodeLens, CodeLensOptions, Command, ExecuteCommandOptions, GotoDefinitionParams,
+    GotoDefinitionResponse, Hover, HoverContents, HoverParams, HoverProviderCapability,
+    InitializeParams, Location, MarkupContent, MarkupKind, MessageType, OneOf,
     PublishDiagnosticsParams, SaveOptions, ServerCapabilities, ShowMessageParams, TextDocumentItem,
-    TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
-    TextDocumentSyncSaveOptions, Url,
+    TextDocumentPositionParams, TextDocumentSyncCapability, TextDocumentSyncKind,
+    TextDocumentSyncOptions, TextDocumentSyncSaveOptions, Url,
 };
 
 use lsp_server::{Connection, Message, RequestId, Response};
 
 use homer_compiler::*;
+
+use checker::info::SymbolInfo;
+use location::HumanLoc;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 struct RunFnParams {
@@ -50,11 +54,13 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
         ..ExecuteCommandOptions::default()
     });
     let hover_provider = Some(HoverProviderCapability::Simple(true));
+    let definition_provider = Some(OneOf::Left(true));
     let server_capabilities = ServerCapabilities {
         text_document_sync,
         code_lens_provider,
         execute_command_provider,
         hover_provider,
+        definition_provider,
         ..ServerCapabilities::default()
     };
     let initialization_params =
@@ -109,6 +115,13 @@ fn main_loop(
                     HoverRequest::METHOD => {
                         let (id, params) = cast_request::<HoverRequest>(req);
                         let result = hover(params, db);
+                        let result = serde_json::to_value(&result).unwrap();
+                        let resp = Response { id, result: Some(result), error: None };
+                        connection.sender.send(Message::Response(resp))?;
+                    }
+                    GotoDefinition::METHOD => {
+                        let (id, params) = cast_request::<GotoDefinition>(req);
+                        let result = goto_definition(params, db);
                         let result = serde_json::to_value(&result).unwrap();
                         let resp = Response { id, result: Some(result), error: None };
                         connection.sender.send(Message::Response(resp))?;
@@ -235,26 +248,52 @@ fn run_function(
     }
 }
 
-fn hover(params: HoverParams, db: &mut build::CompilerDB) -> Option<Hover> {
-    let position_params = params.text_document_position_params;
+fn find_symbol(
+    position_params: &TextDocumentPositionParams,
+    db: &mut build::CompilerDB,
+) -> Option<SymbolInfo<HumanLoc>> {
     let uri = build::Uri::new(position_params.text_document.uri.as_str());
     let humanizer = db.humanizer(uri);
     let symbols = db.symbols(uri);
 
     let loc = location::HumanLoc::from_lsp(position_params.position).parserize(&humanizer);
     // FIXME(MH): We should do a binary search here.
-    symbols.iter().find(|symbol| symbol.span().contains(loc)).map(|symbol| {
-        use checker::SymbolInfo;
-        let typ = match symbol {
+    symbols.iter().find_map(|symbol| {
+        if symbol.span().contains(loc) {
+            Some(symbol.humanize(&humanizer))
+        } else {
+            None
+        }
+    })
+}
+
+fn hover(params: HoverParams, db: &mut build::CompilerDB) -> Option<Hover> {
+    find_symbol(&params.text_document_position_params, db).map(|symbol| {
+        let typ = match &symbol {
             SymbolInfo::ExprBinder { typ, .. } | SymbolInfo::ExprVar { typ, .. } => typ,
         };
-        let range = Some(symbol.span().humanize(&humanizer).to_lsp());
+        let range = Some(symbol.span().to_lsp());
         let contents = HoverContents::Markup(MarkupContent {
             kind: MarkupKind::Markdown,
             value: format!("```homer\n{}\n```", typ),
         });
         Hover { contents, range }
     })
+}
+
+fn goto_definition(
+    params: GotoDefinitionParams,
+    db: &mut build::CompilerDB,
+) -> Option<GotoDefinitionResponse> {
+    find_symbol(&params.text_document_position_params, db)
+        .as_ref()
+        .and_then(SymbolInfo::definition_span)
+        .map(|span| {
+            GotoDefinitionResponse::Scalar(Location {
+                uri: params.text_document_position_params.text_document.uri,
+                range: span.to_lsp(),
+            })
+        })
 }
 
 fn cast_notification<N>(not: lsp_server::Notification) -> N::Params
