@@ -4,7 +4,7 @@ use std::fmt;
 use syntax::debug::{Debug, DebugWriter};
 use util::in_parens_if_some;
 
-use location::{HumanLoc, Span};
+use location::{SourceLocation, SourceSpan};
 pub use syntax::{ExprCon, ExprVar, OpCode};
 
 mod debruijn;
@@ -41,7 +41,7 @@ pub struct Binding {
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum Bindee {
-    Error(Span<HumanLoc>),
+    Error(SourceSpan<SourceLocation>),
     Atom(Atom),
     Num(i64),
     Bool(bool),

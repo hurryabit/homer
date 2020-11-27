@@ -21,7 +21,7 @@ use lsp_server::{Connection, Message, RequestId, Response};
 use homer_compiler::*;
 
 use checker::info::SymbolInfo;
-use location::HumanLoc;
+use location::SourceLocation;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 struct RunFnParams {
@@ -250,11 +250,11 @@ fn run_function(
 fn find_symbol(
     position_params: &TextDocumentPositionParams,
     db: &mut build::CompilerDB,
-) -> Option<SymbolInfo<HumanLoc>> {
+) -> Option<SymbolInfo<SourceLocation>> {
     let uri = build::Uri::new(position_params.text_document.uri.as_str());
     let symbols = db.symbols(uri);
 
-    let loc = location::HumanLoc::from_lsp(position_params.position);
+    let loc = location::SourceLocation::from_lsp(position_params.position);
     // FIXME(MH): We should do a binary search here.
     symbols.iter().find_map(
         |symbol| {

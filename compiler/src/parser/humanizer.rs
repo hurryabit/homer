@@ -1,4 +1,4 @@
-use crate::location::HumanLoc;
+use crate::location::SourceLocation;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Humanizer {
@@ -19,9 +19,9 @@ impl Humanizer {
         Self { line_starts }
     }
 
-    pub fn run(&self, loc: usize) -> HumanLoc {
+    pub fn run(&self, loc: usize) -> SourceLocation {
         let line = self.line_starts.binary_search(&loc).unwrap_or_else(|x| x - 1);
-        HumanLoc { line: line as u32, column: (loc - self.line_starts[line]) as u32 }
+        SourceLocation { line: line as u32, column: (loc - self.line_starts[line]) as u32 }
     }
 }
 
@@ -67,7 +67,7 @@ mod tests {
             (100, 5, 89),
         ];
         for (loc, line, column) in cases {
-            assert_eq!(humanizer.run(loc), HumanLoc { line, column });
+            assert_eq!(humanizer.run(loc), SourceLocation { line, column });
         }
     }
 }

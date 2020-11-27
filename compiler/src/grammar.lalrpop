@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use lalrpop_util::{lexer, ParseError};
 use crate::syntax::*;
-use crate::location::{HumanLoc, Located, Span};
+use crate::location::{Located, SourceLocation, SourceSpan};
 use crate::parser::Humanizer;
 
 grammar<'err>(humanizer: &Humanizer, errors: &'err mut Vec<ParseError<usize, lexer::Token<'input>, &'static str>>);
@@ -232,8 +232,8 @@ InParens<X>: X = {
     "(" <X> ")",
 }
 
-Located<X>: Located<X, HumanLoc> = {
-    <start: @L> <locatee: X> <end: @R> => Located::new(locatee, Span { start: humanizer.run(start), end: humanizer.run(end) }),
+Located<X>: Located<X, SourceLocation> = {
+    <start: @L> <locatee: X> <end: @R> => Located::new(locatee, SourceSpan { start: humanizer.run(start), end: humanizer.run(end) }),
 }
 
 match {

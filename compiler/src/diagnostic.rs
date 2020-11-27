@@ -14,7 +14,7 @@ pub enum Source {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Diagnostic {
-    pub span: Span<HumanLoc>,
+    pub span: SourceSpan<SourceLocation>,
     pub severity: Severity,
     pub source: Source,
     pub message: String,
@@ -34,7 +34,7 @@ impl Diagnostic {
     }
 }
 
-impl HumanLoc {
+impl SourceLocation {
     pub fn from_lsp(lsp: lsp_types::Position) -> Self {
         let lsp_types::Position { line, character: column } = lsp;
         Self { line, column }
@@ -46,7 +46,7 @@ impl HumanLoc {
     }
 }
 
-impl Span<HumanLoc> {
+impl SourceSpan<SourceLocation> {
     pub fn to_lsp(&self) -> lsp_types::Range {
         let Self { start, end } = self;
         lsp_types::Range::new(start.to_lsp(), end.to_lsp())

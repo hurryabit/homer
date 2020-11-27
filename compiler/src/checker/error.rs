@@ -1,12 +1,12 @@
 use super::types::*;
 use super::Arity;
-use crate::location::{HumanLoc, Located, Span};
+use crate::location::{Located, SourceLocation, SourceSpan};
 use crate::syntax;
 use std::fmt;
 use syntax::{ExprCon, ExprVar, TypeVar};
 
 #[derive(Debug)]
-pub enum Error<Pos = HumanLoc> {
+pub enum Error<Pos = SourceLocation> {
     UnknownTypeVar(TypeVar),
     UnknownExprVar(ExprVar, bool), // bool indicateds if there's a function of the same name.
     UnexpectedGeneric(TypeVar, Arity),
@@ -15,10 +15,10 @@ pub enum Error<Pos = HumanLoc> {
     TypeMismatch { expected: RcType, found: RcType },
     ParamTypeMismatch { param: ExprVar, expected: RcType, found: RcType },
     ParamNeedsType(ExprVar),
-    DuplicateTypeVar { var: TypeVar, original: Span<Pos> },
-    DuplicateTypeDecl { var: TypeVar, original: Span<Pos> },
-    DuplicateParam { var: ExprVar, original: Span<Pos> },
-    DuplicateFuncDecl { var: ExprVar, original: Span<Pos> },
+    DuplicateTypeVar { var: TypeVar, original: SourceSpan<Pos> },
+    DuplicateTypeDecl { var: TypeVar, original: SourceSpan<Pos> },
+    DuplicateParam { var: ExprVar, original: SourceSpan<Pos> },
+    DuplicateFuncDecl { var: ExprVar, original: SourceSpan<Pos> },
     BadApp { func: Option<ExprVar>, func_type: RcType, num_args: Arity },
     BadRecordProj { record_type: RcType, field: ExprVar },
     BadLam(RcType, Arity),
@@ -34,7 +34,7 @@ pub enum Error<Pos = HumanLoc> {
     TypeAnnsNeeded,
 }
 
-pub type LError<Pos = HumanLoc> = Located<Error<Pos>, Pos>;
+pub type LError<Pos = SourceLocation> = Located<Error<Pos>, Pos>;
 
 impl LError {
     pub fn variant_payload<Pos, T, R>(
@@ -42,7 +42,7 @@ impl LError {
         opt_payload_type: &Option<RcType>,
         variant_type: &RcType,
         constr: ExprCon,
-        span: Span<Pos>,
+        span: SourceSpan<Pos>,
     ) -> Result<R, LError<Pos>> {
         // TODO(MH): Use `!` instead of `()` once the never type is stable.
         let variant_type = variant_type.clone();

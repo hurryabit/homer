@@ -12,13 +12,13 @@ mod error;
 pub mod info;
 mod types;
 
-type Span = location::Span<location::HumanLoc>;
+type Span = location::SourceSpan<location::SourceLocation>;
 
-type Located<T> = location::Located<T, location::HumanLoc>;
+type Located<T> = location::Located<T, location::SourceLocation>;
 
 type Arity = usize;
 
-pub type SymbolInfo = info::SymbolInfo<location::HumanLoc>;
+pub type SymbolInfo = info::SymbolInfo<location::SourceLocation>;
 
 pub use types::Type;
 

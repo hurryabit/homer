@@ -1,6 +1,6 @@
 use crate::diagnostic::*;
 use crate::grammar::*;
-use crate::location::Span;
+use crate::location::SourceSpan;
 use crate::syntax::*;
 
 pub(crate) mod humanizer;
@@ -44,11 +44,11 @@ fn parse_error_to_diagnostic<'a>(
     let error = error.map_location(|loc| humanizer.run(loc));
     let span = match error {
         ParseError::InvalidToken { location } | ParseError::UnrecognizedEOF { location, .. } => {
-            Span::new(location, location)
+            SourceSpan::new(location, location)
         }
         ParseError::UnrecognizedToken { token: (start, _, end), .. }
-        | ParseError::ExtraToken { token: (start, _, end) } => Span::new(start, end),
-        ParseError::User { .. } => Span::default(),
+        | ParseError::ExtraToken { token: (start, _, end) } => SourceSpan::new(start, end),
+        ParseError::User { .. } => SourceSpan::default(),
     };
     Diagnostic {
         span,

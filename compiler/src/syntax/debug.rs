@@ -2,7 +2,7 @@ use super::*;
 use crate::location;
 use std::fmt;
 
-type Span = location::Span<location::HumanLoc>;
+type Span = location::SourceSpan<location::SourceLocation>;
 
 impl Debug for Module {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
