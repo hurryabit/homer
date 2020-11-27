@@ -1,7 +1,10 @@
 use crate::diagnostic::*;
 use crate::grammar::*;
-use crate::location::{Humanizer, ParserLoc, Span};
+use crate::location::Span;
 use crate::syntax::*;
+
+pub(crate) mod humanizer;
+pub(crate) use humanizer::Humanizer;
 
 impl Module {
     pub fn parse(input: &str) -> (Option<Self>, Vec<Diagnostic>) {
@@ -13,7 +16,7 @@ type ParseError<'a, Loc> = lalrpop_util::ParseError<Loc, Token<'a>, &'static str
 
 pub fn parse_impl<'a, T, F>(input: &str, f: F) -> (Option<T>, Vec<Diagnostic>)
 where
-    F: FnOnce(&Humanizer, &mut Vec<ParseError<'a, ParserLoc>>) -> Result<T, ParseError<'a, usize>>,
+    F: FnOnce(&Humanizer, &mut Vec<ParseError<'a, usize>>) -> Result<T, ParseError<'a, usize>>,
 {
     let humanizer = Humanizer::new(input);
     let mut errors = Vec::new();
@@ -23,14 +26,11 @@ where
             let diagnostics = errors
                 .into_iter()
                 .map(|error| parse_error_to_diagnostic(error, &humanizer))
-                .collect::<Vec<_>>();
+                .collect();
             (Some(module), diagnostics)
         }
         Err(fatal_error) => {
-            let error = errors
-                .into_iter()
-                .next()
-                .unwrap_or_else(|| fatal_error.map_location(ParserLoc::from_usize));
+            let error = errors.into_iter().next().unwrap_or(fatal_error);
             let diagnostics = vec![parse_error_to_diagnostic(error, &humanizer)];
             (None, diagnostics)
         }
@@ -38,10 +38,10 @@ where
 }
 
 fn parse_error_to_diagnostic<'a>(
-    error: ParseError<'a, ParserLoc>,
+    error: ParseError<'a, usize>,
     humanizer: &Humanizer,
 ) -> Diagnostic {
-    let error = error.map_location(|loc| loc.humanize(humanizer));
+    let error = error.map_location(|loc| humanizer.run(loc));
     let span = match error {
         ParseError::InvalidToken { location } | ParseError::UnrecognizedEOF { location, .. } => {
             Span::new(location, location)
@@ -102,10 +102,7 @@ mod tests {
 
     pub fn parse_test_impl<'a, T, F>(input: &str, f: F) -> (Option<T>, Vec<Diagnostic>)
     where
-        F: FnOnce(
-            &Humanizer,
-            &mut Vec<ParseError<'a, ParserLoc>>,
-        ) -> Result<T, ParseError<'a, usize>>,
+        F: FnOnce(&Humanizer, &mut Vec<ParseError<'a, usize>>) -> Result<T, ParseError<'a, usize>>,
     {
         parse_impl(input, f)
     }

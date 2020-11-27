@@ -1,36 +1,27 @@
-use super::*;
+use crate::location::HumanLoc;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Humanizer {
-    line_starts: Vec<ParserLoc>,
+    line_starts: Vec<usize>,
 }
 
 impl Humanizer {
     pub fn new(input: &str) -> Self {
         let mut line_starts = Vec::new();
-        let mut index: ParserLoc = ParserLoc(0);
+        let mut index = 0;
         line_starts.push(index);
         for line in input.lines() {
             // FIXME(MH): This assumes a newline character is just one byte,
             // which is not true on Windows.
-            index.0 += line.len() as u32 + 1;
+            index += line.len() + 1;
             line_starts.push(index);
         }
         Self { line_starts }
     }
 
-    pub fn run(&self, loc: ParserLoc) -> HumanLoc {
+    pub fn run(&self, loc: usize) -> HumanLoc {
         let line = self.line_starts.binary_search(&loc).unwrap_or_else(|x| x - 1);
-        HumanLoc { line: line as u32, column: loc.0 - self.line_starts[line].0 }
-    }
-
-    pub fn unrun(&self, loc: HumanLoc) -> ParserLoc {
-        let line = loc.line as usize;
-        if line < self.line_starts.len() {
-            ParserLoc(self.line_starts[line].0 + loc.column)
-        } else {
-            *self.line_starts.last().expect("IMPOSSIBLE: line_starts is never empty")
-        }
+        HumanLoc { line: line as u32, column: (loc - self.line_starts[line]) as u32 }
     }
 }
 
@@ -52,8 +43,7 @@ mod tests {
         ];
         for (input, expected_line_starts) in cases {
             let humanizer = Humanizer::new(input);
-            let expected_line_starts =
-                expected_line_starts.into_iter().map(ParserLoc).collect::<Vec<_>>();
+            let expected_line_starts: Vec<_> = expected_line_starts.into_iter().collect();
             assert_eq!(humanizer.line_starts, expected_line_starts);
         }
     }
@@ -76,11 +66,8 @@ mod tests {
             (11, 5, 0),
             (100, 5, 89),
         ];
-        for (parser_loc, line, column) in cases {
-            let parser_loc = ParserLoc::from_usize(parser_loc);
-            let human_loc = HumanLoc { line, column };
-            assert_eq!(parser_loc.humanize(&humanizer), human_loc);
-            assert_eq!(human_loc.parserize(&humanizer), parser_loc);
+        for (loc, line, column) in cases {
+            assert_eq!(humanizer.run(loc), HumanLoc { line, column });
         }
     }
 }

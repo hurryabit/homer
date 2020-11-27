@@ -1,13 +1,5 @@
 use std::fmt;
 
-mod humanizer;
-pub use humanizer::Humanizer;
-
-// NOTE(MH): This type *must* not implement `Display` since parser locations
-// are not meant to be shown to humans.
-#[derive(Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord)]
-pub struct ParserLoc(u32);
-
 #[derive(Clone, Copy, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct HumanLoc {
     pub line: u32,
@@ -26,36 +18,15 @@ pub struct Located<T, Loc> {
     pub span: Span<Loc>,
 }
 
-impl ParserLoc {
-    pub(crate) fn from_usize(loc: usize) -> Self {
-        Self(loc as u32)
-    }
-
-    pub fn humanize(self, humanizer: &Humanizer) -> HumanLoc {
-        humanizer.run(self)
-    }
-}
-
 impl HumanLoc {
     pub fn new(line: u32, column: u32) -> Self {
         Self { line, column }
-    }
-
-    pub fn parserize(self, humanizer: &Humanizer) -> ParserLoc {
-        humanizer.unrun(self)
     }
 }
 
 impl<Loc> Span<Loc> {
     pub fn new(start: Loc, end: Loc) -> Self {
         Self { start, end }
-    }
-}
-
-impl Span<ParserLoc> {
-    pub fn humanize(self, humanizer: &Humanizer) -> Span<HumanLoc> {
-        let Self { start, end } = self;
-        Span { start: start.humanize(humanizer), end: end.humanize(humanizer) }
     }
 }
 
@@ -78,12 +49,6 @@ impl<T, Loc> Located<T, Loc> {
 impl<T, Loc: Copy> Located<T, Loc> {
     pub fn as_ref(&self) -> Located<&T, Loc> {
         Located { locatee: &self.locatee, span: self.span }
-    }
-}
-
-impl<T> Located<T, ParserLoc> {
-    pub fn humanize(self, humanizer: &Humanizer) -> Located<T, HumanLoc> {
-        Located { locatee: self.locatee, span: self.span.humanize(humanizer) }
     }
 }
 
@@ -118,12 +83,6 @@ impl<Loc: fmt::Display> fmt::Display for Span<Loc> {
 }
 
 // `Debug` implementations
-
-impl fmt::Debug for ParserLoc {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
 
 impl fmt::Debug for HumanLoc {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

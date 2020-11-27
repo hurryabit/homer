@@ -1,7 +1,6 @@
 use crate::*;
 use checker::SymbolInfo;
 use diagnostic::Diagnostic;
-use location::Humanizer;
 use std::fmt;
 use std::sync::Arc;
 use syntax::Module;
@@ -32,18 +31,11 @@ trait Compiler: salsa::Database {
     #[salsa::input]
     fn input(&self, uri: Uri) -> Arc<String>;
 
-    fn humanizer(&self, uri: Uri) -> Arc<Humanizer>;
-
     fn parsed_module(&self, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>);
 
     fn checked_module(&self, uri: Uri) -> CheckedModuleOutcome;
 
     fn anf_module(&self, uri: Uri) -> Option<Arc<anf::Module>>;
-}
-
-fn humanizer(db: &dyn Compiler, uri: Uri) -> Arc<Humanizer> {
-    let input = db.input(uri);
-    Arc::new(Humanizer::new(&input))
 }
 
 fn parsed_module(db: &dyn Compiler, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>) {
@@ -84,10 +76,6 @@ impl CompilerDB {
 
     pub fn set_input(&mut self, uri: Uri, input: Arc<String>) {
         (self as &mut dyn Compiler).set_input(uri, input);
-    }
-
-    pub fn humanizer(&mut self, uri: Uri) -> Arc<Humanizer> {
-        (self as &dyn Compiler).humanizer(uri)
     }
 
     pub fn checked_module(&self, uri: Uri) -> Option<Arc<Module>> {

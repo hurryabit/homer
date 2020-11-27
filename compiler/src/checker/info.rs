@@ -1,6 +1,6 @@
 use super::types::RcType;
 use crate::*;
-use location::{HumanLoc, Humanizer, Located, ParserLoc, Span};
+use location::{Located, Span};
 use syntax::ExprVar;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -20,21 +20,6 @@ impl<Loc> SymbolInfo<Loc> {
         match self {
             Self::ExprBinder { .. } => None,
             Self::ExprVar { def, .. } => Some(def),
-        }
-    }
-}
-
-impl SymbolInfo<ParserLoc> {
-    pub fn humanize(&self, humanizer: &Humanizer) -> SymbolInfo<HumanLoc> {
-        match self {
-            Self::ExprBinder { var, typ } => {
-                SymbolInfo::ExprBinder { var: var.humanize(humanizer), typ: typ.clone() }
-            }
-            Self::ExprVar { var, typ, def } => SymbolInfo::ExprVar {
-                var: var.humanize(humanizer),
-                typ: typ.clone(),
-                def: def.humanize(humanizer),
-            },
         }
     }
 }
