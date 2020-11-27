@@ -1,6 +1,7 @@
 use crate::*;
 use diagnostic::*;
 use error::{Error, LError};
+use location::{Located, SourceSpan};
 use std::cell::Cell;
 use std::collections;
 use std::hash::Hash;
@@ -12,13 +13,9 @@ mod error;
 pub mod info;
 mod types;
 
-type Span = location::SourceSpan<location::SourceLocation>;
-
-type Located<T> = location::Located<T, location::SourceLocation>;
-
 type Arity = usize;
 
-pub type SymbolInfo = info::SymbolInfo<location::SourceLocation>;
+pub type SymbolInfo = info::SymbolInfo;
 
 pub use types::Type;
 
@@ -28,7 +25,7 @@ struct Env {
     type_defs: Rc<collections::HashMap<TypeVar, TypeScheme>>,
     func_sigs: Rc<collections::HashMap<ExprVar, TypeScheme>>,
     type_vars: im::HashSet<TypeVar>,
-    expr_vars: im::HashMap<ExprVar, (Span, RcType)>,
+    expr_vars: im::HashMap<ExprVar, (SourceSpan, RcType)>,
     symbols: Rc<Cell<Vec<SymbolInfo>>>,
 }
 
@@ -142,7 +139,7 @@ impl LType {
 }
 
 impl syntax::Type {
-    fn check(&mut self, span: Span, env: &Env) -> Result<(), LError> {
+    fn check(&mut self, span: SourceSpan, env: &Env) -> Result<(), LError> {
         match self {
             Self::Error => Ok(()),
             Self::Int => panic!("Int in Type.check"),
@@ -234,7 +231,7 @@ impl LExpr {
 }
 
 impl Expr {
-    fn check(&mut self, span: Span, env: &Env, expected: &RcType) -> Result<(), LError> {
+    fn check(&mut self, span: SourceSpan, env: &Env, expected: &RcType) -> Result<(), LError> {
         match self {
             Self::Lam(params, body) => {
                 match expected.weak_normalize_env(env).as_ref() {
@@ -336,7 +333,7 @@ impl Expr {
         }
     }
 
-    fn infer(&mut self, span: Span, env: &Env) -> Result<RcType, LError> {
+    fn infer(&mut self, span: SourceSpan, env: &Env) -> Result<RcType, LError> {
         self.resolve(span, env)?;
         match self {
             Self::Error => Ok(RcType::new(Type::Error)),
@@ -497,7 +494,7 @@ impl Expr {
         }
     }
 
-    fn resolve(&mut self, span: Span, env: &Env) -> Result<(), LError> {
+    fn resolve(&mut self, span: SourceSpan, env: &Env) -> Result<(), LError> {
         match self {
             Self::Var(var) => {
                 if env.expr_vars.contains_key(var) {
@@ -727,7 +724,7 @@ fn check_match_patterns<'a>(
 
 fn find_duplicate<T: Eq + Hash, I: Iterator<Item = Located<T>>>(
     iter: I,
-) -> Option<(Span, Located<T>)> {
+) -> Option<(SourceSpan, Located<T>)> {
     let mut seen = std::collections::HashMap::new();
     for lvar in iter {
         if let Some(span) = seen.get(&lvar.locatee) {

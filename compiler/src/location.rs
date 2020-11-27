@@ -7,15 +7,15 @@ pub struct SourceLocation {
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq)]
-pub struct SourceSpan<Loc> {
-    pub start: Loc,
-    pub end: Loc,
+pub struct SourceSpan {
+    pub start: SourceLocation,
+    pub end: SourceLocation,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Located<T, Loc> {
+pub struct Located<T> {
     pub locatee: T,
-    pub span: SourceSpan<Loc>,
+    pub span: SourceSpan,
 }
 
 impl SourceLocation {
@@ -24,48 +24,41 @@ impl SourceLocation {
     }
 }
 
-impl<Loc> SourceSpan<Loc> {
-    pub fn new(start: Loc, end: Loc) -> Self {
+impl SourceSpan {
+    pub fn new(start: SourceLocation, end: SourceLocation) -> Self {
         Self { start, end }
     }
 }
 
-impl<Loc: Ord> SourceSpan<Loc> {
-    pub fn contains(&self, loc: Loc) -> bool {
+impl SourceSpan {
+    pub fn contains(&self, loc: SourceLocation) -> bool {
         self.start <= loc && loc <= self.end
     }
 }
 
-impl<T, Loc> Located<T, Loc> {
-    pub fn new(locatee: T, span: SourceSpan<Loc>) -> Self {
+impl<T> Located<T> {
+    pub fn new(locatee: T, span: SourceSpan) -> Self {
         Self { locatee, span }
     }
 
-    pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> Located<U, Loc> {
+    pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> Located<U> {
         Located::new(f(self.locatee), self.span)
     }
 }
 
-impl<T, Loc: Copy> Located<T, Loc> {
-    pub fn as_ref(&self) -> Located<&T, Loc> {
+impl<T> Located<T> {
+    pub fn as_ref(&self) -> Located<&T> {
         Located { locatee: &self.locatee, span: self.span }
     }
 }
 
 // TODO(MH): Make this function obsolete by putting better location information
 // instead.
-impl<T, Loc: Default> Located<T, Loc> {
+impl<T> Located<T> {
     pub fn gen(locatee: T) -> Self {
         Self::new(locatee, SourceSpan::default())
     }
 }
-
-impl<Loc> SourceSpan<Loc> {
-    pub fn map<Loc2, F: Fn(Loc) -> Loc2>(self, f: F) -> SourceSpan<Loc2> {
-        SourceSpan { start: f(self.start), end: f(self.end) }
-    }
-}
-
 // `Display` implementations
 
 impl fmt::Display for SourceLocation {
@@ -76,7 +69,7 @@ impl fmt::Display for SourceLocation {
     }
 }
 
-impl<Loc: fmt::Display> fmt::Display for SourceSpan<Loc> {
+impl fmt::Display for SourceSpan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}-{}", self.start, self.end)
     }
@@ -90,7 +83,7 @@ impl fmt::Debug for SourceLocation {
     }
 }
 
-impl<Loc: fmt::Debug> fmt::Debug for SourceSpan<Loc> {
+impl fmt::Debug for SourceSpan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}-{:?}", self.start, self.end)
     }

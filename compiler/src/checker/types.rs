@@ -2,12 +2,10 @@ use join_lazy_fmt::*;
 use std::fmt;
 use std::rc::Rc;
 
-use crate::location;
+use crate::location::Located;
 use crate::syntax;
 use crate::util::in_parens_if_some;
 use syntax::{ExprCon, ExprVar, TypeVar};
-
-type Located<T> = location::Located<T, location::SourceLocation>;
 
 type SynType = syntax::Type;
 

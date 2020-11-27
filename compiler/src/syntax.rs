@@ -1,4 +1,4 @@
-use crate::location;
+use crate::location::Located;
 use debug::DebugWriter;
 use std::fmt;
 
@@ -7,8 +7,6 @@ pub mod debug;
 #[macro_use]
 mod ident;
 mod iter;
-
-type Located<T> = location::Located<T, location::SourceLocation>;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Module {

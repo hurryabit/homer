@@ -1,12 +1,12 @@
 use super::types::*;
 use super::Arity;
-use crate::location::{Located, SourceLocation, SourceSpan};
+use crate::location::{Located, SourceSpan};
 use crate::syntax;
 use std::fmt;
 use syntax::{ExprCon, ExprVar, TypeVar};
 
 #[derive(Debug)]
-pub enum Error<Pos = SourceLocation> {
+pub enum Error {
     UnknownTypeVar(TypeVar),
     UnknownExprVar(ExprVar, bool), // bool indicateds if there's a function of the same name.
     UnexpectedGeneric(TypeVar, Arity),
@@ -15,10 +15,10 @@ pub enum Error<Pos = SourceLocation> {
     TypeMismatch { expected: RcType, found: RcType },
     ParamTypeMismatch { param: ExprVar, expected: RcType, found: RcType },
     ParamNeedsType(ExprVar),
-    DuplicateTypeVar { var: TypeVar, original: SourceSpan<Pos> },
-    DuplicateTypeDecl { var: TypeVar, original: SourceSpan<Pos> },
-    DuplicateParam { var: ExprVar, original: SourceSpan<Pos> },
-    DuplicateFuncDecl { var: ExprVar, original: SourceSpan<Pos> },
+    DuplicateTypeVar { var: TypeVar, original: SourceSpan },
+    DuplicateTypeDecl { var: TypeVar, original: SourceSpan },
+    DuplicateParam { var: ExprVar, original: SourceSpan },
+    DuplicateFuncDecl { var: ExprVar, original: SourceSpan },
     BadApp { func: Option<ExprVar>, func_type: RcType, num_args: Arity },
     BadRecordProj { record_type: RcType, field: ExprVar },
     BadLam(RcType, Arity),
@@ -34,16 +34,16 @@ pub enum Error<Pos = SourceLocation> {
     TypeAnnsNeeded,
 }
 
-pub type LError<Pos = SourceLocation> = Located<Error<Pos>, Pos>;
+pub type LError = Located<Error>;
 
 impl LError {
-    pub fn variant_payload<Pos, T, R>(
+    pub fn variant_payload<T, R>(
         opt_payload: &Option<T>,
         opt_payload_type: &Option<RcType>,
         variant_type: &RcType,
         constr: ExprCon,
-        span: SourceSpan<Pos>,
-    ) -> Result<R, LError<Pos>> {
+        span: SourceSpan,
+    ) -> Result<R, LError> {
         // TODO(MH): Use `!` instead of `()` once the never type is stable.
         let variant_type = variant_type.clone();
         let error = match (opt_payload, opt_payload_type) {

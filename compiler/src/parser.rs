@@ -12,11 +12,11 @@ impl Module {
     }
 }
 
-type ParseError<'a, Loc> = lalrpop_util::ParseError<Loc, Token<'a>, &'static str>;
+type ParseError<'a> = lalrpop_util::ParseError<usize, Token<'a>, &'static str>;
 
 pub fn parse_impl<'a, T, F>(input: &str, f: F) -> (Option<T>, Vec<Diagnostic>)
 where
-    F: FnOnce(&Humanizer, &mut Vec<ParseError<'a, usize>>) -> Result<T, ParseError<'a, usize>>,
+    F: FnOnce(&Humanizer, &mut Vec<ParseError<'a>>) -> Result<T, ParseError<'a>>,
 {
     let humanizer = Humanizer::new(input);
     let mut errors = Vec::new();
@@ -37,10 +37,8 @@ where
     }
 }
 
-fn parse_error_to_diagnostic<'a>(
-    error: ParseError<'a, usize>,
-    humanizer: &Humanizer,
-) -> Diagnostic {
+fn parse_error_to_diagnostic<'a>(error: ParseError<'a>, humanizer: &Humanizer) -> Diagnostic {
+    use lalrpop_util::ParseError;
     let error = error.map_location(|loc| humanizer.run(loc));
     let span = match error {
         ParseError::InvalidToken { location } | ParseError::UnrecognizedEOF { location, .. } => {
@@ -102,7 +100,7 @@ mod tests {
 
     pub fn parse_test_impl<'a, T, F>(input: &str, f: F) -> (Option<T>, Vec<Diagnostic>)
     where
-        F: FnOnce(&Humanizer, &mut Vec<ParseError<'a, usize>>) -> Result<T, ParseError<'a, usize>>,
+        F: FnOnce(&Humanizer, &mut Vec<ParseError<'a>>) -> Result<T, ParseError<'a>>,
     {
         parse_impl(input, f)
     }

@@ -1,8 +1,6 @@
 use super::*;
-use crate::location;
+use crate::location::SourceSpan;
 use std::fmt;
-
-type Span = location::SourceSpan<location::SourceLocation>;
 
 impl Debug for Module {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
@@ -258,7 +256,7 @@ impl Debug for u32 {
 pub struct DebugWriter<'a> {
     writer: &'a mut dyn fmt::Write,
     indent_level: usize,
-    next_span: Option<Span>,
+    next_span: Option<SourceSpan>,
 }
 
 impl<'a> DebugWriter<'a> {
@@ -272,7 +270,7 @@ impl<'a> DebugWriter<'a> {
         debug.write(&mut Self::new(writer))
     }
 
-    pub fn set_next_span(&mut self, span: Span) {
+    pub fn set_next_span(&mut self, span: SourceSpan) {
         self.next_span = Some(span)
     }
 
