@@ -1398,18 +1398,18 @@ fn rule_proj_index() {
     }
     "#), @r###"
     LET
-        binder: x @ 53...54
-        type: INT @ 53...54
-        bindee: PROJ @ 57...60
-            record: r @ 57...58
-            field: a/0 @ 59...60
-        tail: LET @ 70...92
-            binder: y @ 74...75
-            type: BOOL @ 74...75
-            bindee: PROJ @ 78...81
-                record: r @ 78...79
-                field: b/1 @ 80...81
-            tail: 0 @ 91...92
+        binder: x @ 3:13-3:14
+        type: INT @ 3:13-3:14
+        bindee: PROJ @ 3:17-3:20
+            record: r @ 3:17-3:18
+            field: a/0 @ 3:19-3:20
+        tail: LET @ 4:9-5:10
+            binder: y @ 4:13-4:14
+            type: BOOL @ 4:13-4:14
+            bindee: PROJ @ 4:17-4:20
+                record: r @ 4:17-4:18
+                field: b/1 @ 4:19-4:20
+            tail: 0 @ 5:9-5:10
     "###);
 }
 
@@ -1481,12 +1481,12 @@ fn rule_variant_rank() {
     }
     "#), @r###"
     IF
-        cond: b @ 48...49
-        then: VARIANT @ 52...53
+        cond: b @ 3:12-3:13
+        then: VARIANT @ 3:16-3:17
             constr: A/0
-        else: VARIANT @ 63...67
+        else: VARIANT @ 3:27-3:31
             constr: B/1
-            payload: 0 @ 65...66
+            payload: 0 @ 3:29-3:30
     "###);
 }
 
@@ -1737,16 +1737,16 @@ fn rule_match_rank() {
     }
     "#), @r###"
     MATCH
-        scrut: x @ 50...51
+        scrut: x @ 3:15-3:16
         branch: BRANCH
-            pattern: PATTERN @ 66...67
+            pattern: PATTERN @ 4:13-4:14
                 constr: A/0
-            rhs: 0 @ 71...72
+            rhs: 0 @ 4:18-4:19
         branch: BRANCH
-            pattern: PATTERN @ 86...90
+            pattern: PATTERN @ 5:13-5:17
                 constr: B/1
-                binder: y @ 88...89
-            rhs: y @ 94...95
+                binder: y @ 5:15-5:16
+            rhs: y @ 5:21-5:22
     "###);
 }
 

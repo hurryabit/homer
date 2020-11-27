@@ -50,7 +50,7 @@ fn resolve_type_top_def_int() {
     type X = Int
     "#), @r###"
     APP
-        syn: Int @ 34...37
+        syn: Int @ 3:14-3:17
     "###);
 }
 
@@ -76,8 +76,8 @@ fn resolve_type_syn_def() {
     type X = ResolveMe<Int>
     "#), @r###"
     APP
-        syn: ResolveMe @ 40...49
-        type_arg: INT @ 50...53
+        syn: ResolveMe @ 3:14-3:23
+        type_arg: INT @ 3:24-3:27
     "###);
 }
 
@@ -88,8 +88,8 @@ fn resolve_type_syn_def_int() {
     type X = Int<Bool>
     "#), @r###"
     APP
-        syn: Int @ 34...37
-        type_arg: BOOL @ 38...42
+        syn: Int @ 3:14-3:17
+        type_arg: BOOL @ 3:18-3:22
     "###);
 }
 
@@ -100,8 +100,8 @@ fn resolve_type_arg1_int() {
     type X = F<Int>
     "#), @r###"
     APP
-        syn: F @ 32...33
-        type_arg: INT @ 34...37
+        syn: F @ 3:14-3:15
+        type_arg: INT @ 3:16-3:19
     "###);
 }
 
@@ -113,9 +113,9 @@ fn resolve_type_arg1_def_int() {
     type X = F<Int>
     "#), @r###"
     APP
-        syn: F @ 52...53
-        type_arg: APP @ 54...57
-            syn: Int @ 54...57
+        syn: F @ 4:14-4:15
+        type_arg: APP @ 4:16-4:19
+            syn: Int @ 4:16-4:19
     "###);
 }
 
@@ -127,8 +127,8 @@ fn resolve_type_arg1_var_def() {
     type X<ResolveMe> = F<ResolveMe>
     "#), @r###"
     APP
-        syn: F @ 68...69
-        type_arg: ResolveMe @ 70...79
+        syn: F @ 4:25-4:26
+        type_arg: ResolveMe @ 4:27-4:36
     "###);
 }
 
@@ -139,64 +139,64 @@ fn resolve_type_arg1_var_int() {
     type X<Int> = F<Int>
     "#), @r###"
     APP
-        syn: F @ 37...38
-        type_arg: Int @ 39...42
+        syn: F @ 3:19-3:20
+        type_arg: Int @ 3:21-3:24
     "###);
 }
 
 #[test]
 fn resolve_type_arg2_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-  type F<A, B> = B
-  type X = F<Bool, Int>
-  "#), @r###"
-  APP
-      syn: F @ 31...32
-      type_arg: BOOL @ 33...37
-      type_arg: INT @ 39...42
-  "###);
+    type F<A, B> = B
+    type X = F<Bool, Int>
+    "#), @r###"
+    APP
+        syn: F @ 3:14-3:15
+        type_arg: BOOL @ 3:16-3:20
+        type_arg: INT @ 3:22-3:25
+    "###);
 }
 
 #[test]
 fn resolve_type_arg2_def_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-  type F<A, B> = B
-  type Int = Bool
-  type X = F<Bool, Int>
-  "#), @r###"
-  APP
-      syn: F @ 49...50
-      type_arg: BOOL @ 51...55
-      type_arg: APP @ 57...60
-          syn: Int @ 57...60
-  "###);
+    type F<A, B> = B
+    type Int = Bool
+    type X = F<Bool, Int>
+    "#), @r###"
+    APP
+        syn: F @ 4:14-4:15
+        type_arg: BOOL @ 4:16-4:20
+        type_arg: APP @ 4:22-4:25
+            syn: Int @ 4:22-4:25
+    "###);
 }
 
 #[test]
 fn resolve_type_arg2_var_def() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-  type F<A, B> = B
-  type ResolveMe = Int
-  type X<ResolveMe> = F<Bool, ResolveMe>
-  "#), @r###"
-  APP
-      syn: F @ 65...66
-      type_arg: BOOL @ 67...71
-      type_arg: ResolveMe @ 73...82
-  "###);
+    type F<A, B> = B
+    type ResolveMe = Int
+    type X<ResolveMe> = F<Bool, ResolveMe>
+    "#), @r###"
+    APP
+        syn: F @ 4:25-4:26
+        type_arg: BOOL @ 4:27-4:31
+        type_arg: ResolveMe @ 4:33-4:42
+    "###);
 }
 
 #[test]
 fn resolve_type_arg2_var_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-  type F<A, B> = B
-  type X<Int> = F<Bool, Int>
-  "#), @r###"
-  APP
-      syn: F @ 36...37
-      type_arg: BOOL @ 38...42
-      type_arg: Int @ 44...47
-  "###);
+    type F<A, B> = B
+    type X<Int> = F<Bool, Int>
+    "#), @r###"
+    APP
+        syn: F @ 3:19-3:20
+        type_arg: BOOL @ 3:21-3:25
+        type_arg: Int @ 3:27-3:30
+    "###);
 }
 
 #[test]
@@ -205,8 +205,8 @@ fn resolve_type_param1_int() {
     type X = (Int) -> Bool
     "#), @r###"
     FUN
-        param: INT @ 15...18
-        result: BOOL @ 23...27
+        param: INT @ 2:15-2:18
+        result: BOOL @ 2:23-2:27
     "###);
 }
 
@@ -217,9 +217,9 @@ fn resolve_type_param1_def_int() {
     type X = (Int) -> Bool
     "#), @r###"
     FUN
-        param: APP @ 35...38
-            syn: Int @ 35...38
-        result: BOOL @ 43...47
+        param: APP @ 3:15-3:18
+            syn: Int @ 3:15-3:18
+        result: BOOL @ 3:23-3:27
     "###);
 }
 
@@ -230,8 +230,8 @@ fn resolve_type_param1_var_def() {
     type X<ResolveMe> = (ResolveMe) -> Bool
     "#), @r###"
     FUN
-        param: ResolveMe @ 51...60
-        result: BOOL @ 65...69
+        param: ResolveMe @ 3:26-3:35
+        result: BOOL @ 3:40-3:44
     "###);
 }
 
@@ -241,8 +241,8 @@ fn resolve_type_param1_var_int() {
     type X<Int> = (Int) -> Bool
     "#), @r###"
     FUN
-        param: Int @ 20...23
-        result: BOOL @ 28...32
+        param: Int @ 2:20-2:23
+        result: BOOL @ 2:28-2:32
     "###);
 }
 
@@ -252,9 +252,9 @@ fn resolve_type_param2_int() {
     type X = ({}, Int) -> Bool
     "#), @r###"
     FUN
-        param: RECORD @ 15...17
-        param: INT @ 19...22
-        result: BOOL @ 27...31
+        param: RECORD @ 2:15-2:17
+        param: INT @ 2:19-2:22
+        result: BOOL @ 2:27-2:31
     "###);
 }
 
@@ -265,10 +265,10 @@ fn resolve_type_param2_def_int() {
     type X = ({}, Int) -> Bool
     "#), @r###"
     FUN
-        param: RECORD @ 35...37
-        param: APP @ 39...42
-            syn: Int @ 39...42
-        result: BOOL @ 47...51
+        param: RECORD @ 3:15-3:17
+        param: APP @ 3:19-3:22
+            syn: Int @ 3:19-3:22
+        result: BOOL @ 3:27-3:31
     "###);
 }
 
@@ -279,9 +279,9 @@ fn resolve_type_param2_var_def() {
     type X<ResolveMe> = ({}, ResolveMe) -> Bool
     "#), @r###"
     FUN
-        param: RECORD @ 51...53
-        param: ResolveMe @ 55...64
-        result: BOOL @ 69...73
+        param: RECORD @ 3:26-3:28
+        param: ResolveMe @ 3:30-3:39
+        result: BOOL @ 3:44-3:48
     "###);
 }
 
@@ -291,9 +291,9 @@ fn resolve_type_param2_var_int() {
     type X<Int> = ({}, Int) -> Bool
     "#), @r###"
     FUN
-        param: RECORD @ 20...22
-        param: Int @ 24...27
-        result: BOOL @ 32...36
+        param: RECORD @ 2:20-2:22
+        param: Int @ 2:24-2:27
+        result: BOOL @ 2:32-2:36
     "###);
 }
 
@@ -303,7 +303,7 @@ fn resolve_type_result_int() {
     type X = () -> Int
     "#), @r###"
     FUN
-        result: INT @ 20...23
+        result: INT @ 2:20-2:23
     "###);
 }
 
@@ -314,8 +314,8 @@ fn resolve_type_result_def_int() {
     type X = () -> Int
     "#), @r###"
     FUN
-        result: APP @ 40...43
-            syn: Int @ 40...43
+        result: APP @ 3:20-3:23
+            syn: Int @ 3:20-3:23
     "###);
 }
 
@@ -326,7 +326,7 @@ fn resolve_type_result_var_def() {
     type X<ResolveMe> = () -> ResolveMe
     "#), @r###"
     FUN
-        result: ResolveMe @ 56...65
+        result: ResolveMe @ 3:31-3:40
     "###);
 }
 
@@ -336,7 +336,7 @@ fn resolve_type_result_var_int() {
     type X<Int> = () -> Int
     "#), @r###"
     FUN
-        result: Int @ 25...28
+        result: Int @ 2:25-2:28
     "###);
 }
 
@@ -346,8 +346,8 @@ fn resolve_type_field1_int() {
     type X = {a: Int}
     "#), @r###"
     RECORD
-        field: a @ 15...16
-        type: INT @ 18...21
+        field: a @ 2:15-2:16
+        type: INT @ 2:18-2:21
     "###);
 }
 
@@ -358,9 +358,9 @@ fn resolve_type_field1_def_int() {
     type X = {a: Int}
     "#), @r###"
     RECORD
-        field: a @ 35...36
-        type: APP @ 38...41
-            syn: Int @ 38...41
+        field: a @ 3:15-3:16
+        type: APP @ 3:18-3:21
+            syn: Int @ 3:18-3:21
     "###);
 }
 
@@ -371,8 +371,8 @@ fn resolve_type_field1_var_def() {
     type X<ResolveMe> = {a: ResolveMe}
     "#), @r###"
     RECORD
-        field: a @ 51...52
-        type: ResolveMe @ 54...63
+        field: a @ 3:26-3:27
+        type: ResolveMe @ 3:29-3:38
     "###);
 }
 
@@ -382,8 +382,8 @@ fn resolve_type_field1_var_int() {
     type X<Int> = {a: Int}
     "#), @r###"
     RECORD
-        field: a @ 20...21
-        type: Int @ 23...26
+        field: a @ 2:20-2:21
+        type: Int @ 2:23-2:26
     "###);
 }
 
@@ -393,10 +393,10 @@ fn resolve_type_field2_int() {
     type X = {a: Bool, b: Int}
     "#), @r###"
     RECORD
-        field: a @ 15...16
-        type: BOOL @ 18...22
-        field: b @ 24...25
-        type: INT @ 27...30
+        field: a @ 2:15-2:16
+        type: BOOL @ 2:18-2:22
+        field: b @ 2:24-2:25
+        type: INT @ 2:27-2:30
     "###);
 }
 
@@ -407,11 +407,11 @@ fn resolve_type_field2_def_int() {
     type X = {a: Bool, b: Int}
     "#), @r###"
     RECORD
-        field: a @ 35...36
-        type: BOOL @ 38...42
-        field: b @ 44...45
-        type: APP @ 47...50
-            syn: Int @ 47...50
+        field: a @ 3:15-3:16
+        type: BOOL @ 3:18-3:22
+        field: b @ 3:24-3:25
+        type: APP @ 3:27-3:30
+            syn: Int @ 3:27-3:30
     "###);
 }
 
@@ -422,10 +422,10 @@ fn resolve_type_field2_var_def() {
     type X<ResolveMe> = {a: Bool, b: ResolveMe}
     "#), @r###"
     RECORD
-        field: a @ 51...52
-        type: BOOL @ 54...58
-        field: b @ 60...61
-        type: ResolveMe @ 63...72
+        field: a @ 3:26-3:27
+        type: BOOL @ 3:29-3:33
+        field: b @ 3:35-3:36
+        type: ResolveMe @ 3:38-3:47
     "###);
 }
 
@@ -435,10 +435,10 @@ fn resolve_type_field2_var_int() {
     type X<Int> = {a: Bool, b: Int}
     "#), @r###"
     RECORD
-        field: a @ 20...21
-        type: BOOL @ 23...27
-        field: b @ 29...30
-        type: Int @ 32...35
+        field: a @ 2:20-2:21
+        type: BOOL @ 2:23-2:27
+        field: b @ 2:29-2:30
+        type: Int @ 2:32-2:35
     "###);
 }
 
@@ -448,8 +448,8 @@ fn resolve_type_constr1_int() {
     type X = [C(Int)]
     "#), @r###"
     VARIANT
-        constr: C @ 15...16
-        type: INT @ 17...20
+        constr: C @ 2:15-2:16
+        type: INT @ 2:17-2:20
     "###);
 }
 
@@ -460,9 +460,9 @@ fn resolve_type_constr1_def_int() {
     type X = [C(Int)]
     "#), @r###"
     VARIANT
-        constr: C @ 35...36
-        type: APP @ 37...40
-            syn: Int @ 37...40
+        constr: C @ 3:15-3:16
+        type: APP @ 3:17-3:20
+            syn: Int @ 3:17-3:20
     "###);
 }
 
@@ -473,8 +473,8 @@ fn resolve_type_constr1_var_def() {
     type X<ResolveMe> = [C(ResolveMe)]
     "#), @r###"
     VARIANT
-        constr: C @ 51...52
-        type: ResolveMe @ 53...62
+        constr: C @ 3:26-3:27
+        type: ResolveMe @ 3:28-3:37
     "###);
 }
 
@@ -484,8 +484,8 @@ fn resolve_type_constr1_var_int() {
     type X<Int> = [C(Int)]
     "#), @r###"
     VARIANT
-        constr: C @ 20...21
-        type: Int @ 22...25
+        constr: C @ 2:20-2:21
+        type: Int @ 2:22-2:25
     "###);
 }
 
@@ -495,9 +495,9 @@ fn resolve_type_constr2_int() {
     type X = [B | C(Int)]
     "#), @r###"
     VARIANT
-        constr: B @ 15...16
-        constr: C @ 19...20
-        type: INT @ 21...24
+        constr: B @ 2:15-2:16
+        constr: C @ 2:19-2:20
+        type: INT @ 2:21-2:24
     "###);
 }
 
@@ -508,10 +508,10 @@ fn resolve_type_constr2_def_int() {
     type X = [B | C(Int)]
     "#), @r###"
     VARIANT
-        constr: B @ 35...36
-        constr: C @ 39...40
-        type: APP @ 41...44
-            syn: Int @ 41...44
+        constr: B @ 3:15-3:16
+        constr: C @ 3:19-3:20
+        type: APP @ 3:21-3:24
+            syn: Int @ 3:21-3:24
     "###);
 }
 
@@ -522,9 +522,9 @@ fn resolve_type_constr2_var_def() {
     type X<ResolveMe> = [B | C(ResolveMe)]
     "#), @r###"
     VARIANT
-        constr: B @ 51...52
-        constr: C @ 55...56
-        type: ResolveMe @ 57...66
+        constr: B @ 3:26-3:27
+        constr: C @ 3:30-3:31
+        type: ResolveMe @ 3:32-3:41
     "###);
 }
 
@@ -534,9 +534,9 @@ fn resolve_type_constr2_var_int() {
     type X<Int> = [B | C(Int)]
     "#), @r###"
     VARIANT
-        constr: B @ 20...21
-        constr: C @ 24...25
-        type: Int @ 26...29
+        constr: B @ 2:20-2:21
+        constr: C @ 2:24-2:25
+        type: Int @ 2:26-2:29
     "###);
 }
 
@@ -546,11 +546,11 @@ fn resolve_func_sign_int() {
     fn f(x: Int) -> Int { x }
     "#), @r###"
     FUNCDECL
-        name: f @ 8...9
-        param: x @ 10...11
-        type: INT @ 13...16
-        result: INT @ 21...24
-        body: x @ 27...28
+        name: f @ 2:8-2:9
+        param: x @ 2:10-2:11
+        type: INT @ 2:13-2:16
+        result: INT @ 2:21-2:24
+        body: x @ 2:27-2:28
     "###);
 }
 
@@ -561,13 +561,13 @@ fn resolve_func_sign_def_int() {
     fn f(x: Int) -> Int { x }
     "#), @r###"
     FUNCDECL
-        name: f @ 28...29
-        param: x @ 30...31
-        type: APP @ 33...36
-            syn: Int @ 33...36
-        result: APP @ 41...44
-            syn: Int @ 41...44
-        body: x @ 47...48
+        name: f @ 3:8-3:9
+        param: x @ 3:10-3:11
+        type: APP @ 3:13-3:16
+            syn: Int @ 3:13-3:16
+        result: APP @ 3:21-3:24
+            syn: Int @ 3:21-3:24
+        body: x @ 3:27-3:28
     "###);
 }
 
@@ -578,13 +578,13 @@ fn resolve_func_sign_var_def() {
     fn f(x: ResolveMe) -> ResolveMe { x }
     "#), @r###"
     FUNCDECL
-        name: f @ 33...34
-        param: x @ 35...36
-        type: APP @ 38...47
-            syn: ResolveMe @ 38...47
-        result: APP @ 52...61
-            syn: ResolveMe @ 52...61
-        body: x @ 64...65
+        name: f @ 3:8-3:9
+        param: x @ 3:10-3:11
+        type: APP @ 3:13-3:22
+            syn: ResolveMe @ 3:13-3:22
+        result: APP @ 3:27-3:36
+            syn: ResolveMe @ 3:27-3:36
+        body: x @ 3:39-3:40
     "###);
 }
 
@@ -594,12 +594,12 @@ fn resolve_func_sign_var_int() {
     fn f<Int>(x: Int) -> Int { x }
     "#), @r###"
     FUNCDECL
-        name: f @ 8...9
-        type_param: Int @ 10...13
-        param: x @ 15...16
-        type: Int @ 18...21
-        result: Int @ 26...29
-        body: x @ 32...33
+        name: f @ 2:8-2:9
+        type_param: Int @ 2:10-2:13
+        param: x @ 2:15-2:16
+        type: Int @ 2:18-2:21
+        result: Int @ 2:26-2:29
+        body: x @ 2:32-2:33
     "###);
 }
 
@@ -609,18 +609,18 @@ fn resolve_func_let_lam_int() {
     fn f() -> Bool { let g = fn (x: Int) { false }; true }
     "#), @r###"
     FUNCDECL
-        name: f @ 8...9
-        result: BOOL @ 15...19
-        body: LET @ 22...57
-            binder: g @ 26...27
-            type: FUN @ 26...27
-                param: INT @ 0...0
-                result: BOOL @ 0...0
-            bindee: LAM @ 30...51
-                param: x @ 34...35
-                type: INT @ 37...40
-                body: false @ 44...49
-            tail: true @ 53...57
+        name: f @ 2:8-2:9
+        result: BOOL @ 2:15-2:19
+        body: LET @ 2:22-2:57
+            binder: g @ 2:26-2:27
+            type: FUN @ 2:26-2:27
+                param: INT @ 1:1-1:1
+                result: BOOL @ 1:1-1:1
+            bindee: LAM @ 2:30-2:51
+                param: x @ 2:34-2:35
+                type: INT @ 2:37-2:40
+                body: false @ 2:44-2:49
+            tail: true @ 2:53-2:57
     "###);
 }
 
@@ -631,20 +631,20 @@ fn resolve_func_let_lam_def_int() {
     fn f() -> Bool { let g = fn (x: Int) { false }; true }
     "#), @r###"
     FUNCDECL
-        name: f @ 28...29
-        result: BOOL @ 35...39
-        body: LET @ 42...77
-            binder: g @ 46...47
-            type: FUN @ 46...47
-                param: APP @ 0...0
-                    syn: Int @ 0...0
-                result: BOOL @ 0...0
-            bindee: LAM @ 50...71
-                param: x @ 54...55
-                type: APP @ 57...60
-                    syn: Int @ 57...60
-                body: false @ 64...69
-            tail: true @ 73...77
+        name: f @ 3:8-3:9
+        result: BOOL @ 3:15-3:19
+        body: LET @ 3:22-3:57
+            binder: g @ 3:26-3:27
+            type: FUN @ 3:26-3:27
+                param: APP @ 1:1-1:1
+                    syn: Int @ 1:1-1:1
+                result: BOOL @ 1:1-1:1
+            bindee: LAM @ 3:30-3:51
+                param: x @ 3:34-3:35
+                type: APP @ 3:37-3:40
+                    syn: Int @ 3:37-3:40
+                body: false @ 3:44-3:49
+            tail: true @ 3:53-3:57
     "###);
 }
 
@@ -655,20 +655,20 @@ fn resolve_func_let_lam_var_def() {
     fn f() -> Bool { let g = fn (x: ResolveMe) { false }; true }
     "#), @r###"
     FUNCDECL
-        name: f @ 33...34
-        result: BOOL @ 40...44
-        body: LET @ 47...88
-            binder: g @ 51...52
-            type: FUN @ 51...52
-                param: APP @ 0...0
-                    syn: ResolveMe @ 0...0
-                result: BOOL @ 0...0
-            bindee: LAM @ 55...82
-                param: x @ 59...60
-                type: APP @ 62...71
-                    syn: ResolveMe @ 62...71
-                body: false @ 75...80
-            tail: true @ 84...88
+        name: f @ 3:8-3:9
+        result: BOOL @ 3:15-3:19
+        body: LET @ 3:22-3:63
+            binder: g @ 3:26-3:27
+            type: FUN @ 3:26-3:27
+                param: APP @ 1:1-1:1
+                    syn: ResolveMe @ 1:1-1:1
+                result: BOOL @ 1:1-1:1
+            bindee: LAM @ 3:30-3:57
+                param: x @ 3:34-3:35
+                type: APP @ 3:37-3:46
+                    syn: ResolveMe @ 3:37-3:46
+                body: false @ 3:50-3:55
+            tail: true @ 3:59-3:63
     "###);
 }
 
@@ -678,19 +678,19 @@ fn resolve_func_let_lam_var_int() {
     fn f<Int>() -> Bool { let g = fn (x: Int) { false }; true }
     "#), @r###"
     FUNCDECL
-        name: f @ 8...9
-        type_param: Int @ 10...13
-        result: BOOL @ 20...24
-        body: LET @ 27...62
-            binder: g @ 31...32
-            type: FUN @ 31...32
-                param: Int @ 0...0
-                result: BOOL @ 0...0
-            bindee: LAM @ 35...56
-                param: x @ 39...40
-                type: Int @ 42...45
-                body: false @ 49...54
-            tail: true @ 58...62
+        name: f @ 2:8-2:9
+        type_param: Int @ 2:10-2:13
+        result: BOOL @ 2:20-2:24
+        body: LET @ 2:27-2:62
+            binder: g @ 2:31-2:32
+            type: FUN @ 2:31-2:32
+                param: Int @ 1:1-1:1
+                result: BOOL @ 1:1-1:1
+            bindee: LAM @ 2:35-2:56
+                param: x @ 2:39-2:40
+                type: Int @ 2:42-2:45
+                body: false @ 2:49-2:54
+            tail: true @ 2:58-2:62
     "###);
 }
 
@@ -701,11 +701,11 @@ fn resolve_func_inst_int() {
     fn f() -> Bool { g@<Int>() }
     "#), @r###"
     FUNCDECL
-        name: f @ 39...40
-        result: BOOL @ 46...50
-        body: APPFUN @ 53...62
-            fun: g @ 53...54
-            type_arg: INT @ 56...59
+        name: f @ 3:8-3:9
+        result: BOOL @ 3:15-3:19
+        body: APPFUN @ 3:22-3:31
+            fun: g @ 3:22-3:23
+            type_arg: INT @ 3:25-3:28
     "###);
 }
 
@@ -717,12 +717,12 @@ fn resolve_func_inst_def_int() {
     fn f() -> Bool { g@<Int>() }
     "#), @r###"
     FUNCDECL
-        name: f @ 59...60
-        result: BOOL @ 66...70
-        body: APPFUN @ 73...82
-            fun: g @ 73...74
-            type_arg: APP @ 76...79
-                syn: Int @ 76...79
+        name: f @ 4:8-4:9
+        result: BOOL @ 4:15-4:19
+        body: APPFUN @ 4:22-4:31
+            fun: g @ 4:22-4:23
+            type_arg: APP @ 4:25-4:28
+                syn: Int @ 4:25-4:28
     "###);
 }
 
@@ -734,12 +734,12 @@ fn resolve_func_inst_var_def() {
     fn f() -> Bool { g@<ResolveMe>() }
     "#), @r###"
     FUNCDECL
-        name: f @ 64...65
-        result: BOOL @ 71...75
-        body: APPFUN @ 78...93
-            fun: g @ 78...79
-            type_arg: APP @ 81...90
-                syn: ResolveMe @ 81...90
+        name: f @ 4:8-4:9
+        result: BOOL @ 4:15-4:19
+        body: APPFUN @ 4:22-4:37
+            fun: g @ 4:22-4:23
+            type_arg: APP @ 4:25-4:34
+                syn: ResolveMe @ 4:25-4:34
     "###);
 }
 
@@ -750,11 +750,11 @@ fn resolve_func_inst_var_int() {
     fn f<Int>() -> Bool { g@<Int>() }
     "#), @r###"
     FUNCDECL
-        name: f @ 39...40
-        type_param: Int @ 41...44
-        result: BOOL @ 51...55
-        body: APPFUN @ 58...67
-            fun: g @ 58...59
-            type_arg: Int @ 61...64
+        name: f @ 3:8-3:9
+        type_param: Int @ 3:10-3:13
+        result: BOOL @ 3:20-3:24
+        body: APPFUN @ 3:27-3:36
+            fun: g @ 3:27-3:28
+            type_arg: Int @ 3:30-3:33
     "###);
 }

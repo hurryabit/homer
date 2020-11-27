@@ -48,16 +48,14 @@ fn humanizer(db: &dyn Compiler, uri: Uri) -> Arc<Humanizer> {
 
 fn parsed_module(db: &dyn Compiler, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>) {
     let input = db.input(uri);
-    let humanizer = db.humanizer(uri);
-    let (opt_parsed_module, diagnostics) = Module::parse(&input, &humanizer);
+    let (opt_parsed_module, diagnostics) = Module::parse(&input);
     (opt_parsed_module.map(Arc::new), Arc::new(diagnostics))
 }
 
 fn checked_module(db: &dyn Compiler, uri: Uri) -> CheckedModuleOutcome {
-    let humanizer = db.humanizer(uri);
     let (opt_checked_module, symbols, diagnostics) = match db.parsed_module(uri).0 {
         None => (None, vec![], vec![]),
-        Some(parsed_module) => match parsed_module.check(&humanizer) {
+        Some(parsed_module) => match parsed_module.check() {
             Err(diagnostic) => (None, vec![], vec![diagnostic]),
             Ok((checked_module, symbols)) => (Some(checked_module), symbols, vec![]),
         },

@@ -8,7 +8,7 @@ pub mod debug;
 mod ident;
 mod iter;
 
-type Located<T> = location::Located<T, location::ParserLoc>;
+type Located<T> = location::Located<T, location::HumanLoc>;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Module {

@@ -1,12 +1,12 @@
 use super::types::*;
 use super::Arity;
-use crate::location::{Located, ParserLoc, Span};
+use crate::location::{HumanLoc, Located, Span};
 use crate::syntax;
 use std::fmt;
 use syntax::{ExprCon, ExprVar, TypeVar};
 
 #[derive(Debug)]
-pub enum Error<Pos = ParserLoc> {
+pub enum Error<Pos = HumanLoc> {
     UnknownTypeVar(TypeVar),
     UnknownExprVar(ExprVar, bool), // bool indicateds if there's a function of the same name.
     UnexpectedGeneric(TypeVar, Arity),
@@ -34,7 +34,7 @@ pub enum Error<Pos = ParserLoc> {
     TypeAnnsNeeded,
 }
 
-pub type LError<Pos = ParserLoc> = Located<Error<Pos>, Pos>;
+pub type LError<Pos = HumanLoc> = Located<Error<Pos>, Pos>;
 
 impl LError {
     pub fn variant_payload<Pos, T, R>(

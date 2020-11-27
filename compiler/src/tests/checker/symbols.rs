@@ -12,7 +12,7 @@ fn smoke_test() {
         ExprBinder {
             var: Located {
                 locatee: ExprVar("x"),
-                span: 10-11,
+                span: 2:10-2:11,
             },
             typ: RcType(
                 Int,
@@ -21,7 +21,7 @@ fn smoke_test() {
         ExprBinder {
             var: Located {
                 locatee: ExprVar("y"),
-                span: 39-40,
+                span: 3:13-3:14,
             },
             typ: RcType(
                 Int,
@@ -30,22 +30,22 @@ fn smoke_test() {
         ExprVar {
             var: Located {
                 locatee: ExprVar("x"),
-                span: 43-44,
+                span: 3:17-3:18,
             },
             typ: RcType(
                 Int,
             ),
-            def: 10-11,
+            def: 2:10-2:11,
         },
         ExprVar {
             var: Located {
                 locatee: ExprVar("y"),
-                span: 54-55,
+                span: 4:9-4:10,
             },
             typ: RcType(
                 Int,
             ),
-            def: 39-40,
+            def: 3:13-3:14,
         },
     ]
     "###);

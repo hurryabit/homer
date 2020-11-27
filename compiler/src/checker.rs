@@ -1,7 +1,6 @@
 use crate::*;
 use diagnostic::*;
 use error::{Error, LError};
-use location::Humanizer;
 use std::cell::Cell;
 use std::collections;
 use std::hash::Hash;
@@ -13,13 +12,13 @@ mod error;
 pub mod info;
 mod types;
 
-type Span = location::Span<location::ParserLoc>;
+type Span = location::Span<location::HumanLoc>;
 
-type Located<T> = location::Located<T, location::ParserLoc>;
+type Located<T> = location::Located<T, location::HumanLoc>;
 
 type Arity = usize;
 
-pub type SymbolInfo = info::SymbolInfo<location::ParserLoc>;
+pub type SymbolInfo = info::SymbolInfo<location::HumanLoc>;
 
 pub use types::Type;
 
@@ -34,12 +33,12 @@ struct Env {
 }
 
 impl Module {
-    pub fn check(&self, humanizer: &Humanizer) -> Result<(Self, Vec<SymbolInfo>), Diagnostic> {
+    pub fn check(&self) -> Result<(Self, Vec<SymbolInfo>), Diagnostic> {
         let mut module = self.clone();
         match module.check_impl() {
             Ok(symbols) => Ok((module, symbols)),
             Err(error) => Err(Diagnostic {
-                span: error.span.humanize(humanizer),
+                span: error.span,
                 severity: Severity::Error,
                 source: Source::Checker,
                 message: format!("{}", error.locatee),

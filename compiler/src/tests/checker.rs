@@ -11,11 +11,10 @@ mod type_resolution;
 mod types;
 
 fn check_output_and_symbols(input: &str) -> (Module, Vec<SymbolInfo>) {
-    let humanizer = location::Humanizer::new(input);
-    let (result, diagnostics) = Module::parse(input, &humanizer);
+    let (result, diagnostics) = Module::parse(input);
     assert!(diagnostics.is_empty());
     let module = result.unwrap();
-    match module.check(&humanizer) {
+    match module.check() {
         Err(diagnostic) => panic!(
             "Expected module to type check but got error\n{:?}: {}",
             diagnostic.span, diagnostic.message
@@ -63,10 +62,9 @@ fn check_symbols(input: &str) -> Vec<SymbolInfo> {
 }
 
 fn check_error(input: &str) -> String {
-    let humanizer = location::Humanizer::new(input);
-    let (result, diagnostics) = Module::parse(input, &humanizer);
+    let (result, diagnostics) = Module::parse(input);
     assert!(diagnostics.is_empty());
     let module = result.unwrap();
-    let diagnostic = module.check(&humanizer).unwrap_err();
+    let diagnostic = module.check().unwrap_err();
     diagnostic.layout(input)
 }

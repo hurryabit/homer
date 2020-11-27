@@ -11,8 +11,8 @@ fn parse(input: &str) -> Decl {
 fn type_mono() {
     insta::assert_debug_snapshot!(parse("type T = Int"), @r###"
     TYPEDECL
-        name: T @ 5...6
-        body: Int @ 9...12
+        name: T @ 1:6-1:7
+        body: Int @ 1:10-1:13
     "###);
 }
 
@@ -20,9 +20,9 @@ fn type_mono() {
 fn type_poly() {
     insta::assert_debug_snapshot!(parse("type T<A> = A"), @r###"
     TYPEDECL
-        name: T @ 5...6
-        type_param: A @ 7...8
-        body: A @ 12...13
+        name: T @ 1:6-1:7
+        type_param: A @ 1:8-1:9
+        body: A @ 1:13-1:14
     "###);
 }
 
@@ -30,11 +30,11 @@ fn type_poly() {
 fn func_mono() {
     insta::assert_debug_snapshot!(parse("fn id(x: Int) -> Int { x }"), @r###"
     FUNCDECL
-        name: id @ 3...5
-        param: x @ 6...7
-        type: Int @ 9...12
-        result: Int @ 17...20
-        body: x @ 23...24
+        name: id @ 1:4-1:6
+        param: x @ 1:7-1:8
+        type: Int @ 1:10-1:13
+        result: Int @ 1:18-1:21
+        body: x @ 1:24-1:25
     "###);
 }
 
@@ -42,11 +42,11 @@ fn func_mono() {
 fn func_poly() {
     insta::assert_debug_snapshot!(parse("fn id<A>(x: A) -> A { x }"), @r###"
     FUNCDECL
-        name: id @ 3...5
-        type_param: A @ 6...7
-        param: x @ 9...10
-        type: A @ 12...13
-        result: A @ 18...19
-        body: x @ 22...23
+        name: id @ 1:4-1:6
+        type_param: A @ 1:7-1:8
+        param: x @ 1:10-1:11
+        type: A @ 1:13-1:14
+        result: A @ 1:19-1:20
+        body: x @ 1:23-1:24
     "###);
 }

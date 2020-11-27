@@ -2,7 +2,7 @@ use super::*;
 use crate::location;
 use std::fmt;
 
-type Span = location::Span<location::ParserLoc>;
+type Span = location::Span<location::HumanLoc>;
 
 impl Debug for Module {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
@@ -279,7 +279,7 @@ impl<'a> DebugWriter<'a> {
     pub fn leaf(&mut self, label: &str) -> fmt::Result {
         match self.next_span.take() {
             None => self.writer.write_str(label),
-            Some(span) => write!(self.writer, "{} @ {:?}...{:?}", label, span.start, span.end),
+            Some(span) => write!(self.writer, "{} @ {:?}-{:?}", label, span.start, span.end),
         }
     }
 

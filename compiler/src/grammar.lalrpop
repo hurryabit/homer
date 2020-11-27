@@ -1,9 +1,9 @@
 use std::str::FromStr;
 use lalrpop_util::{lexer, ParseError};
 use crate::syntax::*;
-use crate::location::{Located, ParserLoc, Span};
+use crate::location::{Humanizer, HumanLoc, Located, ParserLoc, Span};
 
-grammar<'err>(errors: &'err mut Vec<ParseError<ParserLoc, lexer::Token<'input>, &'static str>>);
+grammar<'err>(humanizer: &Humanizer, errors: &'err mut Vec<ParseError<ParserLoc, lexer::Token<'input>, &'static str>>);
 
 pub Module: Module = {
     <decls: Decl*> => Module { decls },
@@ -231,8 +231,8 @@ InParens<X>: X = {
     "(" <X> ")",
 }
 
-Located<X>: Located<X, ParserLoc> = {
-    <start: @L> <locatee: X> <end: @R> => Located::new(locatee, Span { start: ParserLoc::from_usize(start), end: ParserLoc::from_usize(end) }),
+Located<X>: Located<X, HumanLoc> = {
+    <start: @L> <locatee: X> <end: @R> => Located::new(locatee, Span { start: ParserLoc::from_usize(start).humanize(humanizer), end: ParserLoc::from_usize(end).humanize(humanizer) }),
 }
 
 match {

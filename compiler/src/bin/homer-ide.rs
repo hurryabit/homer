@@ -201,13 +201,12 @@ fn validate_document(
 
 fn code_lenses(lsp_uri: Url, db: &mut build::CompilerDB) -> Option<Vec<CodeLens>> {
     let uri = build::Uri::new(lsp_uri.as_str());
-    let humanizer = db.humanizer(uri);
     db.checked_module(uri).map(|module| {
         module
             .func_decls()
             .filter_map(|decl| {
                 if decl.expr_params.is_empty() {
-                    let range = decl.name.span.humanize(&humanizer).to_lsp();
+                    let range = decl.name.span.to_lsp();
                     let arg = serde_json::to_value(RunFnParams {
                         uri: uri.as_str().to_string(),
                         fun: decl.name.locatee.as_str().to_string(),
@@ -253,18 +252,19 @@ fn find_symbol(
     db: &mut build::CompilerDB,
 ) -> Option<SymbolInfo<HumanLoc>> {
     let uri = build::Uri::new(position_params.text_document.uri.as_str());
-    let humanizer = db.humanizer(uri);
     let symbols = db.symbols(uri);
 
-    let loc = location::HumanLoc::from_lsp(position_params.position).parserize(&humanizer);
+    let loc = location::HumanLoc::from_lsp(position_params.position);
     // FIXME(MH): We should do a binary search here.
-    symbols.iter().find_map(|symbol| {
-        if symbol.span().contains(loc) {
-            Some(symbol.humanize(&humanizer))
-        } else {
-            None
-        }
-    })
+    symbols.iter().find_map(
+        |symbol| {
+            if symbol.span().contains(loc) {
+                Some(symbol.clone())
+            } else {
+                None
+            }
+        },
+    )
 }
 
 fn hover(params: HoverParams, db: &mut build::CompilerDB) -> Option<Hover> {

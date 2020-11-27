@@ -48,26 +48,26 @@ fn module() {
     "#), @r###"
     MODULE
         decl: TYPEDECL
-            name: Mono @ 10...14
-            body: Int @ 17...20
+            name: Mono @ 2:10-2:14
+            body: Int @ 2:17-2:20
         decl: FUNCDECL
-            name: mono @ 28...32
-            param: x @ 33...34
-            type: Int @ 36...39
-            result: Mono @ 44...48
-            body: x @ 51...52
+            name: mono @ 3:8-3:12
+            param: x @ 3:13-3:14
+            type: Int @ 3:16-3:19
+            result: Mono @ 3:24-3:28
+            body: x @ 3:31-3:32
         decl: TYPEDECL
-            name: Poly @ 64...68
-            type_param: A @ 69...70
-            body: A @ 74...75
+            name: Poly @ 4:10-4:14
+            type_param: A @ 4:15-4:16
+            body: A @ 4:20-4:21
         decl: FUNCDECL
-            name: poly @ 83...87
-            type_param: A @ 88...89
-            param: x @ 91...92
-            type: A @ 94...95
-            result: APP @ 100...107
-                syn: Poly @ 100...104
-                type_arg: A @ 105...106
-            body: x @ 110...111
+            name: poly @ 5:8-5:12
+            type_param: A @ 5:13-5:14
+            param: x @ 5:16-5:17
+            type: A @ 5:19-5:20
+            result: APP @ 5:25-5:32
+                syn: Poly @ 5:25-5:29
+                type_arg: A @ 5:30-5:31
+            body: x @ 5:35-5:36
     "###);
 }

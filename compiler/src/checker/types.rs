@@ -7,7 +7,7 @@ use crate::syntax;
 use crate::util::in_parens_if_some;
 use syntax::{ExprCon, ExprVar, TypeVar};
 
-type Located<T> = location::Located<T, location::ParserLoc>;
+type Located<T> = location::Located<T, location::HumanLoc>;
 
 type SynType = syntax::Type;
 

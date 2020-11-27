@@ -8,7 +8,7 @@ fn resolve_func_mono() {
     fn f() -> Int { resolve_me() }
     "#), @r###"
     APPFUN
-        fun: resolve_me @ 54...64
+        fun: resolve_me @ 3:21-3:31
     "###);
 }
 
@@ -19,8 +19,8 @@ fn resolve_func_poly() {
     fn f() -> Int { resolve_me@<Int>() }
     "#), @r###"
     APPFUN
-        fun: resolve_me @ 57...67
-        type_arg: INT @ 69...72
+        fun: resolve_me @ 3:21-3:31
+        type_arg: INT @ 3:33-3:36
     "###);
 }
 
@@ -31,7 +31,7 @@ fn resolve_func_param() {
     fn f(resolve_me: () -> Int) -> Int { resolve_me() }
     "#), @r###"
     APPCLO
-        clo: resolve_me @ 79...89
+        clo: resolve_me @ 3:42-3:52
     "###);
 }
 
@@ -48,17 +48,17 @@ fn resolve_let_infer_infer() {
     }
     "#), @r###"
     LET
-        binder: r @ 70...71
-        type: INT @ 70...71
-        bindee: LET @ 88...142
-            binder: resolve_me @ 92...102
-            type: FUN @ 92...102
-                result: INT @ 0...0
-            bindee: LAM @ 105...116
-                body: 0 @ 113...114
-            tail: APPCLO @ 130...142
-                clo: resolve_me @ 130...140
-        tail: r @ 162...163
+        binder: r @ 4:13-4:14
+        type: INT @ 4:13-4:14
+        bindee: LET @ 5:13-6:25
+            binder: resolve_me @ 5:17-5:27
+            type: FUN @ 5:17-5:27
+                result: INT @ 1:1-1:1
+            bindee: LAM @ 5:30-5:41
+                body: 0 @ 5:38-5:39
+            tail: APPCLO @ 6:13-6:25
+                clo: resolve_me @ 6:13-6:23
+        tail: r @ 8:9-8:10
     "###);
 }
 
@@ -72,13 +72,13 @@ fn resolve_let_infer_check() {
     }
     "#), @r###"
     LET
-        binder: resolve_me @ 70...80
-        type: FUN @ 70...80
-            result: INT @ 0...0
-        bindee: LAM @ 83...94
-            body: 0 @ 91...92
-        tail: APPCLO @ 104...116
-            clo: resolve_me @ 104...114
+        binder: resolve_me @ 4:13-4:23
+        type: FUN @ 4:13-4:23
+            result: INT @ 1:1-1:1
+        bindee: LAM @ 4:26-4:37
+            body: 0 @ 4:34-4:35
+        tail: APPCLO @ 5:9-5:21
+            clo: resolve_me @ 5:9-5:19
     "###);
 }
 
@@ -95,17 +95,17 @@ fn resolve_let_check_infer() {
     }
     "#), @r###"
     LET
-        binder: r @ 70...71
-        type: INT @ 70...71
-        bindee: LET @ 88...153
-            binder: resolve_me @ 92...102
-            type: FUN @ 104...113
-                result: INT @ 110...113
-            bindee: LAM @ 116...127
-                body: 0 @ 124...125
-            tail: APPCLO @ 141...153
-                clo: resolve_me @ 141...151
-        tail: r @ 173...174
+        binder: r @ 4:13-4:14
+        type: INT @ 4:13-4:14
+        bindee: LET @ 5:13-6:25
+            binder: resolve_me @ 5:17-5:27
+            type: FUN @ 5:29-5:38
+                result: INT @ 5:35-5:38
+            bindee: LAM @ 5:41-5:52
+                body: 0 @ 5:49-5:50
+            tail: APPCLO @ 6:13-6:25
+                clo: resolve_me @ 6:13-6:23
+        tail: r @ 8:9-8:10
     "###);
 }
 
@@ -119,13 +119,13 @@ fn resolve_let_check_check() {
     }
     "#), @r###"
     LET
-        binder: resolve_me @ 70...80
-        type: FUN @ 82...91
-            result: INT @ 88...91
-        bindee: LAM @ 94...105
-            body: 0 @ 102...103
-        tail: APPCLO @ 115...127
-            clo: resolve_me @ 115...125
+        binder: resolve_me @ 4:13-4:23
+        type: FUN @ 4:25-4:34
+            result: INT @ 4:31-4:34
+        bindee: LAM @ 4:37-4:48
+            body: 0 @ 4:45-4:46
+        tail: APPCLO @ 5:9-5:21
+            clo: resolve_me @ 5:9-5:19
     "###);
 }
 
@@ -139,18 +139,18 @@ fn resolve_lam_param_infer() {
     }
     "#), @r###"
     LET
-        binder: f @ 85...86
-        type: FUN @ 85...86
-            param: FUN @ 0...0
-                result: INT @ 0...0
-            result: INT @ 0...0
-        bindee: LAM @ 89...132
-            param: resolve_me @ 93...103
-            type: FUN @ 105...114
-                result: INT @ 111...114
-            body: APPCLO @ 118...130
-                clo: resolve_me @ 118...128
-        tail: f @ 142...143
+        binder: f @ 4:13-4:14
+        type: FUN @ 4:13-4:14
+            param: FUN @ 1:1-1:1
+                result: INT @ 1:1-1:1
+            result: INT @ 1:1-1:1
+        bindee: LAM @ 4:17-4:60
+            param: resolve_me @ 4:21-4:31
+            type: FUN @ 4:33-4:42
+                result: INT @ 4:39-4:42
+            body: APPCLO @ 4:46-4:58
+                clo: resolve_me @ 4:46-4:56
+        tail: f @ 5:9-5:10
     "###);
 }
 
@@ -163,11 +163,11 @@ fn resolve_lam_param_check_unannotated() {
     }
     "#), @r###"
     LAM
-        param: resolve_me @ 85...95
-        type: FUN @ 85...95
-            result: INT @ 0...0
-        body: APPCLO @ 99...111
-            clo: resolve_me @ 99...109
+        param: resolve_me @ 4:13-4:23
+        type: FUN @ 4:13-4:23
+            result: INT @ 1:1-1:1
+        body: APPCLO @ 4:27-4:39
+            clo: resolve_me @ 4:27-4:37
     "###);
 }
 
@@ -180,11 +180,11 @@ fn resolve_lam_param_check_annotated() {
     }
     "#), @r###"
     LAM
-        param: resolve_me @ 85...95
-        type: FUN @ 97...106
-            result: INT @ 103...106
-        body: APPCLO @ 110...122
-            clo: resolve_me @ 110...120
+        param: resolve_me @ 4:13-4:23
+        type: FUN @ 4:25-4:34
+            result: INT @ 4:31-4:34
+        body: APPCLO @ 4:38-4:50
+            clo: resolve_me @ 4:38-4:48
     "###);
 }
 
@@ -200,23 +200,23 @@ fn resolve_match() {
     }
     "#), @r###"
     LET
-        binder: f @ 70...71
-        type: VARIANT @ 73...87
-            constr: F @ 74...75
-            type: FUN @ 76...85
-                result: INT @ 82...85
-        bindee: VARIANT @ 90...104
+        binder: f @ 4:13-4:14
+        type: VARIANT @ 4:16-4:30
+            constr: F @ 4:17-4:18
+            type: FUN @ 4:19-4:28
+                result: INT @ 4:25-4:28
+        bindee: VARIANT @ 4:33-4:47
             constr: F/0
-            payload: LAM @ 92...103
-                body: 0 @ 100...101
-        tail: MATCH @ 114...176
-            scrut: f @ 120...121
+            payload: LAM @ 4:35-4:46
+                body: 0 @ 4:43-4:44
+        tail: MATCH @ 5:9-7:10
+            scrut: f @ 5:15-5:16
             branch: BRANCH
-                pattern: PATTERN @ 136...149
+                pattern: PATTERN @ 6:13-6:26
                     constr: F/0
-                    binder: resolve_me @ 138...148
-                rhs: APPCLO @ 153...165
-                    clo: resolve_me @ 153...163
+                    binder: resolve_me @ 6:15-6:25
+                rhs: APPCLO @ 6:30-6:42
+                    clo: resolve_me @ 6:30-6:40
     "###);
 }
 

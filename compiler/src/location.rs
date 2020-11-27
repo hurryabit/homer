@@ -8,7 +8,7 @@ pub use humanizer::Humanizer;
 #[derive(Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ParserLoc(u32);
 
-#[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct HumanLoc {
     pub line: u32,
     pub column: u32,
@@ -57,8 +57,10 @@ impl Span<ParserLoc> {
         let Self { start, end } = self;
         Span { start: start.humanize(humanizer), end: end.humanize(humanizer) }
     }
+}
 
-    pub fn contains(&self, loc: ParserLoc) -> bool {
+impl<Loc: Ord> Span<Loc> {
+    pub fn contains(&self, loc: Loc) -> bool {
         self.start <= loc && loc <= self.end
     }
 }
