@@ -1,6 +1,6 @@
 use join_lazy_fmt::*;
 use std::fmt;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::location::Located;
 use crate::syntax;
@@ -22,7 +22,7 @@ pub enum Type<T = RcType> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RcType(Rc<Type>);
+pub struct RcType(Arc<Type>);
 
 #[derive(Debug)]
 pub struct TypeScheme {
@@ -34,7 +34,7 @@ type TypeDefs = std::collections::HashMap<TypeVar, TypeScheme>;
 
 impl RcType {
     pub fn new(typ: Type) -> Self {
-        Self(Rc::new(typ))
+        Self(Arc::new(typ))
     }
 
     pub fn from_lsyntax(lsyntax: &Located<SynType>) -> Self {

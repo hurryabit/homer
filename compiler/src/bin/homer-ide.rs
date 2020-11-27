@@ -10,7 +10,7 @@ use lsp_types::{
     request::{CodeLensRequest, ExecuteCommand, GotoDefinition, HoverRequest, Request},
     CodeLens, CodeLensOptions, Command, ExecuteCommandOptions, GotoDefinitionParams,
     GotoDefinitionResponse, Hover, HoverContents, HoverParams, HoverProviderCapability,
-    InitializeParams, Location, MarkupContent, MarkupKind, MessageType, OneOf,
+    InitializeParams, Location, MarkupContent, MarkupKind, MessageType,
     PublishDiagnosticsParams, SaveOptions, ServerCapabilities, ShowMessageParams, TextDocumentItem,
     TextDocumentPositionParams, TextDocumentSyncCapability, TextDocumentSyncKind,
     TextDocumentSyncOptions, TextDocumentSyncSaveOptions, Url,
@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
         ..ExecuteCommandOptions::default()
     });
     let hover_provider = Some(HoverProviderCapability::Simple(true));
-    let definition_provider = Some(OneOf::Left(true));
+    let definition_provider = Some(true);
     let server_capabilities = ServerCapabilities {
         text_document_sync,
         code_lens_provider,

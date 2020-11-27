@@ -37,12 +37,12 @@ impl Diagnostic {
 impl SourceLocation {
     pub fn from_lsp(lsp: lsp_types::Position) -> Self {
         let lsp_types::Position { line, character: column } = lsp;
-        Self { line, column }
+        Self { line: line as u32, column: column as u32 }
     }
 
     pub fn to_lsp(&self) -> lsp_types::Position {
         let Self { line, column } = self;
-        lsp_types::Position::new(*line, *column)
+        lsp_types::Position::new(*line as u64, *column as u64)
     }
 }
 
