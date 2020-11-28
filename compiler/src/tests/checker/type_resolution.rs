@@ -613,9 +613,10 @@ fn resolve_func_let_lam_int() {
         result: BOOL @ 2:15-2:19
         body: LET @ 2:22-2:57
             binder: g @ 2:26-2:27
-            type: FUN @ 2:26-2:27
-                param: INT @ 1:1-1:1
-                result: BOOL @ 1:1-1:1
+            type: INFERRED @ 2:26-2:27
+                type: FUN
+                    param: INT
+                    result: BOOL
             bindee: LAM @ 2:30-2:51
                 param: x @ 2:34-2:35
                 type: INT @ 2:37-2:40
@@ -635,10 +636,11 @@ fn resolve_func_let_lam_def_int() {
         result: BOOL @ 3:15-3:19
         body: LET @ 3:22-3:57
             binder: g @ 3:26-3:27
-            type: FUN @ 3:26-3:27
-                param: APP @ 1:1-1:1
-                    syn: Int @ 1:1-1:1
-                result: BOOL @ 1:1-1:1
+            type: INFERRED @ 3:26-3:27
+                type: FUN
+                    param: APP
+                        syn: Int
+                    result: BOOL
             bindee: LAM @ 3:30-3:51
                 param: x @ 3:34-3:35
                 type: APP @ 3:37-3:40
@@ -659,10 +661,11 @@ fn resolve_func_let_lam_var_def() {
         result: BOOL @ 3:15-3:19
         body: LET @ 3:22-3:63
             binder: g @ 3:26-3:27
-            type: FUN @ 3:26-3:27
-                param: APP @ 1:1-1:1
-                    syn: ResolveMe @ 1:1-1:1
-                result: BOOL @ 1:1-1:1
+            type: INFERRED @ 3:26-3:27
+                type: FUN
+                    param: APP
+                        syn: ResolveMe
+                    result: BOOL
             bindee: LAM @ 3:30-3:57
                 param: x @ 3:34-3:35
                 type: APP @ 3:37-3:46
@@ -683,9 +686,10 @@ fn resolve_func_let_lam_var_int() {
         result: BOOL @ 2:20-2:24
         body: LET @ 2:27-2:62
             binder: g @ 2:31-2:32
-            type: FUN @ 2:31-2:32
-                param: Int @ 1:1-1:1
-                result: BOOL @ 1:1-1:1
+            type: INFERRED @ 2:31-2:32
+                type: FUN
+                    param: Int
+                    result: BOOL
             bindee: LAM @ 2:35-2:56
                 param: x @ 2:39-2:40
                 type: Int @ 2:42-2:45

@@ -1,3 +1,4 @@
+use crate::checker;
 use crate::location::Located;
 
 pub mod debug;
@@ -42,6 +43,7 @@ pub enum Type {
     Fun(Vec<LType>, Box<LType>),
     Record(Vec<(LExprVar, LType)>),
     Variant(Vec<(LExprCon, Option<LType>)>),
+    Inferred(checker::RcType),
 }
 
 pub type LType = Located<Type>;

@@ -7,7 +7,7 @@ use crate::util::in_parens_if_some;
 use crate::{ast, syntax};
 use syntax::{ExprCon, ExprVar, LExprVar, TypeVar};
 
-type SynType = syntax::Type;
+pub type SynType = syntax::Type;
 
 #[derive(Eq, PartialEq)]
 pub enum Type<T = RcType> {
@@ -44,20 +44,16 @@ impl RcType {
         Self(Rc::new(typ))
     }
 
+    pub fn as_inferred(&self, var: &LExprVar) -> Located<SynType> {
+        Located::new(SynType::Inferred(self.clone()), var.span)
+    }
+
     pub fn from_lsyntax(lsyntax: &Located<SynType>) -> Self {
         Self::new(Type::from_syntax(&lsyntax.locatee))
     }
 
     pub fn from_syntax(syntax: &SynType) -> Self {
         Self::new(Type::from_syntax(syntax))
-    }
-
-    pub fn to_lsyntax(&self) -> Located<SynType> {
-        Located::gen(self.to_syntax())
-    }
-
-    pub fn to_syntax(&self) -> SynType {
-        Type::to_syntax(&*self)
     }
 
     pub fn subst(&self, mapping: &std::collections::HashMap<&TypeVar, &RcType>) -> RcType {
@@ -191,44 +187,7 @@ impl Type {
                     .collect();
                 Type::Variant(constrs)
             }
-        }
-    }
-
-    pub fn to_lsyntax(&self) -> Located<SynType> {
-        Located::gen(self.to_syntax())
-    }
-
-    pub fn to_syntax(&self) -> SynType {
-        match self {
-            Type::Error => SynType::Error,
-            Type::Var(var) => SynType::Var(*var),
-            Type::SynApp(var, args) => {
-                let args = args.iter().map(RcType::to_lsyntax).collect();
-                SynType::SynApp(Located::gen(*var), args)
-            }
-            Type::Int => SynType::Int,
-            Type::Bool => SynType::Bool,
-            Type::Fun(params, result) => {
-                let params = params.iter().map(RcType::to_lsyntax).collect();
-                let result = Box::new(RcType::to_lsyntax(result));
-                SynType::Fun(params, result)
-            }
-            Type::Record(fields) => {
-                let fields = fields
-                    .iter()
-                    .map(|(name, typ)| (Located::gen(*name), typ.to_lsyntax()))
-                    .collect();
-                SynType::Record(fields)
-            }
-            Type::Variant(constrs) => {
-                let constrs = constrs
-                    .iter()
-                    .map(|(name, opt_typ)| {
-                        (Located::gen(*name), opt_typ.as_ref().map(|typ| typ.to_lsyntax()))
-                    })
-                    .collect();
-                SynType::Variant(constrs)
-            }
+            SynType::Inferred(_) => panic!("IMPOSSIBLE: only introduced by type checker"),
         }
     }
 }

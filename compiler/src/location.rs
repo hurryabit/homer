@@ -52,13 +52,6 @@ impl<T> Located<T> {
     }
 }
 
-// TODO(MH): Make this function obsolete by putting better location information
-// instead.
-impl<T> Located<T> {
-    pub fn gen(locatee: T) -> Self {
-        Self::new(locatee, SourceSpan::default())
-    }
-}
 // `Display` implementations
 
 impl fmt::Display for SourceLocation {

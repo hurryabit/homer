@@ -1399,13 +1399,15 @@ fn rule_proj_index() {
     "#), @r###"
     LET
         binder: x @ 3:13-3:14
-        type: INT @ 3:13-3:14
+        type: INFERRED @ 3:13-3:14
+            type: INT
         bindee: PROJ @ 3:17-3:20
             record: r @ 3:17-3:18
             field: a/0 @ 3:19-3:20
         tail: LET @ 4:9-5:10
             binder: y @ 4:13-4:14
-            type: BOOL @ 4:13-4:14
+            type: INFERRED @ 4:13-4:14
+                type: BOOL
             bindee: PROJ @ 4:17-4:20
                 record: r @ 4:17-4:18
                 field: b/1 @ 4:19-4:20

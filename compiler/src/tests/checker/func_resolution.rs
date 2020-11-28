@@ -49,11 +49,13 @@ fn resolve_let_infer_infer() {
     "#), @r###"
     LET
         binder: r @ 4:13-4:14
-        type: INT @ 4:13-4:14
+        type: INFERRED @ 4:13-4:14
+            type: INT
         bindee: LET @ 5:13-6:25
             binder: resolve_me @ 5:17-5:27
-            type: FUN @ 5:17-5:27
-                result: INT @ 1:1-1:1
+            type: INFERRED @ 5:17-5:27
+                type: FUN
+                    result: INT
             bindee: LAM @ 5:30-5:41
                 body: 0 @ 5:38-5:39
             tail: APPCLO @ 6:13-6:25
@@ -73,8 +75,9 @@ fn resolve_let_infer_check() {
     "#), @r###"
     LET
         binder: resolve_me @ 4:13-4:23
-        type: FUN @ 4:13-4:23
-            result: INT @ 1:1-1:1
+        type: INFERRED @ 4:13-4:23
+            type: FUN
+                result: INT
         bindee: LAM @ 4:26-4:37
             body: 0 @ 4:34-4:35
         tail: APPCLO @ 5:9-5:21
@@ -96,7 +99,8 @@ fn resolve_let_check_infer() {
     "#), @r###"
     LET
         binder: r @ 4:13-4:14
-        type: INT @ 4:13-4:14
+        type: INFERRED @ 4:13-4:14
+            type: INT
         bindee: LET @ 5:13-6:25
             binder: resolve_me @ 5:17-5:27
             type: FUN @ 5:29-5:38
@@ -140,10 +144,11 @@ fn resolve_lam_param_infer() {
     "#), @r###"
     LET
         binder: f @ 4:13-4:14
-        type: FUN @ 4:13-4:14
-            param: FUN @ 1:1-1:1
-                result: INT @ 1:1-1:1
-            result: INT @ 1:1-1:1
+        type: INFERRED @ 4:13-4:14
+            type: FUN
+                param: FUN
+                    result: INT
+                result: INT
         bindee: LAM @ 4:17-4:60
             param: resolve_me @ 4:21-4:31
             type: FUN @ 4:33-4:42
@@ -164,8 +169,9 @@ fn resolve_lam_param_check_unannotated() {
     "#), @r###"
     LAM
         param: resolve_me @ 4:13-4:23
-        type: FUN @ 4:13-4:23
-            result: INT @ 1:1-1:1
+        type: INFERRED @ 4:13-4:23
+            type: FUN
+                result: INT
         body: APPCLO @ 4:27-4:39
             clo: resolve_me @ 4:27-4:37
     "###);

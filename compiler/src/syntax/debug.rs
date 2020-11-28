@@ -73,6 +73,7 @@ impl ast::Debug for Type {
                 }
                 Ok(())
             }),
+            Self::Inferred(typ) => writer.node("INFERRED", |writer| writer.child("type", typ)),
         }
     }
 }

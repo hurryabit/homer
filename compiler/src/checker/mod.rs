@@ -15,9 +15,8 @@ mod types;
 
 type Arity = usize;
 
-pub type SymbolInfo = info::SymbolInfo;
-
-pub use types::Type;
+pub use info::SymbolInfo;
+pub use types::{RcType, SynType, Type};
 
 #[derive(Clone)]
 struct Env {
@@ -212,6 +211,7 @@ impl syntax::Type {
                 }
                 Ok(())
             }
+            Self::Inferred(_) => panic!("IMPOSSIBLE: only introduced by type checker"),
         }
     }
 }
@@ -261,8 +261,7 @@ impl Expr {
                                     }
                                     Ok((*var, found))
                                 } else {
-                                    *opt_type_ann =
-                                        Some(Located::new(expected.to_syntax(), var.span));
+                                    *opt_type_ann = Some(expected.as_inferred(var));
                                     Ok((*var, expected.clone()))
                                 }
                             }),
@@ -649,7 +648,7 @@ fn check_let_bindee(
         Ok(typ)
     } else {
         let typ = bindee.infer(env)?;
-        *opt_type_ann = Some(Located::new(typ.to_syntax(), binder.span));
+        *opt_type_ann = Some(typ.as_inferred(binder));
         Ok(typ)
     }
 }

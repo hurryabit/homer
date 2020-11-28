@@ -67,6 +67,7 @@ impl Type {
                         }
                     }
                 }
+                Self::Inferred(_) => {}
             }
         })
         .into_iter()
