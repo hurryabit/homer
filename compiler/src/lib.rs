@@ -8,6 +8,8 @@ extern crate lazy_static;
 extern crate static_assertions;
 
 pub mod anf;
+#[macro_use]
+pub mod ast;
 pub mod build;
 pub mod cek;
 pub mod checker;

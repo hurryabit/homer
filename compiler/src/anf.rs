@@ -1,7 +1,6 @@
 use crate::*;
 use join_lazy_fmt::*;
 use std::fmt;
-use syntax::debug::{Debug, DebugWriter};
 use util::in_parens_if_some;
 
 use location::SourceSpan;
@@ -320,15 +319,15 @@ impl Env {
 
 derive_fmt_debug!(Module);
 
-impl Debug for Module {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+impl ast::Debug for Module {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         let Self { func_decls } = self;
         writer.node("MODULE", |writer| writer.children("decl", func_decls))
     }
 }
 
-impl Debug for FuncDecl {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+impl ast::Debug for FuncDecl {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         let Self { name, params, body } = self;
         writer.node("FUNCDECL", |writer| {
             writer.child("name", name)?;
@@ -338,8 +337,8 @@ impl Debug for FuncDecl {
     }
 }
 
-impl Debug for Expr {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+impl ast::Debug for Expr {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         let Self { bindings } = self;
         writer.node("EXPR", |writer| {
             for Binding { binder, bindee } in bindings {
@@ -351,8 +350,8 @@ impl Debug for Expr {
     }
 }
 
-impl Debug for Bindee {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+impl ast::Debug for Bindee {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         match self {
             Self::Error(_) => writer.leaf("ERROR"),
             Self::Atom(atom) => atom.write(writer),
@@ -400,19 +399,19 @@ impl Debug for Bindee {
     }
 }
 
-impl Debug for IdxVar {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+impl ast::Debug for IdxVar {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         (self.1, self.0).write(writer)
     }
 }
-impl Debug for Atom {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+impl ast::Debug for Atom {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         self.0.write(writer)
     }
 }
 
-impl Debug for MakeClosure {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+impl ast::Debug for MakeClosure {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         let MakeClosure { captured, params, body } = self;
         writer.node("MAKE_CLOSURE", |writer| {
             writer.children("captured", captured.iter().map(|idx| idx.to_string()))?;
@@ -422,8 +421,8 @@ impl Debug for MakeClosure {
     }
 }
 
-impl Debug for Branch {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+impl ast::Debug for Branch {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         let Self { pattern, rhs } = self;
         writer.node("BRANCH", |writer| {
             writer.child("pattern", pattern)?;
@@ -432,8 +431,8 @@ impl Debug for Branch {
     }
 }
 
-impl Debug for Pattern {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+impl ast::Debug for Pattern {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         let Self { rank, constr, binder } = self;
         writer.node("PATTERN", |writer| {
             writer.child("constr", &(*constr, *rank))?;

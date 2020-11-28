@@ -1,8 +1,5 @@
 use crate::location::Located;
-use debug::DebugWriter;
-use std::fmt;
 
-#[macro_use]
 pub mod debug;
 #[macro_use]
 mod ident;
