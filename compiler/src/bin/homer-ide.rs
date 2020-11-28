@@ -109,6 +109,17 @@ impl Server {
         }
     }
 
+    fn did_close(&mut self, params: DidCloseTextDocumentParams) -> Result<()> {
+        let uri = params.text_document.uri;
+        let params = PublishDiagnosticsParams { uri, diagnostics: vec![], version: None };
+        let notification = lsp_server::Notification::new(
+            PublishDiagnostics::METHOD.to_owned(),
+            serde_json::to_value(params)?,
+        );
+        self.connection.sender.send(Message::from(notification))?;
+        Ok(())
+    }
+
     fn validate_document(&mut self, lsp_uri: Url, input: String, print_module: bool) -> Result<()> {
         let uri = build::Uri::new(lsp_uri.as_str());
         info!("Received text for {:?}", uri);
@@ -126,7 +137,7 @@ impl Server {
         self.connection.sender.send(Message::from(notification))?;
 
         if print_module {
-            if let Some(module) = self.db.anf_module(uri) {
+            if let Some(module) = self.db.checked_module(uri) {
                 info!("{:?}", module);
             }
         }
@@ -266,6 +277,9 @@ impl Server {
             }
             DidSaveTextDocument::METHOD => {
                 self.dispatch_notification::<DidSaveTextDocument>(notification, &Self::did_save)
+            }
+            DidCloseTextDocument::METHOD => {
+                self.dispatch_notification::<DidCloseTextDocument>(notification, &Self::did_close)
             }
             other => {
                 info!("Received unhandled notification: {:?}", other);
