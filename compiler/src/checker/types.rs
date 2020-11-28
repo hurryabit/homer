@@ -3,13 +3,13 @@ use std::fmt;
 use std::rc::Rc;
 
 use crate::location::Located;
-use crate::syntax;
 use crate::util::in_parens_if_some;
+use crate::{ast, syntax};
 use syntax::{ExprCon, ExprVar, LExprVar, TypeVar};
 
 type SynType = syntax::Type;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
 pub enum Type<T = RcType> {
     Error,
     Var(TypeVar),
@@ -21,10 +21,10 @@ pub enum Type<T = RcType> {
     Variant(Vec<(ExprCon, Option<T>)>),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct RcType(Rc<Type>);
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
 pub struct FuncSig {
     pub name: LExprVar,
     pub type_params: Vec<TypeVar>,
@@ -32,7 +32,6 @@ pub struct FuncSig {
     pub result: RcType,
 }
 
-#[derive(Debug)]
 pub struct TypeScheme {
     pub params: Vec<TypeVar>,
     pub body: RcType,
@@ -322,10 +321,7 @@ pub fn same_keys<'a, K: Eq, V>(vec1: &'a [(K, V)], vec2: &'a [(K, V)]) -> bool {
 
 impl fmt::Display for RcType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // NOTE(MH): Let's make sure we call the right method and don't end up
-        // in an inifite loop.
-        let typ: &Type = &*self;
-        typ.fmt(f)
+        self.as_ref().fmt(f)
     }
 }
 
@@ -377,3 +373,65 @@ impl fmt::Display for FuncSig {
         )
     }
 }
+
+impl ast::Debug for Type {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
+        match self {
+            Self::Error => writer.leaf("ERROR"),
+            Self::Var(var) => var.write(writer),
+            Self::SynApp(syn, args) => writer.node("APP", |writer| {
+                writer.child("syn", syn)?;
+                writer.children("type_arg", args)
+            }),
+            Self::Int => writer.leaf("INT"),
+            Self::Bool => writer.leaf("BOOL"),
+            Self::Fun(params, result) => writer.node("FUN", |writer| {
+                writer.children("param", params)?;
+                writer.child("result", result)
+            }),
+            Self::Record(fields) => {
+                writer.node("RECORD", |writer| writer.children_pair("field", "type", fields))
+            }
+            Self::Variant(constrs) => writer.node("VARIANT", |writer| {
+                for (constr, opt_typ) in constrs {
+                    writer.child("constr", constr)?;
+                    writer.child_if_some("type", opt_typ)?;
+                }
+                Ok(())
+            }),
+        }
+    }
+}
+
+impl ast::Debug for RcType {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
+        self.as_ref().write(writer)
+    }
+}
+
+impl ast::Debug for TypeScheme {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
+        let Self { params, body } = self;
+        writer.node("TYPE_SCHEME", |writer| {
+            writer.children("param", params)?;
+            writer.child("body", body)
+        })
+    }
+}
+
+impl ast::Debug for FuncSig {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
+        let Self { name, type_params, params, result } = self;
+        writer.node("FUNC_SIG", |writer| {
+            writer.child("name", name)?;
+            writer.children("type_param", type_params)?;
+            writer.children_pair("param_name", "param_type", params)?;
+            writer.child("result", result)
+        })
+    }
+}
+
+derive_fmt_debug!(Type);
+derive_fmt_debug!(RcType);
+derive_fmt_debug!(TypeScheme);
+derive_fmt_debug!(FuncSig);

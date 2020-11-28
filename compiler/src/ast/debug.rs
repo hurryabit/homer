@@ -18,6 +18,12 @@ impl<T: Debug> Debug for Box<T> {
     }
 }
 
+impl<T: Debug> Debug for std::rc::Rc<T> {
+    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+        self.as_ref().write(writer)
+    }
+}
+
 impl<T: Debug> Debug for &T {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
         (*self).write(writer)
@@ -33,6 +39,12 @@ impl Debug for String {
 impl Debug for u32 {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
         write!(writer.writer, "{}", self)
+    }
+}
+
+impl Debug for SourceSpan {
+    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+        write!(writer.writer, "{:?}-{:?}", self.start, self.end)
     }
 }
 

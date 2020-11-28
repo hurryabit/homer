@@ -4,7 +4,7 @@ use location::SourceSpan;
 use std::rc::Rc;
 use syntax::LExprVar;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub enum SymbolInfo {
     ExprBinder { var: LExprVar, typ: RcType },
     ExprVar { var: LExprVar, typ: RcType, def: SourceSpan },
@@ -28,3 +28,25 @@ impl SymbolInfo {
         }
     }
 }
+
+impl ast::Debug for SymbolInfo {
+    fn write(&self, writer: &mut ast::DebugWriter) -> std::fmt::Result {
+        match self {
+            Self::ExprBinder { var, typ } => writer.node("EXPR_BINDER", |writer| {
+                writer.child("var", var)?;
+                writer.child("type", typ)
+            }),
+            Self::ExprVar { var, typ, def } => writer.node("EXPR_VAR", |writer| {
+                writer.child("var", var)?;
+                writer.child("type", typ)?;
+                writer.child("def", def)
+            }),
+            Self::FuncRef { var, def } => writer.node("FUNC_REF", |writer| {
+                writer.child("var", var)?;
+                writer.child("def", def)
+            }),
+        }
+    }
+}
+
+derive_fmt_debug!(SymbolInfo);
