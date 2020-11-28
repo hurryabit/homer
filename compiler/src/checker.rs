@@ -23,7 +23,7 @@ pub use types::Type;
 struct Env {
     builtin_types: Rc<collections::HashMap<TypeVar, Box<dyn Fn() -> syntax::Type>>>,
     type_defs: Rc<collections::HashMap<TypeVar, TypeScheme>>,
-    func_sigs: Rc<collections::HashMap<ExprVar, TypeScheme>>,
+    func_sigs: Rc<collections::HashMap<ExprVar, Rc<FuncSig>>>,
     type_vars: im::HashSet<TypeVar>,
     expr_vars: im::HashMap<ExprVar, (SourceSpan, RcType)>,
     symbols: Rc<Cell<Vec<SymbolInfo>>>,
@@ -66,7 +66,7 @@ impl Module {
         env.type_defs = Rc::new(self.type_defs());
         let func_sigs = self
             .func_decls_mut()
-            .map(|decl| Ok((decl.name.locatee, decl.check_signature(&env)?)))
+            .map(|decl| Ok((decl.name.locatee, Rc::new(decl.check_signature(&env)?))))
             .collect::<Result<_, _>>()?;
         env.func_sigs = Rc::new(func_sigs);
         for decl in self.func_decls_mut() {
@@ -103,8 +103,8 @@ impl TypeDecl {
 }
 
 impl FuncDecl {
-    fn check_signature(&mut self, env: &Env) -> Result<TypeScheme, LError> {
-        let Self { name: _, type_params, expr_params, return_type, body: _ } = self;
+    fn check_signature(&mut self, env: &Env) -> Result<FuncSig, LError> {
+        let Self { name, type_params, expr_params, return_type, body: _ } = self;
         LTypeVar::check_unique(type_params.iter())?;
         let env = &mut env.clone();
         env.type_vars = type_params.iter().map(|param| param.locatee).collect();
@@ -112,12 +112,14 @@ impl FuncDecl {
             typ.check(env)?;
         }
         return_type.check(env)?;
-        Ok(TypeScheme {
-            params: type_params.iter().map(|param| param.locatee).collect(),
-            body: RcType::new(Type::Fun(
-                expr_params.iter().map(|(_, typ)| RcType::from_lsyntax(typ)).collect(),
-                RcType::from_lsyntax(return_type),
-            )),
+        Ok(FuncSig {
+            name: *name,
+            type_params: type_params.iter().map(|param| param.locatee).collect(),
+            params: expr_params
+                .iter()
+                .map(|(var, typ)| (var.locatee, RcType::from_lsyntax(typ)))
+                .collect(),
+            result: RcType::from_lsyntax(return_type),
         })
     }
 
@@ -389,39 +391,36 @@ impl Expr {
                         typ.check(env)?;
                     }
                 }
-                let scheme = env.func_sigs.get(&fun.locatee).unwrap();
-                if num_types == scheme.params.len() {
+                let func_sig = env.func_sigs.get(&fun.locatee).unwrap();
+                env.add_symbol(SymbolInfo::FuncRef { var: *fun, def: Rc::clone(func_sig) });
+                if num_types == func_sig.type_params.len() {
                     let types: Vec<_> = opt_types
                         .as_ref()
                         .unwrap_or(&vec![])
                         .iter()
                         .map(RcType::from_lsyntax)
                         .collect();
-                    let fun_type = scheme.instantiate(&types);
-                    if let Type::Fun(params, result) = fun_type.as_ref() {
-                        if args.len() == params.len() {
-                            for (arg, typ) in args.iter_mut().zip(params.iter()) {
-                                arg.check(env, typ)?;
-                            }
-                            Ok(result.clone())
-                        } else {
-                            Err(Located::new(
-                                Error::BadApp {
-                                    func: Some(fun.locatee),
-                                    func_type: fun_type.clone(),
-                                    num_args: args.len(),
-                                },
-                                span,
-                            ))
+                    let (params, result) = func_sig.instantiate(&types);
+                    if args.len() == params.len() {
+                        for (arg, typ) in args.iter_mut().zip(params.iter()) {
+                            arg.check(env, typ)?;
                         }
+                        Ok(result)
                     } else {
-                        panic!("IMPOSSIBLE: function signatures are always function types")
+                        Err(Located::new(
+                            Error::BadApp {
+                                func: Some(fun.locatee),
+                                func_type: RcType::new(Type::Fun(params, result)),
+                                num_args: args.len(),
+                            },
+                            span,
+                        ))
                     }
                 } else {
                     Err(Located::new(
                         Error::GenericFuncArityMismatch {
                             expr_var: fun.locatee,
-                            expected: scheme.params.len(),
+                            expected: func_sig.type_params.len(),
                             found: num_types,
                         },
                         fun.span,
@@ -528,8 +527,8 @@ impl Expr {
                 };
                 if env.expr_vars.contains_key(&fun.locatee) {
                     mismatch()
-                } else if let Some(scheme) = env.func_sigs.get(&fun.locatee) {
-                    if scheme.params.is_empty() {
+                } else if let Some(func_sig) = env.func_sigs.get(&fun.locatee) {
+                    if func_sig.type_params.is_empty() {
                         mismatch()
                     } else {
                         Ok(())

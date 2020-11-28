@@ -1,18 +1,22 @@
-use super::types::RcType;
+use super::types::{FuncSig, RcType};
 use crate::*;
-use location::{Located, SourceSpan};
-use syntax::ExprVar;
+use location::SourceSpan;
+use std::rc::Rc;
+use syntax::LExprVar;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SymbolInfo {
-    ExprBinder { var: Located<ExprVar>, typ: RcType },
-    ExprVar { var: Located<ExprVar>, typ: RcType, def: SourceSpan },
+    ExprBinder { var: LExprVar, typ: RcType },
+    ExprVar { var: LExprVar, typ: RcType, def: SourceSpan },
+    FuncRef { var: LExprVar, def: Rc<FuncSig> },
 }
 
 impl SymbolInfo {
     pub fn span(&self) -> &SourceSpan {
         match self {
-            Self::ExprBinder { var, .. } | Self::ExprVar { var, .. } => &var.span,
+            Self::ExprBinder { var, .. }
+            | Self::ExprVar { var, .. }
+            | Self::FuncRef { var, .. } => &var.span,
         }
     }
 
@@ -20,6 +24,7 @@ impl SymbolInfo {
         match self {
             Self::ExprBinder { .. } => None,
             Self::ExprVar { def, .. } => Some(def),
+            Self::FuncRef { def, .. } => Some(&def.name.span),
         }
     }
 }

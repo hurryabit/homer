@@ -50,3 +50,31 @@ fn smoke_test() {
     ]
     "###);
 }
+
+#[test]
+fn func_ref() {
+    insta::assert_debug_snapshot!(check_symbols(r#"
+    fn f() -> Int { 0 }
+    fn g() -> Int { f() }
+    "#), @r###"
+    [
+        FuncRef {
+            var: Located {
+                locatee: ExprVar("f"),
+                span: 3:21-3:22,
+            },
+            def: FuncSig {
+                name: Located {
+                    locatee: ExprVar("f"),
+                    span: 2:8-2:9,
+                },
+                type_params: [],
+                params: [],
+                result: RcType(
+                    Int,
+                ),
+            },
+        },
+    ]
+    "###);
+}

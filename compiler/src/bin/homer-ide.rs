@@ -135,13 +135,16 @@ impl Server {
 
     fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
         let response = self.find_symbol(&params.text_document_position_params).map(|symbol| {
-            let typ = match &symbol {
-                SymbolInfo::ExprBinder { typ, .. } | SymbolInfo::ExprVar { typ, .. } => typ,
+            let info = match &symbol {
+                SymbolInfo::ExprBinder { typ, .. } | SymbolInfo::ExprVar { typ, .. } => {
+                    format!("{}", typ)
+                }
+                SymbolInfo::FuncRef { def, .. } => format!("{}", def),
             };
             let range = Some(symbol.span().to_lsp());
             let contents = HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: format!("```homer\n{}\n```", typ),
+                value: format!("```homer\n{}\n```", info),
             });
             Hover { contents, range }
         });

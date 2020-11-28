@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::location::Located;
 use crate::syntax;
 use crate::util::in_parens_if_some;
-use syntax::{ExprCon, ExprVar, TypeVar};
+use syntax::{ExprCon, ExprVar, LExprVar, TypeVar};
 
 type SynType = syntax::Type;
 
@@ -23,6 +23,14 @@ pub enum Type<T = RcType> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RcType(Rc<Type>);
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct FuncSig {
+    pub name: LExprVar,
+    pub type_params: Vec<TypeVar>,
+    pub params: Vec<(ExprVar, RcType)>,
+    pub result: RcType,
+}
 
 #[derive(Debug)]
 pub struct TypeScheme {
@@ -124,6 +132,20 @@ impl RcType {
                 | (Type::Variant(_), _) => false,
             },
         }
+    }
+}
+
+impl FuncSig {
+    /// Instantiate a generic function signature with the given types. Assumes
+    /// the number of given types matches the number of type paramters of the
+    /// signature.
+    pub fn instantiate(&self, types: &[RcType]) -> (Vec<RcType>, RcType) {
+        let Self { name: _, type_params, params, result } = self;
+        assert_eq!(type_params.len(), types.len());
+        let mapping = type_params.iter().zip(types.iter()).collect();
+        let params = params.iter().map(|(_var, typ)| typ.subst(&mapping)).collect();
+        let result = result.subst(&mapping);
+        (params, result)
     }
 }
 
@@ -337,5 +359,21 @@ impl fmt::Display for Type {
                 )
             }
         }
+    }
+}
+
+impl fmt::Display for FuncSig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { name, type_params, params, result } = self;
+        write!(f, "fn {}", name.locatee)?;
+        if !type_params.is_empty() {
+            write!(f, "<{}>", ", ".join(type_params))?;
+        }
+        write!(
+            f,
+            "({}) -> {}",
+            ", ".join(params.iter().map(|(var, typ)| lazy_format!("{}: {}", var, typ))),
+            result
+        )
     }
 }

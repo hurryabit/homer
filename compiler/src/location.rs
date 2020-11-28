@@ -32,7 +32,7 @@ impl SourceSpan {
 
 impl SourceSpan {
     pub fn contains(&self, loc: SourceLocation) -> bool {
-        self.start <= loc && loc <= self.end
+        self.start <= loc && loc < self.end
     }
 }
 
