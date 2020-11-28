@@ -2,21 +2,8 @@ use std::error::Error;
 use std::sync::Arc;
 
 use log::info;
-use lsp_types::{
-    notification::{
-        DidChangeTextDocument, DidOpenTextDocument, DidSaveTextDocument, Notification,
-        PublishDiagnostics, ShowMessage,
-    },
-    request::{CodeLensRequest, ExecuteCommand, GotoDefinition, HoverRequest, Request},
-    CodeLens, CodeLensOptions, Command, ExecuteCommandOptions, GotoDefinitionParams,
-    GotoDefinitionResponse, Hover, HoverContents, HoverParams, HoverProviderCapability,
-    InitializeParams, Location, MarkupContent, MarkupKind, MessageType, OneOf,
-    PublishDiagnosticsParams, SaveOptions, ServerCapabilities, ShowMessageParams, TextDocumentItem,
-    TextDocumentPositionParams, TextDocumentSyncCapability, TextDocumentSyncKind,
-    TextDocumentSyncOptions, TextDocumentSyncSaveOptions, Url,
-};
-
 use lsp_server::{Connection, Message, RequestId, Response};
+use lsp_types::{notification::*, request::*, *};
 
 use homer_compiler::*;
 
@@ -38,7 +25,6 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     // also be implemented to use sockets or HTTP.
     let (connection, io_threads) = Connection::stdio();
 
-    // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
     let text_document_sync = Some(TextDocumentSyncCapability::Options(TextDocumentSyncOptions {
         open_close: Some(true),
         change: Some(TextDocumentSyncKind::Full),
@@ -62,10 +48,13 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
         definition_provider,
         ..ServerCapabilities::default()
     };
-    let initialization_params =
+    let initialize_params_json =
         connection.initialize(serde_json::to_value(server_capabilities).unwrap())?;
-    let db = &mut build::CompilerDB::new();
-    main_loop(&connection, initialization_params, db)?;
+    let _initialize_params: InitializeParams =
+        serde_json::from_value(initialize_params_json).unwrap();
+    let db = build::CompilerDB::new();
+    let mut server = Server::new(connection, db);
+    server.run()?;
     io_threads.join()?;
 
     // Shut down gracefully.
@@ -73,99 +62,112 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     Ok(())
 }
 
-fn main_loop(
-    connection: &Connection,
-    params: serde_json::Value,
-    db: &mut build::CompilerDB,
-) -> Result<(), Box<dyn Error + Sync + Send>> {
-    let _params: InitializeParams = serde_json::from_value(params).unwrap();
-    for msg in &connection.receiver {
-        // info!("got msg: {:?}", msg);
-        match msg {
-            Message::Request(req) => {
-                if connection.handle_shutdown(&req)? {
-                    return Ok(());
-                }
-                info!("got request: {:?}", req);
-                match req.method.as_ref() {
-                    CodeLensRequest::METHOD => {
-                        let (id, params) = cast_request::<CodeLensRequest>(req);
-                        let lsp_uri = params.text_document.uri;
-                        info!("got code lens request for uri {:?} with id {:?}", lsp_uri, id);
-                        let result = code_lenses(lsp_uri, db);
-                        let result = serde_json::to_value(&result).unwrap();
-                        let resp = Response { id, result: Some(result), error: None };
-                        connection.sender.send(Message::Response(resp))?;
+struct Server {
+    connection: Connection,
+    db: build::CompilerDB,
+}
+
+impl Server {
+    fn new(connection: Connection, db: build::CompilerDB) -> Self {
+        Self { connection, db }
+    }
+
+    fn run(&mut self) -> Result<(), Box<dyn Error + Sync + Send>> {
+        for msg in &self.connection.receiver {
+            // info!("got msg: {:?}", msg);
+            match msg {
+                Message::Request(req) => {
+                    if self.connection.handle_shutdown(&req)? {
+                        return Ok(());
                     }
-                    ExecuteCommand::METHOD => {
-                        let (id, params) = cast_request::<ExecuteCommand>(req);
-                        info!(
-                            "got command execution request with params {:?} and id {:?}",
-                            params, id
-                        );
-                        let result = run_function(params.arguments, db);
-                        let result = serde_json::to_value(&result).unwrap();
-                        let not = lsp_server::Notification {
-                            method: ShowMessage::METHOD.to_owned(),
-                            params: result,
-                        };
-                        connection.sender.send(Message::Notification(not))?;
-                    }
-                    HoverRequest::METHOD => {
-                        let (id, params) = cast_request::<HoverRequest>(req);
-                        let result = hover(params, db);
-                        let result = serde_json::to_value(&result).unwrap();
-                        let resp = Response { id, result: Some(result), error: None };
-                        connection.sender.send(Message::Response(resp))?;
-                    }
-                    GotoDefinition::METHOD => {
-                        let (id, params) = cast_request::<GotoDefinition>(req);
-                        let result = goto_definition(params, db);
-                        let result = serde_json::to_value(&result).unwrap();
-                        let resp = Response { id, result: Some(result), error: None };
-                        connection.sender.send(Message::Response(resp))?;
-                    }
-                    _ => {
-                        info!("got unhandled request: {:?}", req);
-                    }
-                }
-            }
-            Message::Response(resp) => {
-                info!("got unhandled response {:?}", resp);
-            }
-            Message::Notification(not) => {
-                match not.method.as_ref() {
-                    DidOpenTextDocument::METHOD => {
-                        let params = cast_notification::<DidOpenTextDocument>(not);
-                        let TextDocumentItem { uri, text, .. } = params.text_document;
-                        validate_document(connection, uri, text, true, db)?;
-                    }
-                    DidChangeTextDocument::METHOD => {
-                        let params = cast_notification::<DidChangeTextDocument>(not);
-                        let uri = params.text_document.uri;
-                        let text = params.content_changes.into_iter().last().unwrap().text;
-                        validate_document(connection, uri, text, false, db)?;
-                    }
-                    DidSaveTextDocument::METHOD => {
-                        let params = cast_notification::<DidSaveTextDocument>(not);
-                        let uri = params.text_document.uri;
-                        match params.text {
-                            Some(text) => {
-                                validate_document(connection, uri, text, true, db)?;
-                            }
-                            None => {
-                                info!("got save notification without text for {}", uri);
-                            }
+                    info!("got request: {:?}", req);
+                    match req.method.as_ref() {
+                        CodeLensRequest::METHOD => {
+                            handle_request::<CodeLensRequest>(
+                                &self.connection,
+                                &mut self.db,
+                                req,
+                                &code_lenses,
+                            )?;
+                        }
+                        ExecuteCommand::METHOD => {
+                            let (id, params) = cast_request::<ExecuteCommand>(req);
+                            info!(
+                                "got command execution request with params {:?} and id {:?}",
+                                params, id
+                            );
+                            let result = run_function(params.arguments, &mut self.db);
+                            let result = serde_json::to_value(&result).unwrap();
+                            let not = lsp_server::Notification {
+                                method: ShowMessage::METHOD.to_owned(),
+                                params: result,
+                            };
+                            self.connection.sender.send(Message::Notification(not))?;
+                        }
+                        HoverRequest::METHOD => {
+                            handle_request::<HoverRequest>(
+                                &self.connection,
+                                &mut self.db,
+                                req,
+                                &hover,
+                            )?;
+                        }
+                        GotoDefinition::METHOD => {
+                            handle_request::<GotoDefinition>(
+                                &self.connection,
+                                &mut self.db,
+                                req,
+                                &goto_definition,
+                            )?;
+                        }
+                        _ => {
+                            info!("got unhandled request: {:?}", req);
                         }
                     }
-                    _ => {
-                        info!("got unhandled notification: {:?}", not);
-                    }
-                };
+                }
+                Message::Response(resp) => {
+                    info!("got unhandled response {:?}", resp);
+                }
+                Message::Notification(not) => {
+                    match not.method.as_ref() {
+                        DidOpenTextDocument::METHOD => {
+                            let params = cast_notification::<DidOpenTextDocument>(not);
+                            let TextDocumentItem { uri, text, .. } = params.text_document;
+                            validate_document(&self.connection, uri, text, true, &mut self.db)?;
+                        }
+                        DidChangeTextDocument::METHOD => {
+                            let params = cast_notification::<DidChangeTextDocument>(not);
+                            let uri = params.text_document.uri;
+                            let text = params.content_changes.into_iter().last().unwrap().text;
+                            validate_document(&self.connection, uri, text, false, &mut self.db)?;
+                        }
+                        DidSaveTextDocument::METHOD => {
+                            let params = cast_notification::<DidSaveTextDocument>(not);
+                            let uri = params.text_document.uri;
+                            match params.text {
+                                Some(text) => {
+                                    validate_document(
+                                        &self.connection,
+                                        uri,
+                                        text,
+                                        true,
+                                        &mut self.db,
+                                    )?;
+                                }
+                                None => {
+                                    info!("got save notification without text for {}", uri);
+                                }
+                            }
+                        }
+                        _ => {
+                            info!("got unhandled notification: {:?}", not);
+                        }
+                    };
+                }
             }
         }
+        Ok(())
     }
-    Ok(())
 }
 
 fn validate_document(
@@ -198,7 +200,9 @@ fn validate_document(
     Ok(())
 }
 
-fn code_lenses(lsp_uri: Url, db: &mut build::CompilerDB) -> Option<Vec<CodeLens>> {
+fn code_lenses(params: CodeLensParams, db: &mut build::CompilerDB) -> Option<Vec<CodeLens>> {
+    let lsp_uri = params.text_document.uri;
+    info!("got code lens request for uri {:?}", lsp_uri);
     let uri = build::Uri::new(lsp_uri.as_str());
     db.checked_module(uri).map(|module| {
         module
@@ -309,4 +313,18 @@ where
     R::Params: serde::de::DeserializeOwned,
 {
     req.extract(R::METHOD).unwrap()
+}
+
+fn handle_request<R: Request>(
+    connection: &Connection,
+    db: &mut build::CompilerDB,
+    req: lsp_server::Request,
+    f: &dyn Fn(R::Params, &mut build::CompilerDB) -> R::Result,
+) -> Result<(), Box<dyn Error + Sync + Send>> {
+    let (id, params) = cast_request::<R>(req);
+    let result = f(params, db);
+    let result = serde_json::to_value(&result).unwrap();
+    let resp = Response { id, result: Some(result), error: None };
+    connection.sender.send(Message::Response(resp))?;
+    Ok(())
 }
