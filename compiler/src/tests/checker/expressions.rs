@@ -451,25 +451,24 @@ fn rule_lam_check_illformed_type_ann() {
 }
 
 #[test]
-fn rule_func_inst_1() {
+fn rule_mono_app_fun_check_ok() {
     check_success(
         r#"
-        fn g<A>(x: A) -> A { x }
+        fn g(x: Int, y: Bool) -> Int { 0 }
         fn f() -> Int {
-            let x = g@<Int>(0);
-            x
+            g(0, true)
         }
         "#,
     );
 }
 
 #[test]
-fn rule_func_inst_2() {
+fn rule_mono_app_fun_infer_ok() {
     check_success(
         r#"
-        fn g<A>(x: A, y: A) -> Bool { x == y }
-        fn f<B>(b: B) -> Bool {
-            let x = g@<B>(b, b);
+        fn g(x: Int, y: Bool) -> Int { 0 }
+        fn f() -> Int {
+            let x = g(0, true);
             x
         }
         "#,
@@ -477,172 +476,499 @@ fn rule_func_inst_2() {
 }
 
 #[test]
-fn rule_func_inst_no_types_on_poly_func() {
+fn rule_mono_app_fun_check_on_poly_fun() {
     insta::assert_snapshot!(check_error(r#"
-    fn g<A>(x: A) -> A { x }
+    fn poly_fun<A>(x: A) -> A { x }
     fn f() -> Int {
-        g(1)
+        poly_fun(1)
     }
     "#), @r###"
-      4 |         g(1)
-                  ~
-    `g` is a generic function that expects 1 type argument but is applied to 0 type arguments.
+      4 |         poly_fun(1)
+                  ~~~~~~~~
+    `poly_fun` is a generic function that expects 1 type argument but is applied to 0 type arguments.
     "###);
 }
 
 #[test]
-fn rule_func_inst_zero_types_on_poly_func() {
+fn rule_mono_app_fun_infer_on_poly_fun() {
     insta::assert_snapshot!(check_error(r#"
-    fn g<A>(x: A) -> A { x }
+    fn poly_fun<A>(x: A) -> A { x }
     fn f() -> Int {
-        g@<>(1)
+        let x = poly_fun(1);
+        x
     }
     "#), @r###"
-      4 |         g@<>(1)
-                  ~
-    `g` is a generic function that expects 1 type argument but is applied to 0 type arguments.
+      4 |         let x = poly_fun(1);
+                          ~~~~~~~~
+    `poly_fun` is a generic function that expects 1 type argument but is applied to 0 type arguments.
     "###);
 }
 
 #[test]
-fn rule_func_inst_too_many_types() {
+fn rule_mono_app_fun_check_too_many_args() {
     insta::assert_snapshot!(check_error(r#"
-    fn g<A>(x: A) -> A { x }
+    fn mono_fun() -> Int { 0 }
     fn f() -> Int {
-        g@<Int, Bool>(1)
+        mono_fun(1)
     }
     "#), @r###"
-      4 |         g@<Int, Bool>(1)
-                  ~
-    `g` is a generic function that expects 1 type argument but is applied to 2 type arguments.
+      4 |         mono_fun(1)
+                  ~~~~~~~~~~~
+    `mono_fun` cannot be applied to 1 argument because it has has type `() -> Int`.
     "###);
 }
 
 #[test]
-fn rule_func_inst_too_few_types() {
+fn rule_mono_app_fun_infer_too_many_args() {
     insta::assert_snapshot!(check_error(r#"
-    fn g<A, B>(x: A, y: B) -> A { x }
+    fn mono_fun() -> Int { 0 }
     fn f() -> Int {
-        g@<Int>(1)
+        let x = mono_fun(1);
+        x
     }
     "#), @r###"
-      4 |         g@<Int>(1)
-                  ~
-    `g` is a generic function that expects 2 type arguments but is applied to 1 type argument.
+      4 |         let x = mono_fun(1);
+                          ~~~~~~~~~~~
+    `mono_fun` cannot be applied to 1 argument because it has has type `() -> Int`.
     "###);
 }
 
 #[test]
-fn rule_func_inst_mismatch_param() {
+fn rule_mono_app_fun_check_too_few_args() {
     insta::assert_snapshot!(check_error(r#"
-    fn g<A>(x: A) -> Int { 0 }
+    fn mono_fun(x: Int, y: Int) -> Int { 0 }
     fn f() -> Int {
-        g@<Int>(true)
+        mono_fun(1)
     }
     "#), @r###"
-      4 |         g@<Int>(true)
-                          ~~~~
+      4 |         mono_fun(1)
+                  ~~~~~~~~~~~
+    `mono_fun` cannot be applied to 1 argument because it has has type `(Int, Int) -> Int`.
+    "###);
+}
+
+#[test]
+fn rule_mono_app_fun_infer_too_few_args() {
+    insta::assert_snapshot!(check_error(r#"
+    fn mono_fun(x: Int, y: Int) -> Int { 0 }
+    fn f() -> Int {
+        let x = mono_fun(1);
+        x
+    }
+    "#), @r###"
+      4 |         let x = mono_fun(1);
+                          ~~~~~~~~~~~
+    `mono_fun` cannot be applied to 1 argument because it has has type `(Int, Int) -> Int`.
+    "###);
+}
+
+#[test]
+fn rule_mono_app_fun_check_arg_mismatch_1() {
+    insta::assert_snapshot!(check_error(r#"
+    fn mono_fun(x: Int) -> Int { 0 }
+    fn f() -> Int {
+        mono_fun(true)
+    }
+    "#), @r###"
+      4 |         mono_fun(true)
+                           ~~~~
     Expected an expression of type `Int` but found an expression of type `Bool`.
     "###);
 }
 
 #[test]
-fn rule_func_inst_mismatch_result() {
+fn rule_mono_app_fun_infer_arg_mismatch_1() {
     insta::assert_snapshot!(check_error(r#"
-    fn g<A>(x: A) -> A { x }
+    fn mono_fun(x: Int) -> Int { 0 }
     fn f() -> Int {
-        g@<Bool>(CheckMe)
+        let x = mono_fun(true);
+        x
     }
     "#), @r###"
-      4 |         g@<Bool>(CheckMe)
-                           ~~~~~~~
-    Expected an expression of type `Bool` but found variant constructor `CheckMe`.
+      4 |         let x = mono_fun(true);
+                                   ~~~~
+    Expected an expression of type `Int` but found an expression of type `Bool`.
     "###);
 }
 
 #[test]
-fn rule_func_inst_unknown_type_arg() {
+fn rule_mono_app_fun_check_arg_mismatch_2() {
     insta::assert_snapshot!(check_error(r#"
-    fn g<A>(x: A) -> A { x }
+    fn mono_fun(x: Int, y: Bool) -> Int { 0 }
     fn f() -> Int {
-        g@<Unknown>(0)
+        mono_fun(1, 1)
     }
     "#), @r###"
-      4 |         g@<Unknown>(0)
-                     ~~~~~~~
+      4 |         mono_fun(1, 1)
+                              ~
+    Expected an expression of type `Bool` but found an expression of type `Int`.
+    "###);
+}
+
+#[test]
+fn rule_mono_app_fun_infer_arg_mismatch_2() {
+    insta::assert_snapshot!(check_error(r#"
+    fn mono_fun(x: Int, y: Bool) -> Int { 0 }
+    fn f() -> Int {
+        let x = mono_fun(1, 1);
+        x
+    }
+    "#), @r###"
+      4 |         let x = mono_fun(1, 1);
+                                      ~
+    Expected an expression of type `Bool` but found an expression of type `Int`.
+    "###);
+}
+
+#[test]
+fn rule_mono_app_fun_check_result_mismatch() {
+    insta::assert_snapshot!(check_error(r#"
+    fn mono_fun() -> Int { 0 }
+    fn f() -> Bool {
+        mono_fun()
+    }
+    "#), @r###"
+      4 |         mono_fun()
+                  ~~~~~~~~~~
+    Expected an expression of type `Bool` but found an expression of type `Int`.
+    "###);
+}
+
+#[test]
+fn rule_mono_app_fun_infer_result_mismatch() {
+    insta::assert_snapshot!(check_error(r#"
+    fn mono_fun() -> Int { 0 }
+    fn f() -> Bool {
+        let x = mono_fun();
+        x
+    }
+    "#), @r###"
+      5 |         x
+                  ~
+    Expected an expression of type `Bool` but found an expression of type `Int`.
+    "###);
+}
+
+#[test]
+fn rule_poly_app_fun_check_ok() {
+    check_success(
+        r#"
+        fn g<A, B, C>(x: A, y: A, z: B) -> {a: A, b: B} {
+            {a = x, b = z}
+        }
+        fn f<A>(a: A) -> {a: A, b: Bool} {
+            g@<A, Bool, Int>(a, a, true)
+        }
+        "#,
+    );
+}
+
+#[test]
+fn rule_poly_app_fun_infer_ok() {
+    check_success(
+        r#"
+        fn g<A, B, C>(x: A, y: A, z: B) -> {a: A, b: B} {
+            {a = x, b = z}
+        }
+        fn f<A>(a: A) -> {a: A, b: Bool} {
+            let x = g@<A, Bool, Int>(a, a, true);
+            x
+        }
+        "#,
+    );
+}
+
+#[test]
+fn rule_poly_app_fun_check_on_mono_fun() {
+    insta::assert_snapshot!(check_error(r#"
+    fn mono_fun(x: Int) -> Int { 0 }
+    fn f() -> Int {
+        mono_fun@<Int>(1)
+    }
+    "#), @r###"
+      4 |         mono_fun@<Int>(1)
+                  ~~~~~~~~
+    `mono_fun` is not a generic function and must be called as `mono_fun(...)`.
+    "###);
+}
+
+#[test]
+fn rule_poly_app_fun_infer_on_mono_fun() {
+    insta::assert_snapshot!(check_error(r#"
+    fn mono_fun(x: Int) -> Int { 0 }
+    fn f() -> Int {
+        let x = mono_fun@<Int>(1);
+        x
+    }
+    "#), @r###"
+      4 |         let x = mono_fun@<Int>(1);
+                          ~~~~~~~~
+    `mono_fun` is not a generic function and must be called as `mono_fun(...)`.
+    "###);
+}
+
+#[test]
+fn rule_poly_app_fun_check_too_many_types() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A>(x: A) -> A { x }
+    fn f() -> Int {
+        poly_fun@<Int, Int>(1)
+    }
+    "#), @r###"
+      4 |         poly_fun@<Int, Int>(1)
+                  ~~~~~~~~
+    `poly_fun` is a generic function that expects 1 type argument but is applied to 2 type arguments.
+    "###);
+}
+
+#[test]
+fn rule_poly_app_fun_infer_too_many_types() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A>(x: A) -> A { x }
+    fn f() -> Int {
+        let x = poly_fun@<Int, Int>(1);
+        x
+    }
+    "#), @r###"
+      4 |         let x = poly_fun@<Int, Int>(1);
+                          ~~~~~~~~
+    `poly_fun` is a generic function that expects 1 type argument but is applied to 2 type arguments.
+    "###);
+}
+
+#[test]
+fn rule_poly_app_fun_check_too_few_types() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A, B>(x: A) -> A { x }
+    fn f() -> Int {
+        poly_fun@<Int>(1)
+    }
+    "#), @r###"
+      4 |         poly_fun@<Int>(1)
+                  ~~~~~~~~
+    `poly_fun` is a generic function that expects 2 type arguments but is applied to 1 type argument.
+    "###);
+}
+
+#[test]
+fn rule_poly_app_fun_infer_too_few_types() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A, B>(x: A) -> A { x }
+    fn f() -> Int {
+        let x = poly_fun@<Int>(1);
+        x
+    }
+    "#), @r###"
+      4 |         let x = poly_fun@<Int>(1);
+                          ~~~~~~~~
+    `poly_fun` is a generic function that expects 2 type arguments but is applied to 1 type argument.
+    "###);
+}
+
+#[test]
+fn rule_poly_app_fun_check_zero_types() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A>(x: A) -> A { x }
+    fn f() -> Int {
+        poly_fun@<>(1)
+    }
+    "#), @r###"
+      4 |         poly_fun@<>(1)
+                  ~~~~~~~~
+    `poly_fun` is a generic function that expects 1 type argument but is applied to 0 type arguments.
+    "###);
+}
+
+#[test]
+fn rule_poly_app_fun_infer_zero_types() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A>(x: A) -> A { x }
+    fn f() -> Int {
+        let x = poly_fun@<>(1);
+        x
+    }
+    "#), @r###"
+      4 |         let x = poly_fun@<>(1);
+                          ~~~~~~~~
+    `poly_fun` is a generic function that expects 1 type argument but is applied to 0 type arguments.
+    "###);
+}
+
+#[test]
+fn rule_poly_app_fun_check_bad_type() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A>(x: A) -> A { x }
+    fn f() -> Int {
+        poly_fun@<Unknown>(1)
+    }
+    "#), @r###"
+      4 |         poly_fun@<Unknown>(1)
+                            ~~~~~~~
     Undeclared type variable `Unknown`.
     "###);
 }
 
 #[test]
-fn rule_func_inst_illformed_type_arg() {
+fn rule_poly_app_fun_infer_bad_type() {
     insta::assert_snapshot!(check_error(r#"
-    type Illformed<A> = A
-    fn g<A>(x: A) -> A { x }
+    fn poly_fun<A>(x: A) -> A { x }
     fn f() -> Int {
-        g@<Illformed>(0)
+        let x = poly_fun@<Unknown>(1);
+        x
     }
     "#), @r###"
-      5 |         g@<Illformed>(0)
-                     ~~~~~~~~~
-    Expected a type but found the generic type `Illformed`.
+      4 |         let x = poly_fun@<Unknown>(1);
+                                    ~~~~~~~
+    Undeclared type variable `Unknown`.
     "###);
 }
 
 #[test]
-fn rule_app_func_0() {
-    check_success(
-        r#"
-        fn f() -> Int { 0 }
-        fn g() -> Int {
-            let x = f();
-            x
-        }
-        "#,
-    );
+fn rule_poly_app_fun_check_too_many_args() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A>(x: A) -> A { x }
+    fn f() -> Int {
+        poly_fun@<Int>(1, 2)
+    }
+    "#), @r###"
+      4 |         poly_fun@<Int>(1, 2)
+                  ~~~~~~~~~~~~~~~~~~~~
+    `poly_fun` cannot be applied to 2 arguments because it has has type `(Int) -> Int`.
+    "###);
 }
 
 #[test]
-fn rule_app_func_1() {
-    check_success(
-        r#"
-        fn f(x: Int) -> Int { x }
-        fn g() -> Int {
-            let x = f(1);
-            x
-        }
-        "#,
-    );
+fn rule_poly_app_fun_infer_too_many_args() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A>(x: A) -> A { x }
+    fn f() -> Int {
+        let x = poly_fun@<Int>(1, 2);
+        x
+    }
+    "#), @r###"
+      4 |         let x = poly_fun@<Int>(1, 2);
+                          ~~~~~~~~~~~~~~~~~~~~
+    `poly_fun` cannot be applied to 2 arguments because it has has type `(Int) -> Int`.
+    "###);
 }
 
 #[test]
-fn rule_app_func_2() {
-    check_success(
-        r#"
-        fn f(x: Int, y: Int) -> Int { x + y }
-        fn g() -> Int {
-            let x = f(1, 2);
-            x
-        }
-        "#,
-    );
+fn rule_poly_app_fun_check_too_few_args() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A>(x: A, y: A) -> A { x }
+    fn f() -> Int {
+        poly_fun@<Int>(1)
+    }
+    "#), @r###"
+      4 |         poly_fun@<Int>(1)
+                  ~~~~~~~~~~~~~~~~~
+    `poly_fun` cannot be applied to 1 argument because it has has type `(Int, Int) -> Int`.
+    "###);
 }
 
 #[test]
-fn rule_app_func_poly() {
-    check_success(
-        r#"
-        fn f<A>(x: A) -> A { x }
-        fn g() -> Int {
-            let x = f@<Int>(1);
-            x
-        }
-        "#,
-    );
+fn rule_poly_app_fun_infer_too_few_args() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A>(x: A, y: A) -> A { x }
+    fn f() -> Int {
+        poly_fun@<Int>(1)
+    }
+    "#), @r###"
+      4 |         poly_fun@<Int>(1)
+                  ~~~~~~~~~~~~~~~~~
+    `poly_fun` cannot be applied to 1 argument because it has has type `(Int, Int) -> Int`.
+    "###);
 }
 
 #[test]
-fn rule_app_var() {
+fn rule_poly_app_fun_check_arg_mismatch_1() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A>(x: A) -> A { x }
+    fn f() -> Int {
+        poly_fun@<Int>(CheckMe)
+    }
+    "#), @r###"
+      4 |         poly_fun@<Int>(CheckMe)
+                                 ~~~~~~~
+    Expected an expression of type `Int` but found variant constructor `CheckMe`.
+    "###);
+}
+
+#[test]
+fn rule_poly_app_fun_infer_arg_mismatch_1() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A>(x: A) -> A { x }
+    fn f() -> Int {
+        let x = poly_fun@<Int>(CheckMe);
+        x
+    }
+    "#), @r###"
+      4 |         let x = poly_fun@<Int>(CheckMe);
+                                         ~~~~~~~
+    Expected an expression of type `Int` but found variant constructor `CheckMe`.
+    "###);
+}
+
+#[test]
+fn rule_poly_app_fun_check_arg_mismatch_2() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A>(x: A, y: A) -> A { x }
+    fn f() -> Int {
+        poly_fun@<Int>(1, CheckMe)
+    }
+    "#), @r###"
+      4 |         poly_fun@<Int>(1, CheckMe)
+                                    ~~~~~~~
+    Expected an expression of type `Int` but found variant constructor `CheckMe`.
+    "###);
+}
+
+#[test]
+fn rule_poly_app_fun_infer_arg_mismatch_2() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A>(x: A, y: A) -> A { x }
+    fn f() -> Int {
+        let x = poly_fun@<Int>(1, CheckMe);
+        x
+    }
+    "#), @r###"
+      4 |         let x = poly_fun@<Int>(1, CheckMe);
+                                            ~~~~~~~
+    Expected an expression of type `Int` but found variant constructor `CheckMe`.
+    "###);
+}
+
+#[test]
+fn rule_poly_app_fun_check_result_mismatch() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A>(x: A) -> A { x }
+    fn f() -> Int {
+        poly_fun@<[CheckMe]>(CheckMe)
+    }
+    "#), @r###"
+      4 |         poly_fun@<[CheckMe]>(CheckMe)
+                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Expected an expression of type `Int` but found an expression of type `[CheckMe]`.
+    "###);
+}
+
+#[test]
+fn rule_poly_app_fun_infer_result_mismatch() {
+    insta::assert_snapshot!(check_error(r#"
+    fn poly_fun<A>(x: A) -> A { x }
+    fn f() -> Int {
+        let x = poly_fun@<[CheckMe]>(CheckMe);
+        x
+    }
+    "#), @r###"
+      5 |         x
+                  ~
+    Expected an expression of type `Int` but found an expression of type `[CheckMe]`.
+    "###);
+}
+
+#[test]
+fn rule_app_clo() {
     check_success(
         r#"
         fn g() -> Int {
@@ -655,7 +981,7 @@ fn rule_app_var() {
 }
 
 #[test]
-fn rule_app_syn() {
+fn rule_app_clo_with_syn() {
     check_success(
         r#"
         type F = (Int) -> Int
@@ -668,7 +994,7 @@ fn rule_app_syn() {
 }
 
 #[test]
-fn rule_app_var_no_func() {
+fn rule_app_clo_no_fun() {
     insta::assert_snapshot!(check_error(r#"
     fn f(x: Int) -> Int {
         x()
@@ -681,7 +1007,7 @@ fn rule_app_var_no_func() {
 }
 
 #[test]
-fn rule_app_var_too_many_args() {
+fn rule_app_clo_too_many_args() {
     insta::assert_snapshot!(check_error(r#"
     fn f() -> Int {
         let g = fn () { 0 };
@@ -695,7 +1021,7 @@ fn rule_app_var_too_many_args() {
 }
 
 #[test]
-fn rule_app_var_too_few_args() {
+fn rule_app_clo_too_few_args() {
     insta::assert_snapshot!(check_error(r#"
     fn f() -> Int {
         let g = fn (x: Int) { x };
@@ -709,49 +1035,7 @@ fn rule_app_var_too_few_args() {
 }
 
 #[test]
-fn rule_app_func_too_many_args() {
-    insta::assert_snapshot!(check_error(r#"
-    fn g() -> Int { 0 }
-    fn f() -> Int {
-        g(1)
-    }
-    "#), @r###"
-      4 |         g(1)
-                  ~~~~
-    `g` cannot be applied to 1 argument because it has has type `() -> Int`.
-    "###);
-}
-
-#[test]
-fn rule_app_func_too_few_args() {
-    insta::assert_snapshot!(check_error(r#"
-    fn g(x: Int) -> Int { x }
-    fn f() -> Int {
-        g()
-    }
-    "#), @r###"
-      4 |         g()
-                  ~~~
-    `g` cannot be applied to 0 arguments because it has has type `(Int) -> Int`.
-    "###);
-}
-
-#[test]
-fn rule_app_func_mismatch_arg1() {
-    insta::assert_snapshot!(check_error(r#"
-    fn g(x: Int) -> Int { x }
-    fn f() -> Int {
-        g(CheckMe)
-    }
-    "#), @r###"
-      4 |         g(CheckMe)
-                    ~~~~~~~
-    Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
-}
-
-#[test]
-fn rule_app_var_mismatch_arg2() {
+fn rule_app_clo_mismatch_arg2() {
     insta::assert_snapshot!(check_error(r#"
     fn f() -> Int {
         let g = fn (x: Int, y: Bool) { x };

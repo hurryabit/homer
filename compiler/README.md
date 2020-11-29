@@ -31,7 +31,7 @@ The typing rules and the implementation of the type checker are bidirectional, a
   A1, ..., Am |- sn
   A1, ..., Am |- t
   A1, ..., Am, x1: s1, ..., xn: sn |- e <= t
--------------------------------------------------- FuncDecl
+-------------------------------------------------- FuncDeclPoly
   fn f<A1, ..., Am>(x1: s1, ..., xn: sn) -> t { e }
 ```
 
@@ -150,6 +150,16 @@ The typing rules and the implementation of the type checker are bidirectional, a
   E |- fn (p1, ..., pn) { e }
     <= (s1, ..., sn) -> t
 
+
+  n >= 0
+  E |- f => (s1, ..., sn) -> t
+  E |- e1 <= s1
+  ...
+  E |- en <= sn
+-------------------------------------------------- AppClo
+  E |- f(e1, ..., en) => t
+
+
   m >= 0
   n >= 0
   f not in E
@@ -157,17 +167,12 @@ The typing rules and the implementation of the type checker are bidirectional, a
   E |- u1
   ...
   E |- um
--------------------------------------------------- FuncInst
-  E |- f@<u1, ..., um>
-    => ((s1, ..., sn) -> t)[u1/A1, ..., um/Am]
-
-
-  E |- f => (s1, ..., sn) -> t
-  E |- e1 <= s1
+  E |- e1 <= s1[u1/A1, ..., um/Am]
   ...
-  E |- en <= sn
--------------------------------------------------- App
-  E |- f(e1, ..., en) => t
+  E |- en <= sn[u1/A1, ..., um/Am]
+-------------------------------------------------- AppFun
+  E |- f@<u1, ..., um>(e1, ..., en)
+    => t[u1/A1, ..., um/Am]
 
 
   § in {+, -, *, /}
