@@ -60,7 +60,8 @@ fn resolve_let_infer_infer() {
                 body: 0 @ 5:38-5:39
             tail: APPCLO @ 6:13-6:25
                 clo: resolve_me @ 6:13-6:23
-        tail: r @ 8:9-8:10
+        tail: VAR @ 8:9-8:10
+            var: r @ 8:9-8:10
     "###);
 }
 
@@ -109,7 +110,8 @@ fn resolve_let_check_infer() {
                 body: 0 @ 5:49-5:50
             tail: APPCLO @ 6:13-6:25
                 clo: resolve_me @ 6:13-6:23
-        tail: r @ 8:9-8:10
+        tail: VAR @ 8:9-8:10
+            var: r @ 8:9-8:10
     "###);
 }
 
@@ -155,7 +157,8 @@ fn resolve_lam_param_infer() {
                 result: INT @ 4:39-4:42
             body: APPCLO @ 4:46-4:58
                 clo: resolve_me @ 4:46-4:56
-        tail: f @ 5:9-5:10
+        tail: VAR @ 5:9-5:10
+            var: f @ 5:9-5:10
     "###);
 }
 
@@ -216,7 +219,8 @@ fn resolve_match() {
             payload: LAM @ 4:35-4:46
                 body: 0 @ 4:43-4:44
         tail: MATCH @ 5:9-7:10
-            scrut: f @ 5:15-5:16
+            scrut: VAR @ 5:15-5:16
+                var: f @ 5:15-5:16
             branch: BRANCH
                 pattern: PATTERN @ 6:13-6:26
                     constr: F/0

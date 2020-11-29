@@ -339,9 +339,8 @@ impl Expr {
         match self {
             Self::Error => Ok(RcType::new(Type::Error)),
             Self::Var(var) => {
-                let (def, typ) = env.expr_vars.get(var).unwrap();
-                let var = Located::new(*var, span);
-                env.add_symbol(SymbolInfo::ExprVar { var, typ: typ.clone(), def: *def });
+                let (def, typ) = env.expr_vars.get(&var.locatee).unwrap();
+                env.add_symbol(SymbolInfo::ExprVar { var: *var, typ: typ.clone(), def: *def });
                 Ok(typ.clone())
             }
             Self::Num(_) => Ok(RcType::new(Type::Int)),
@@ -495,6 +494,7 @@ impl Expr {
     fn resolve(&mut self, span: SourceSpan, env: &Env) -> Result<(), LError> {
         match self {
             Self::Var(var) => {
+                let var = &var.locatee;
                 if env.expr_vars.contains_key(var) {
                     Ok(())
                 } else if env.func_sigs.contains_key(var) {

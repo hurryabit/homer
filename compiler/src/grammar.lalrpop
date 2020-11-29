@@ -108,7 +108,7 @@ LProductExpr: LExpr = {
 
 AtomExpr: Expr = {
     InParens<Expr>,
-    ExprVar => Expr::Var(<>),
+    LExprVar => Expr::Var(<>),
     Num => Expr::Num(<>),
     Bool => Expr::Bool(<>),
     <LExprVar> "(" <List0<LExpr, ",">> ")" => Expr::AppClo(<>),

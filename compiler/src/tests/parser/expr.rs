@@ -15,7 +15,10 @@ fn parse_error(input: &'static str) -> String {
 
 #[test]
 fn var() {
-    insta::assert_debug_snapshot!(parse_output("x"), @"x");
+    insta::assert_debug_snapshot!(parse_output("x"), @r###"
+    VAR
+        var: x @ 1:1-1:2
+    "###);
 }
 
 #[test]
@@ -130,7 +133,8 @@ fn record2() {
 fn proj1() {
     insta::assert_debug_snapshot!(parse_output("r.x"), @r###"
     PROJ
-        record: r @ 1:1-1:2
+        record: VAR @ 1:1-1:2
+            var: r @ 1:1-1:2
         field: x @ 1:3-1:4
     "###);
 }
@@ -140,7 +144,8 @@ fn proj2() {
     insta::assert_debug_snapshot!(parse_output("r.x.y"), @r###"
     PROJ
         record: PROJ @ 1:1-1:4
-            record: r @ 1:1-1:2
+            record: VAR @ 1:1-1:2
+                var: r @ 1:1-1:2
             field: x @ 1:3-1:4
         field: y @ 1:5-1:6
     "###);
@@ -183,9 +188,11 @@ fn variant_bool() {
 fn prod2() {
     insta::assert_debug_snapshot!(parse_output("a*b"), @r###"
     BINOP
-        lhs: a @ 1:1-1:2
+        lhs: VAR @ 1:1-1:2
+            var: a @ 1:1-1:2
         op: MUL
-        rhs: b @ 1:3-1:4
+        rhs: VAR @ 1:3-1:4
+            var: b @ 1:3-1:4
     "###);
 }
 
@@ -194,11 +201,14 @@ fn prod3() {
     insta::assert_debug_snapshot!(parse_output("a/b*c"), @r###"
     BINOP
         lhs: BINOP @ 1:1-1:4
-            lhs: a @ 1:1-1:2
+            lhs: VAR @ 1:1-1:2
+                var: a @ 1:1-1:2
             op: DIV
-            rhs: b @ 1:3-1:4
+            rhs: VAR @ 1:3-1:4
+                var: b @ 1:3-1:4
         op: MUL
-        rhs: c @ 1:5-1:6
+        rhs: VAR @ 1:5-1:6
+            var: c @ 1:5-1:6
     "###);
 }
 
@@ -206,9 +216,11 @@ fn prod3() {
 fn sum2() {
     insta::assert_debug_snapshot!(parse_output("a+b"), @r###"
     BINOP
-        lhs: a @ 1:1-1:2
+        lhs: VAR @ 1:1-1:2
+            var: a @ 1:1-1:2
         op: ADD
-        rhs: b @ 1:3-1:4
+        rhs: VAR @ 1:3-1:4
+            var: b @ 1:3-1:4
     "###);
 }
 
@@ -217,11 +229,14 @@ fn sum3() {
     insta::assert_debug_snapshot!(parse_output("a-b+c"), @r###"
     BINOP
         lhs: BINOP @ 1:1-1:4
-            lhs: a @ 1:1-1:2
+            lhs: VAR @ 1:1-1:2
+                var: a @ 1:1-1:2
             op: SUB
-            rhs: b @ 1:3-1:4
+            rhs: VAR @ 1:3-1:4
+                var: b @ 1:3-1:4
         op: ADD
-        rhs: c @ 1:5-1:6
+        rhs: VAR @ 1:5-1:6
+            var: c @ 1:5-1:6
     "###);
 }
 
@@ -229,9 +244,11 @@ fn sum3() {
 fn cmp_eq() {
     insta::assert_debug_snapshot!(parse_output("a == b"), @r###"
     BINOP
-        lhs: a @ 1:1-1:2
+        lhs: VAR @ 1:1-1:2
+            var: a @ 1:1-1:2
         op: EQUALS
-        rhs: b @ 1:6-1:7
+        rhs: VAR @ 1:6-1:7
+            var: b @ 1:6-1:7
     "###);
 }
 
@@ -239,9 +256,11 @@ fn cmp_eq() {
 fn cmp_neq() {
     insta::assert_debug_snapshot!(parse_output("a != b"), @r###"
     BINOP
-        lhs: a @ 1:1-1:2
+        lhs: VAR @ 1:1-1:2
+            var: a @ 1:1-1:2
         op: NOTEQ
-        rhs: b @ 1:6-1:7
+        rhs: VAR @ 1:6-1:7
+            var: b @ 1:6-1:7
     "###);
 }
 
@@ -249,9 +268,11 @@ fn cmp_neq() {
 fn cmp_lt() {
     insta::assert_debug_snapshot!(parse_output("a < b"), @r###"
     BINOP
-        lhs: a @ 1:1-1:2
+        lhs: VAR @ 1:1-1:2
+            var: a @ 1:1-1:2
         op: LESS
-        rhs: b @ 1:5-1:6
+        rhs: VAR @ 1:5-1:6
+            var: b @ 1:5-1:6
     "###);
 }
 
@@ -259,9 +280,11 @@ fn cmp_lt() {
 fn cmp_leq() {
     insta::assert_debug_snapshot!(parse_output("a <= b"), @r###"
     BINOP
-        lhs: a @ 1:1-1:2
+        lhs: VAR @ 1:1-1:2
+            var: a @ 1:1-1:2
         op: LESSEQ
-        rhs: b @ 1:6-1:7
+        rhs: VAR @ 1:6-1:7
+            var: b @ 1:6-1:7
     "###);
 }
 
@@ -269,9 +292,11 @@ fn cmp_leq() {
 fn cmp_gt() {
     insta::assert_debug_snapshot!(parse_output("a > b"), @r###"
     BINOP
-        lhs: a @ 1:1-1:2
+        lhs: VAR @ 1:1-1:2
+            var: a @ 1:1-1:2
         op: GREATER
-        rhs: b @ 1:5-1:6
+        rhs: VAR @ 1:5-1:6
+            var: b @ 1:5-1:6
     "###);
 }
 
@@ -279,9 +304,11 @@ fn cmp_gt() {
 fn cmp_geq() {
     insta::assert_debug_snapshot!(parse_output("a >= b"), @r###"
     BINOP
-        lhs: a @ 1:1-1:2
+        lhs: VAR @ 1:1-1:2
+            var: a @ 1:1-1:2
         op: GREATEREQ
-        rhs: b @ 1:6-1:7
+        rhs: VAR @ 1:6-1:7
+            var: b @ 1:6-1:7
     "###);
 }
 
@@ -290,14 +317,18 @@ fn cmp_mixed() {
     insta::assert_debug_snapshot!(parse_output("a + b == c * d"), @r###"
     BINOP
         lhs: BINOP @ 1:1-1:6
-            lhs: a @ 1:1-1:2
+            lhs: VAR @ 1:1-1:2
+                var: a @ 1:1-1:2
             op: ADD
-            rhs: b @ 1:5-1:6
+            rhs: VAR @ 1:5-1:6
+                var: b @ 1:5-1:6
         op: EQUALS
         rhs: BINOP @ 1:10-1:15
-            lhs: c @ 1:10-1:11
+            lhs: VAR @ 1:10-1:11
+                var: c @ 1:10-1:11
             op: MUL
-            rhs: d @ 1:14-1:15
+            rhs: VAR @ 1:14-1:15
+                var: d @ 1:14-1:15
     "###);
 }
 
@@ -305,12 +336,15 @@ fn cmp_mixed() {
 fn cmp_many() {
     insta::assert_debug_snapshot!(parse_output("a == (b == c)"), @r###"
     BINOP
-        lhs: a @ 1:1-1:2
+        lhs: VAR @ 1:1-1:2
+            var: a @ 1:1-1:2
         op: EQUALS
         rhs: BINOP @ 1:6-1:14
-            lhs: b @ 1:7-1:8
+            lhs: VAR @ 1:7-1:8
+                var: b @ 1:7-1:8
             op: EQUALS
-            rhs: c @ 1:12-1:13
+            rhs: VAR @ 1:12-1:13
+                var: c @ 1:12-1:13
     "###);
 }
 
@@ -320,7 +354,8 @@ fn cmp_many_err() {
     BINOP
         lhs: ERROR @ 1:1-1:7
         op: EQUALS
-        rhs: c @ 1:11-1:12
+        rhs: VAR @ 1:11-1:12
+            var: c @ 1:11-1:12
     --------------------------------------------------
       1 | a == b == c
                  ~~
@@ -333,12 +368,15 @@ fn cmp_many_err() {
 fn sum_prod() {
     insta::assert_debug_snapshot!(parse_output("a+b*c"), @r###"
     BINOP
-        lhs: a @ 1:1-1:2
+        lhs: VAR @ 1:1-1:2
+            var: a @ 1:1-1:2
         op: ADD
         rhs: BINOP @ 1:3-1:6
-            lhs: b @ 1:3-1:4
+            lhs: VAR @ 1:3-1:4
+                var: b @ 1:3-1:4
             op: MUL
-            rhs: c @ 1:5-1:6
+            rhs: VAR @ 1:5-1:6
+                var: c @ 1:5-1:6
     "###);
 }
 
@@ -355,7 +393,8 @@ fn lam1() {
     insta::assert_debug_snapshot!(parse_output("fn(x) { x }"), @r###"
     LAM
         param: x @ 1:4-1:5
-        body: x @ 1:9-1:10
+        body: VAR @ 1:9-1:10
+            var: x @ 1:9-1:10
     "###);
 }
 
@@ -364,7 +403,8 @@ fn lam1_trailing() {
     insta::assert_debug_snapshot!(parse_output("fn(x,) { x }"), @r###"
     LAM
         param: x @ 1:4-1:5
-        body: x @ 1:10-1:11
+        body: VAR @ 1:10-1:11
+            var: x @ 1:10-1:11
     "###);
 }
 
@@ -374,7 +414,8 @@ fn lam2() {
     LAM
         param: x @ 1:4-1:5
         param: y @ 1:7-1:8
-        body: x @ 1:12-1:13
+        body: VAR @ 1:12-1:13
+            var: x @ 1:12-1:13
     "###);
 }
 #[test]
@@ -383,7 +424,8 @@ fn lam1_typed() {
     LAM
         param: x @ 1:4-1:5
         type: Int @ 1:7-1:10
-        body: x @ 1:14-1:15
+        body: VAR @ 1:14-1:15
+            var: x @ 1:14-1:15
     "###);
 }
 
@@ -405,7 +447,7 @@ fn lam1_poly() {
       1 | fn<A>(x: A) { x }
                  ~
     Unrecognized token `:` found at 1:8:1:9
-    Expected one of "!=", "(", ")", "*", "+", ",", "-", ".", "/", ";", "<", "<=", "=", "==", ">", ">=", "@", "{" or "}"
+    Expected one of "!=", "(", ")", "*", "+", ",", "-", ".", "/", ";", "<", "<=", "==", ">", ">=", "@", "{" or "}"
     --------------------------------------------------
       1 | fn<A>(x: A) { x }
                       ~
@@ -428,9 +470,11 @@ fn if_cmp() {
     insta::assert_debug_snapshot!(parse_output("if a == b { 0 } else { 1 }"), @r###"
     IF
         cond: BINOP @ 1:4-1:10
-            lhs: a @ 1:4-1:5
+            lhs: VAR @ 1:4-1:5
+                var: a @ 1:4-1:5
             op: EQUALS
-            rhs: b @ 1:9-1:10
+            rhs: VAR @ 1:9-1:10
+                var: b @ 1:9-1:10
         then: 0 @ 1:13-1:14
         else: 1 @ 1:24-1:25
     "###);
@@ -451,7 +495,10 @@ fn if_else_if() {
 
 #[test]
 fn block_atom() {
-    insta::assert_debug_snapshot!(parse_block_output("{ a }"), @"a");
+    insta::assert_debug_snapshot!(parse_block_output("{ a }"), @r###"
+    VAR
+        var: a @ 1:3-1:4
+    "###);
 }
 
 #[test]
@@ -469,7 +516,8 @@ fn let1_atom() {
     LET
         binder: x @ 1:7-1:8
         bindee: 1 @ 1:11-1:12
-        tail: x @ 1:14-1:15
+        tail: VAR @ 1:14-1:15
+            var: x @ 1:14-1:15
     "###);
 }
 
@@ -482,7 +530,8 @@ fn let1_complex() {
             lhs: 1 @ 1:11-1:12
             op: ADD
             rhs: 1 @ 1:15-1:16
-        tail: x @ 1:18-1:19
+        tail: VAR @ 1:18-1:19
+            var: x @ 1:18-1:19
     "###);
 }
 
@@ -493,7 +542,8 @@ fn let1_typed() {
         binder: x @ 1:7-1:8
         type: Int @ 1:10-1:13
         bindee: 1 @ 1:16-1:17
-        tail: x @ 1:19-1:20
+        tail: VAR @ 1:19-1:20
+            var: x @ 1:19-1:20
     "###);
 }
 
@@ -503,7 +553,8 @@ fn let1_block() {
     LET
         binder: x @ 1:7-1:8
         bindee: 1 @ 1:13-1:14
-        tail: x @ 1:18-1:19
+        tail: VAR @ 1:18-1:19
+            var: x @ 1:18-1:19
     "###);
 }
 
@@ -515,8 +566,10 @@ fn let2() {
         bindee: 1 @ 1:11-1:12
         tail: LET @ 1:14-1:26
             binder: y @ 1:18-1:19
-            bindee: x @ 1:22-1:23
-            tail: y @ 1:25-1:26
+            bindee: VAR @ 1:22-1:23
+                var: x @ 1:22-1:23
+            tail: VAR @ 1:25-1:26
+                var: y @ 1:25-1:26
     "###);
 }
 
@@ -524,7 +577,8 @@ fn let2() {
 fn match1_novar() {
     insta::assert_debug_snapshot!(parse_output("match x { A => 1, }"), @r###"
     MATCH
-        scrut: x @ 1:7-1:8
+        scrut: VAR @ 1:7-1:8
+            var: x @ 1:7-1:8
         branch: BRANCH
             pattern: PATTERN @ 1:11-1:12
                 constr: A
@@ -536,7 +590,8 @@ fn match1_novar() {
 fn match1_var() {
     insta::assert_debug_snapshot!(parse_output("match x { A(y) => 1, }"), @r###"
     MATCH
-        scrut: x @ 1:7-1:8
+        scrut: VAR @ 1:7-1:8
+            var: x @ 1:7-1:8
         branch: BRANCH
             pattern: PATTERN @ 1:11-1:15
                 constr: A
@@ -549,7 +604,8 @@ fn match1_var() {
 fn match1_block() {
     insta::assert_debug_snapshot!(parse_output("match x { A => { 1 } }"), @r###"
     MATCH
-        scrut: x @ 1:7-1:8
+        scrut: VAR @ 1:7-1:8
+            var: x @ 1:7-1:8
         branch: BRANCH
             pattern: PATTERN @ 1:11-1:12
                 constr: A
@@ -573,7 +629,8 @@ fn match1_expr_nocomma() {
 fn match1_block_comma() {
     insta::assert_snapshot!(parse_error("match x { A => { 1 }, }"), @r###"
     MATCH
-        scrut: x @ 1:7-1:8
+        scrut: VAR @ 1:7-1:8
+            var: x @ 1:7-1:8
         branch: BRANCH
             pattern: PATTERN @ 1:11-1:12
                 constr: A
@@ -590,7 +647,8 @@ fn match1_block_comma() {
 fn match2_exprs() {
     insta::assert_debug_snapshot!(parse_output("match x { A => 1, B => 2, }"), @r###"
     MATCH
-        scrut: x @ 1:7-1:8
+        scrut: VAR @ 1:7-1:8
+            var: x @ 1:7-1:8
         branch: BRANCH
             pattern: PATTERN @ 1:11-1:12
                 constr: A
@@ -606,7 +664,8 @@ fn match2_exprs() {
 fn match2_expr_block() {
     insta::assert_debug_snapshot!(parse_output("match x { A => 1, B => { 2 } }"), @r###"
     MATCH
-        scrut: x @ 1:7-1:8
+        scrut: VAR @ 1:7-1:8
+            var: x @ 1:7-1:8
         branch: BRANCH
             pattern: PATTERN @ 1:11-1:12
                 constr: A
@@ -622,7 +681,8 @@ fn match2_expr_block() {
 fn match2_block_expr() {
     insta::assert_debug_snapshot!(parse_output("match x { A => { 1 } B => 2, }"), @r###"
     MATCH
-        scrut: x @ 1:7-1:8
+        scrut: VAR @ 1:7-1:8
+            var: x @ 1:7-1:8
         branch: BRANCH
             pattern: PATTERN @ 1:11-1:12
                 constr: A
@@ -638,7 +698,8 @@ fn match2_block_expr() {
 fn match2_blocks() {
     insta::assert_debug_snapshot!(parse_output("match x { A => { 1 } B => { 2 } }"), @r###"
     MATCH
-        scrut: x @ 1:7-1:8
+        scrut: VAR @ 1:7-1:8
+            var: x @ 1:7-1:8
         branch: BRANCH
             pattern: PATTERN @ 1:11-1:12
                 constr: A

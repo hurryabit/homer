@@ -55,7 +55,8 @@ fn module() {
             param: x @ 3:13-3:14
             type: Int @ 3:16-3:19
             result: Mono @ 3:24-3:28
-            body: x @ 3:31-3:32
+            body: VAR @ 3:31-3:32
+                var: x @ 3:31-3:32
         decl: TYPEDECL
             name: Poly @ 4:10-4:14
             type_param: A @ 4:15-4:16
@@ -68,6 +69,7 @@ fn module() {
             result: APP @ 5:25-5:32
                 syn: Poly @ 5:25-5:29
                 type_arg: A @ 5:30-5:31
-            body: x @ 5:35-5:36
+            body: VAR @ 5:35-5:36
+                var: x @ 5:35-5:36
     "###);
 }

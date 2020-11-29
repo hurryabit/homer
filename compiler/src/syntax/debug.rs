@@ -124,7 +124,7 @@ impl ast::Debug for Expr {
     fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         match self {
             Self::Error => writer.leaf("ERROR"),
-            Self::Var(name) => name.write(writer),
+            Self::Var(var) => writer.node("VAR", |writer| writer.child("var", var)),
             Self::Num(n) => writer.leaf(&n.to_string()),
             Self::Bool(b) => writer.leaf(&b.to_string()),
             Self::Lam(params, body) => writer.node("LAM", |writer| {

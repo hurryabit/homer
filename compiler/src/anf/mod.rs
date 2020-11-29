@@ -4,7 +4,7 @@ use std::fmt;
 use util::in_parens_if_some;
 
 use location::SourceSpan;
-pub use syntax::{ExprCon, ExprVar, OpCode};
+pub use syntax::{ExprCon, ExprVar, LExprVar, OpCode};
 
 mod debruijn;
 
@@ -128,8 +128,8 @@ impl Bindee {
     ) -> (Self, FreeVars) {
         match &expr.locatee {
             syntax::Expr::Error => (Self::Error(expr.span), ordset![]),
-            syntax::Expr::Var(_) => {
-                let (atom, fvs) = Atom::from_syntax(env, expr, bindings);
+            syntax::Expr::Var(var) => {
+                let (atom, fvs) = Atom::from_var(env, var);
                 (Self::Atom(atom), fvs)
             }
             syntax::Expr::Num(n) => (Self::Num(*n), ordset![]),
@@ -147,8 +147,8 @@ impl Bindee {
                 captured.sort_by_cached_key(|IdxVar(_, x)| env.get_index(x));
                 (Self::MakeClosure(MakeClosure { captured, params, body }), fvs)
             }
-            syntax::Expr::AppClo(fun, args) => {
-                let (fun, fvs) = Atom::from_syntax(env, &fun.map(syntax::Expr::Var), bindings);
+            syntax::Expr::AppClo(clo, args) => {
+                let (fun, fvs) = Atom::from_var(env, clo);
                 let (args, fvss): (_, Vec<_>) =
                     args.iter().map(|arg| Atom::from_syntax(env, arg, bindings)).unzip();
                 (Self::AppClosure(fun, args), fvs.union(FreeVars::unions(fvss)))
@@ -249,14 +249,18 @@ impl Branch {
 }
 
 impl Atom {
+    fn from_var(env: &mut Env, var: &LExprVar) -> (Self, FreeVars) {
+        let binder = *env.get_binder(&var.locatee);
+        (Self(IdxVar(0, binder)), ordset![binder])
+    }
+
     fn from_syntax(
         env: &mut Env,
         expr: &syntax::LExpr,
         bindings: &mut Vec<Binding>,
     ) -> (Self, FreeVars) {
-        if let syntax::Expr::Var(var) = expr.locatee {
-            let binder = *env.get_binder(&var);
-            (Self(IdxVar(0, binder)), ordset![binder])
+        if let syntax::Expr::Var(var) = &expr.locatee {
+            Self::from_var(env, var)
         } else {
             let (bindee, fvs) = Bindee::from_syntax(env, expr, bindings);
             let binder = env.intro_fresh_binder();

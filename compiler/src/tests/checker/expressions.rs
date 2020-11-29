@@ -1402,14 +1402,16 @@ fn rule_proj_index() {
         type: INFERRED @ 3:13-3:14
             type: INT
         bindee: PROJ @ 3:17-3:20
-            record: r @ 3:17-3:18
+            record: VAR @ 3:17-3:18
+                var: r @ 3:17-3:18
             field: a/0 @ 3:19-3:20
         tail: LET @ 4:9-5:10
             binder: y @ 4:13-4:14
             type: INFERRED @ 4:13-4:14
                 type: BOOL
             bindee: PROJ @ 4:17-4:20
-                record: r @ 4:17-4:18
+                record: VAR @ 4:17-4:18
+                    var: r @ 4:17-4:18
                 field: b/1 @ 4:19-4:20
             tail: 0 @ 5:9-5:10
     "###);
@@ -1483,7 +1485,8 @@ fn rule_variant_rank() {
     }
     "#), @r###"
     IF
-        cond: b @ 3:12-3:13
+        cond: VAR @ 3:12-3:13
+            var: b @ 3:12-3:13
         then: VARIANT @ 3:16-3:17
             constr: A/0
         else: VARIANT @ 3:27-3:31
@@ -1739,7 +1742,8 @@ fn rule_match_rank() {
     }
     "#), @r###"
     MATCH
-        scrut: x @ 3:15-3:16
+        scrut: VAR @ 3:15-3:16
+            var: x @ 3:15-3:16
         branch: BRANCH
             pattern: PATTERN @ 4:13-4:14
                 constr: A/0
@@ -1748,7 +1752,8 @@ fn rule_match_rank() {
             pattern: PATTERN @ 5:13-5:17
                 constr: B/1
                 binder: y @ 5:15-5:16
-            rhs: y @ 5:21-5:22
+            rhs: VAR @ 5:21-5:22
+                var: y @ 5:21-5:22
     "###);
 }
 

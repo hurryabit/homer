@@ -51,7 +51,7 @@ pub type LType = Located<Type>;
 #[derive(Clone, Eq, PartialEq)]
 pub enum Expr {
     Error,
-    Var(ExprVar),
+    Var(LExprVar),
     Num(i64),
     Bool(bool),
     Lam(Vec<(LExprVar, Option<LType>)>, Box<LExpr>),

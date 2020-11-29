@@ -550,7 +550,8 @@ fn resolve_func_sign_int() {
         param: x @ 2:10-2:11
         type: INT @ 2:13-2:16
         result: INT @ 2:21-2:24
-        body: x @ 2:27-2:28
+        body: VAR @ 2:27-2:28
+            var: x @ 2:27-2:28
     "###);
 }
 
@@ -567,7 +568,8 @@ fn resolve_func_sign_def_int() {
             syn: Int @ 3:13-3:16
         result: APP @ 3:21-3:24
             syn: Int @ 3:21-3:24
-        body: x @ 3:27-3:28
+        body: VAR @ 3:27-3:28
+            var: x @ 3:27-3:28
     "###);
 }
 
@@ -584,7 +586,8 @@ fn resolve_func_sign_var_def() {
             syn: ResolveMe @ 3:13-3:22
         result: APP @ 3:27-3:36
             syn: ResolveMe @ 3:27-3:36
-        body: x @ 3:39-3:40
+        body: VAR @ 3:39-3:40
+            var: x @ 3:39-3:40
     "###);
 }
 
@@ -599,7 +602,8 @@ fn resolve_func_sign_var_int() {
         param: x @ 2:15-2:16
         type: Int @ 2:18-2:21
         result: Int @ 2:26-2:29
-        body: x @ 2:32-2:33
+        body: VAR @ 2:32-2:33
+            var: x @ 2:32-2:33
     "###);
 }
 
