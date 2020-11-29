@@ -1,4 +1,5 @@
 use join_lazy_fmt::*;
+use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
@@ -19,10 +20,20 @@ pub enum Type<T = RcType> {
     Fun(Vec<T>, T),
     Record(Vec<(ExprVar, T)>),
     Variant(Vec<(ExprCon, Option<T>)>),
+    UnificationVar(UnificationCell),
 }
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct RcType(Rc<Type>);
+
+#[derive(Clone, Eq, PartialEq)]
+pub enum UnificationVar {
+    Free(u32),
+    Link(RcType),
+}
+
+#[derive(Clone)]
+pub struct UnificationCell(Rc<Cell<UnificationVar>>);
 
 #[derive(Eq, PartialEq)]
 pub struct FuncSig {
@@ -70,15 +81,24 @@ impl RcType {
 
     pub fn weak_normalize(&self, type_defs: &TypeDefs) -> Self {
         let mut typ = self.clone();
-        while let Type::SynApp(var, args) = &*typ {
-            let scheme = type_defs.get(&var).unwrap();
-            typ = scheme.instantiate(&args);
+        loop {
+            match typ.as_ref() {
+                Type::SynApp(syn, args) => {
+                    let scheme = type_defs.get(syn).unwrap();
+                    typ = scheme.instantiate(args);
+                }
+                Type::UnificationVar(cell) => match cell.get() {
+                    UnificationVar::Free(_) => break,
+                    UnificationVar::Link(target) => typ = target,
+                },
+                _ => break,
+            }
         }
         typ
     }
 
     pub fn equiv(&self, expected: &RcType, type_defs: &TypeDefs) -> bool {
-        match (&**self, &**expected) {
+        match (self.as_ref(), expected.as_ref()) {
             (Type::SynApp(var1, args1), Type::SynApp(var2, args2)) if var1 == var2 => {
                 assert_eq!(args1.len(), args2.len());
                 args1.iter().zip(args2.iter()).all(|(arg1, arg2)| arg1.equiv(arg2, type_defs))
@@ -90,6 +110,31 @@ impl RcType {
                 (Type::SynApp(_, _), _) | (_, Type::SynApp(_, _)) => {
                     panic!("IMPOSSIBLE: Type::SynApp after Type::weak_normalize")
                 }
+                (Type::UnificationVar(var1), Type::UnificationVar(var2)) => {
+                    match (var1.get(), var2.get()) {
+                        (UnificationVar::Free(name1), UnificationVar::Free(name2)) => {
+                            if name1 != name2 {
+                                var1.set_link(expected.clone())
+                            }
+                            true
+                        }
+                        (UnificationVar::Link(_), _) | (_, UnificationVar::Link(_)) => {
+                            panic!("IMPOSSIBLE: UnificationVar::Link after Type::weak_normalize")
+                        }
+                    }
+                }
+                (Type::UnificationVar(var1), _) => match var1.get() {
+                    UnificationVar::Free(_) => var1.try_set_link(expected.clone()),
+                    UnificationVar::Link(_) => {
+                        panic!("IMPOSSIBLE: UnificationVar::Link after Type::weak_normalize")
+                    }
+                },
+                (_, Type::UnificationVar(var2)) => match var2.get() {
+                    UnificationVar::Free(_) => var2.try_set_link(self.clone()),
+                    UnificationVar::Link(_) => {
+                        panic!("IMPOSSIBLE: UnificationVar::Link after Type::weak_normalize")
+                    }
+                },
                 (Type::Error, _) | (_, Type::Error) => true,
                 (Type::Var(var1), Type::Var(var2)) => var1 == var2,
                 (Type::Int, Type::Int) => true,
@@ -126,6 +171,16 @@ impl RcType {
                 | (Type::Record(_), _)
                 | (Type::Variant(_), _) => false,
             },
+        }
+    }
+
+    fn occurs_check(&self, var: u32) -> bool {
+        match self.as_ref() {
+            Type::UnificationVar(cell) => match cell.get() {
+                UnificationVar::Free(name) => name != var,
+                UnificationVar::Link(typ) => typ.occurs_check(var),
+            },
+            typ => typ.children().all(|child| child.occurs_check(var)),
         }
     }
 }
@@ -193,7 +248,7 @@ impl Type {
 }
 
 impl<T> Type<T> {
-    pub fn children_mut(&mut self) -> impl Iterator<Item = &mut T> {
+    pub fn children(&self) -> impl Iterator<Item = &T> {
         use genawaiter::{rc::gen, yield_};
         gen!({
             match self {
@@ -223,6 +278,7 @@ impl<T> Type<T> {
                         }
                     }
                 }
+                Self::UnificationVar(_) => {}
             }
         })
         .into_iter()
@@ -257,6 +313,7 @@ impl<T> Type<T> {
                     .collect();
                 Type::Variant(constrs)
             }
+            Self::UnificationVar(cell) => Type::UnificationVar(cell.clone()),
         }
     }
 }
@@ -313,6 +370,16 @@ impl fmt::Display for Type {
                     }))
                 )
             }
+            Self::UnificationVar(cell) => cell.get().fmt(f),
+        }
+    }
+}
+
+impl fmt::Display for UnificationVar {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Free(name) => write!(f, "?{}", name),
+            Self::Link(typ) => typ.fmt(f),
         }
     }
 }
@@ -358,6 +425,7 @@ impl ast::Debug for Type {
                 }
                 Ok(())
             }),
+            Self::UnificationVar(cell) => cell.get().write(writer),
         }
     }
 }
@@ -365,6 +433,15 @@ impl ast::Debug for Type {
 impl ast::Debug for RcType {
     fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         self.as_ref().write(writer)
+    }
+}
+
+impl ast::Debug for UnificationVar {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
+        match self {
+            Self::Free(name) => writer.node("FREE", |writer| writer.child("name", name)),
+            Self::Link(typ) => writer.node("LINK", |writer| writer.child("typ", typ)),
+        }
     }
 }
 
@@ -394,3 +471,50 @@ derive_fmt_debug!(Type);
 derive_fmt_debug!(RcType);
 derive_fmt_debug!(TypeScheme);
 derive_fmt_debug!(FuncSig);
+
+impl UnificationCell {
+    pub fn new_free(name: u32) -> Self {
+        UnificationCell(Rc::new(Cell::new(UnificationVar::Free(name))))
+    }
+
+    fn get(&self) -> UnificationVar {
+        let inner = self.0.replace(UnificationVar::Free(0));
+        let result = inner.clone();
+        self.0.set(inner);
+        result
+    }
+
+    fn set_link(&self, typ: RcType) {
+        let inner = self.0.replace(UnificationVar::Link(typ));
+        assert!(matches!(inner, UnificationVar::Free(_)));
+    }
+
+    fn try_set_link(&self, typ: RcType) -> bool {
+        let inner = self.0.replace(UnificationVar::Free(0));
+        match inner {
+            UnificationVar::Link(_) => {
+                panic!("UnificationCell::try_set_link called on UnificationVar::Link")
+            }
+            UnificationVar::Free(var) => {
+                self.0.set(inner);
+                let result = typ.occurs_check(var);
+                if result {
+                    self.0.set(UnificationVar::Link(typ));
+                } else {
+                    eprintln!("Occurs check failed on {}", typ);
+                }
+                result
+            }
+        }
+    }
+}
+
+// TODO(MH): We only need this to make salsa happy. If we make sure there are
+// no unification variables left when salsa looks at this, we could fail here.
+impl PartialEq for UnificationCell {
+    fn eq(&self, other: &Self) -> bool {
+        self.get() == other.get()
+    }
+}
+
+impl Eq for UnificationCell {}

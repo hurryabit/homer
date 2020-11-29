@@ -476,6 +476,7 @@ fn rule_mono_app_fun_infer_ok() {
 }
 
 #[test]
+#[ignore = "unification based type inference can handle this now"]
 fn rule_mono_app_fun_check_on_poly_fun() {
     insta::assert_snapshot!(check_error(r#"
     fn poly_fun<A>(x: A) -> A { x }
@@ -490,6 +491,7 @@ fn rule_mono_app_fun_check_on_poly_fun() {
 }
 
 #[test]
+#[ignore = "unification based type inference can handle this now"]
 fn rule_mono_app_fun_infer_on_poly_fun() {
     insta::assert_snapshot!(check_error(r#"
     fn poly_fun<A>(x: A) -> A { x }
