@@ -31,7 +31,7 @@ TypeParams: Vec<LTypeVar> = {
 }
 
 pub Type: Type = {
-    TypeVar => Type::Var(<>),
+    LTypeVar => Type::Var(<>),
     "(" <List0<LType, ",">> ")" "->" <Box<LType>> => Type::Fun(<>),
     <LTypeVar> "<" <List1<LType, ",">> ">" => Type::SynApp(<>),
     "{" <List0<Param<TypeAnn>, ",">> "}" => Type::Record(<>),

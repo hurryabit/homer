@@ -7,7 +7,7 @@ use crate::util::in_parens_if_some;
 use crate::{ast, syntax};
 use syntax::{ExprCon, ExprVar, LExprVar, TypeVar};
 
-pub type SynType = syntax::Type;
+pub use syntax::Type as SynType;
 
 #[derive(Eq, PartialEq)]
 pub enum Type<T = RcType> {
@@ -159,7 +159,7 @@ impl Type {
     pub fn from_syntax(syntax: &SynType) -> Self {
         match syntax {
             SynType::Error => Type::Error,
-            SynType::Var(var) => Type::Var(*var),
+            SynType::Var(var) => Type::Var(var.locatee),
             SynType::SynApp(var, args) => {
                 let args = args.iter().map(RcType::from_lsyntax).collect();
                 Type::SynApp(var.locatee, args)

@@ -59,14 +59,20 @@ fn resolve_type_top_var_def() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
     type ResolveMe = Int
     type X<ResolveMe> = ResolveMe
-    "#), @"ResolveMe");
+    "#), @r###"
+    VAR
+        var: ResolveMe @ 3:25-3:34
+    "###);
 }
 
 #[test]
 fn resolve_type_top_var_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
     type X<Int> = Int
-    "#), @"Int");
+    "#), @r###"
+    VAR
+        var: Int @ 2:19-2:22
+    "###);
 }
 
 #[test]
@@ -128,7 +134,8 @@ fn resolve_type_arg1_var_def() {
     "#), @r###"
     APP
         syn: F @ 4:25-4:26
-        type_arg: ResolveMe @ 4:27-4:36
+        type_arg: VAR @ 4:27-4:36
+            var: ResolveMe @ 4:27-4:36
     "###);
 }
 
@@ -140,7 +147,8 @@ fn resolve_type_arg1_var_int() {
     "#), @r###"
     APP
         syn: F @ 3:19-3:20
-        type_arg: Int @ 3:21-3:24
+        type_arg: VAR @ 3:21-3:24
+            var: Int @ 3:21-3:24
     "###);
 }
 
@@ -182,7 +190,8 @@ fn resolve_type_arg2_var_def() {
     APP
         syn: F @ 4:25-4:26
         type_arg: BOOL @ 4:27-4:31
-        type_arg: ResolveMe @ 4:33-4:42
+        type_arg: VAR @ 4:33-4:42
+            var: ResolveMe @ 4:33-4:42
     "###);
 }
 
@@ -195,7 +204,8 @@ fn resolve_type_arg2_var_int() {
     APP
         syn: F @ 3:19-3:20
         type_arg: BOOL @ 3:21-3:25
-        type_arg: Int @ 3:27-3:30
+        type_arg: VAR @ 3:27-3:30
+            var: Int @ 3:27-3:30
     "###);
 }
 
@@ -230,7 +240,8 @@ fn resolve_type_param1_var_def() {
     type X<ResolveMe> = (ResolveMe) -> Bool
     "#), @r###"
     FUN
-        param: ResolveMe @ 3:26-3:35
+        param: VAR @ 3:26-3:35
+            var: ResolveMe @ 3:26-3:35
         result: BOOL @ 3:40-3:44
     "###);
 }
@@ -241,7 +252,8 @@ fn resolve_type_param1_var_int() {
     type X<Int> = (Int) -> Bool
     "#), @r###"
     FUN
-        param: Int @ 2:20-2:23
+        param: VAR @ 2:20-2:23
+            var: Int @ 2:20-2:23
         result: BOOL @ 2:28-2:32
     "###);
 }
@@ -280,7 +292,8 @@ fn resolve_type_param2_var_def() {
     "#), @r###"
     FUN
         param: RECORD @ 3:26-3:28
-        param: ResolveMe @ 3:30-3:39
+        param: VAR @ 3:30-3:39
+            var: ResolveMe @ 3:30-3:39
         result: BOOL @ 3:44-3:48
     "###);
 }
@@ -292,7 +305,8 @@ fn resolve_type_param2_var_int() {
     "#), @r###"
     FUN
         param: RECORD @ 2:20-2:22
-        param: Int @ 2:24-2:27
+        param: VAR @ 2:24-2:27
+            var: Int @ 2:24-2:27
         result: BOOL @ 2:32-2:36
     "###);
 }
@@ -326,7 +340,8 @@ fn resolve_type_result_var_def() {
     type X<ResolveMe> = () -> ResolveMe
     "#), @r###"
     FUN
-        result: ResolveMe @ 3:31-3:40
+        result: VAR @ 3:31-3:40
+            var: ResolveMe @ 3:31-3:40
     "###);
 }
 
@@ -336,7 +351,8 @@ fn resolve_type_result_var_int() {
     type X<Int> = () -> Int
     "#), @r###"
     FUN
-        result: Int @ 2:25-2:28
+        result: VAR @ 2:25-2:28
+            var: Int @ 2:25-2:28
     "###);
 }
 
@@ -372,7 +388,8 @@ fn resolve_type_field1_var_def() {
     "#), @r###"
     RECORD
         field: a @ 3:26-3:27
-        type: ResolveMe @ 3:29-3:38
+        type: VAR @ 3:29-3:38
+            var: ResolveMe @ 3:29-3:38
     "###);
 }
 
@@ -383,7 +400,8 @@ fn resolve_type_field1_var_int() {
     "#), @r###"
     RECORD
         field: a @ 2:20-2:21
-        type: Int @ 2:23-2:26
+        type: VAR @ 2:23-2:26
+            var: Int @ 2:23-2:26
     "###);
 }
 
@@ -425,7 +443,8 @@ fn resolve_type_field2_var_def() {
         field: a @ 3:26-3:27
         type: BOOL @ 3:29-3:33
         field: b @ 3:35-3:36
-        type: ResolveMe @ 3:38-3:47
+        type: VAR @ 3:38-3:47
+            var: ResolveMe @ 3:38-3:47
     "###);
 }
 
@@ -438,7 +457,8 @@ fn resolve_type_field2_var_int() {
         field: a @ 2:20-2:21
         type: BOOL @ 2:23-2:27
         field: b @ 2:29-2:30
-        type: Int @ 2:32-2:35
+        type: VAR @ 2:32-2:35
+            var: Int @ 2:32-2:35
     "###);
 }
 
@@ -474,7 +494,8 @@ fn resolve_type_constr1_var_def() {
     "#), @r###"
     VARIANT
         constr: C @ 3:26-3:27
-        type: ResolveMe @ 3:28-3:37
+        type: VAR @ 3:28-3:37
+            var: ResolveMe @ 3:28-3:37
     "###);
 }
 
@@ -485,7 +506,8 @@ fn resolve_type_constr1_var_int() {
     "#), @r###"
     VARIANT
         constr: C @ 2:20-2:21
-        type: Int @ 2:22-2:25
+        type: VAR @ 2:22-2:25
+            var: Int @ 2:22-2:25
     "###);
 }
 
@@ -524,7 +546,8 @@ fn resolve_type_constr2_var_def() {
     VARIANT
         constr: B @ 3:26-3:27
         constr: C @ 3:30-3:31
-        type: ResolveMe @ 3:32-3:41
+        type: VAR @ 3:32-3:41
+            var: ResolveMe @ 3:32-3:41
     "###);
 }
 
@@ -536,7 +559,8 @@ fn resolve_type_constr2_var_int() {
     VARIANT
         constr: B @ 2:20-2:21
         constr: C @ 2:24-2:25
-        type: Int @ 2:26-2:29
+        type: VAR @ 2:26-2:29
+            var: Int @ 2:26-2:29
     "###);
 }
 
@@ -600,8 +624,10 @@ fn resolve_func_sign_var_int() {
         name: f @ 2:8-2:9
         type_param: Int @ 2:10-2:13
         param: x @ 2:15-2:16
-        type: Int @ 2:18-2:21
-        result: Int @ 2:26-2:29
+        type: VAR @ 2:18-2:21
+            var: Int @ 2:18-2:21
+        result: VAR @ 2:26-2:29
+            var: Int @ 2:26-2:29
         body: VAR @ 2:32-2:33
             var: x @ 2:32-2:33
     "###);
@@ -696,7 +722,8 @@ fn resolve_func_let_lam_var_int() {
                     result: BOOL
             bindee: LAM @ 2:35-2:56
                 param: x @ 2:39-2:40
-                type: Int @ 2:42-2:45
+                type: VAR @ 2:42-2:45
+                    var: Int @ 2:42-2:45
                 body: false @ 2:49-2:54
             tail: true @ 2:58-2:62
     "###);
@@ -763,6 +790,7 @@ fn resolve_func_inst_var_int() {
         result: BOOL @ 3:20-3:24
         body: APPFUN @ 3:27-3:36
             fun: g @ 3:27-3:28
-            type_arg: Int @ 3:30-3:33
+            type_arg: VAR @ 3:30-3:33
+                var: Int @ 3:30-3:33
     "###);
 }

@@ -76,7 +76,8 @@ fn app_ty() {
     insta::assert_debug_snapshot!(parse_output("f@<Int>(1)"), @r###"
     APPFUN
         fun: f @ 1:1-1:2
-        type_arg: Int @ 1:4-1:7
+        type_arg: VAR @ 1:4-1:7
+            var: Int @ 1:4-1:7
         arg: 1 @ 1:9-1:10
     "###);
 }
@@ -423,7 +424,8 @@ fn lam1_typed() {
     insta::assert_debug_snapshot!(parse_output("fn(x: Int) { x }"), @r###"
     LAM
         param: x @ 1:4-1:5
-        type: Int @ 1:7-1:10
+        type: VAR @ 1:7-1:10
+            var: Int @ 1:7-1:10
         body: VAR @ 1:14-1:15
             var: x @ 1:14-1:15
     "###);
@@ -540,7 +542,8 @@ fn let1_typed() {
     insta::assert_debug_snapshot!(parse_block_output("{ let x: Int = 1; x }"), @r###"
     LET
         binder: x @ 1:7-1:8
-        type: Int @ 1:10-1:13
+        type: VAR @ 1:10-1:13
+            var: Int @ 1:10-1:13
         bindee: 1 @ 1:16-1:17
         tail: VAR @ 1:19-1:20
             var: x @ 1:19-1:20

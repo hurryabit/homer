@@ -52,7 +52,7 @@ impl ast::Debug for Type {
     fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         match self {
             Self::Error => writer.leaf("ERROR"),
-            Self::Var(name) => name.write(writer),
+            Self::Var(var) => writer.node("VAR", |writer| writer.child("var", var)),
             Self::SynApp(syn, args) => writer.node("APP", |writer| {
                 writer.child("syn", syn)?;
                 writer.children("type_arg", args)

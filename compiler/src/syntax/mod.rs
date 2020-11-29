@@ -36,7 +36,7 @@ pub struct FuncDecl {
 #[derive(Clone, Eq, PartialEq)]
 pub enum Type {
     Error,
-    Var(TypeVar),
+    Var(LTypeVar),
     SynApp(LTypeVar, Vec<LType>),
     Int,
     Bool,

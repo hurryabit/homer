@@ -146,6 +146,7 @@ impl syntax::Type {
             Self::Int => panic!("Int in Type.check"),
             Self::Bool => panic!("Bool in Type.check"),
             Self::Var(var) => {
+                let var = &var.locatee;
                 if env.type_vars.contains(var) {
                     Ok(())
                 } else if let Some(scheme) = env.type_defs.get(var) {
