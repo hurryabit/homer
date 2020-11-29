@@ -127,32 +127,6 @@ fn rule_var() {
 }
 
 #[test]
-fn rule_var_unknown() {
-    insta::assert_snapshot!(check_error(r#"
-    fn f() -> Int {
-        x
-    }
-    "#), @r###"
-      3 |         x
-                  ~
-    Undeclared variable `x`.
-    "###);
-}
-
-#[test]
-fn rule_var_unknown_as_func() {
-    insta::assert_snapshot!(check_error(r#"
-    fn f() -> Int {
-        g(1)
-    }
-    "#), @r###"
-      3 |         g(1)
-                  ~
-    Undeclared variable `g`.
-    "###);
-}
-
-#[test]
 fn rule_lit_int_0() {
     check_success(
         r#"
@@ -500,32 +474,6 @@ fn rule_func_inst_2() {
         }
         "#,
     );
-}
-
-#[test]
-fn rule_func_inst_unknown_0() {
-    insta::assert_snapshot!(check_error(r#"
-    fn f() -> Int {
-        g@<>()
-    }
-    "#), @r###"
-      3 |         g@<>()
-                  ~
-    Undeclared variable `g`.
-    "###);
-}
-
-#[test]
-fn rule_func_inst_unknown_1() {
-    insta::assert_snapshot!(check_error(r#"
-    fn f() -> Int {
-        g@<Int>()
-    }
-    "#), @r###"
-      3 |         g@<Int>()
-                  ~
-    Undeclared variable `g`.
-    "###);
 }
 
 #[test]

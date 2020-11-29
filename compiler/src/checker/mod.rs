@@ -396,6 +396,11 @@ impl Expr {
                     }
                 }
                 let func_sig = env.func_sigs.get(&fun.locatee).unwrap();
+                // NOTE(MH): The name resolution only passes `f@<>(...)` on
+                // when `f` is a polymorphic function.
+                if matches!(opt_types, Some(types) if types.is_empty()) {
+                    assert!(!func_sig.params.is_empty());
+                }
                 env.add_symbol(SymbolInfo::FuncRef { var: *fun, def: Rc::clone(func_sig) });
                 if num_types == func_sig.type_params.len() {
                     let types: Vec<_> = opt_types
