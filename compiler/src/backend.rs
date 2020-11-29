@@ -181,7 +181,6 @@ fn convert_type(ptr_t: types::Type, typ: &syntax::Type) -> types::Type {
     }
 }
 
-
 #[test]
 fn test_example() {
     let input = "fn main(x: Int) -> Int { 10 * x }";
