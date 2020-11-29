@@ -218,3 +218,13 @@ impl ast::Debug for OpCode {
         }
     }
 }
+
+impl fmt::Debug for ExprRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Var(var) => write!(f, "VAR {:?} @ {:?}", var.locatee.as_str(), var.span),
+            Self::Clo(clo) => write!(f, "CLO {:?} @ {:?}", clo.locatee.as_str(), clo.span),
+            Self::Fun(fun) => write!(f, "FUN {:?} @ {:?}", fun.locatee.as_str(), fun.span),
+        }
+    }
+}

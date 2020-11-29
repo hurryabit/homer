@@ -1,6 +1,6 @@
 use crate::*;
 use checker::SymbolInfo;
-use syntax::{Decl, Expr, FuncDecl, Module, Type};
+use syntax::{Decl, Expr, ExprRef, FuncDecl, Module, Type};
 
 mod decls;
 mod expressions;
@@ -51,6 +51,10 @@ fn check_output_func_decl(name: &str, input: &str) -> FuncDecl {
 
 fn check_output_func_body(name: &str, input: &str) -> Expr {
     check_output_func_decl(name, input).body.locatee
+}
+
+fn check_output_func_refs(name: &str, input: &str) -> Vec<ExprRef> {
+    check_output_func_body(name, input).refs()
 }
 
 fn check_success(input: &str) {

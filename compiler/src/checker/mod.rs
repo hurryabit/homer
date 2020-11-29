@@ -235,6 +235,7 @@ impl LExpr {
 
 impl Expr {
     fn check(&mut self, span: SourceSpan, env: &Env, expected: &RcType) -> Result<(), LError> {
+        self.resolve(span, env)?;
         match self {
             Self::Lam(params, body) => {
                 match expected.weak_normalize_env(env).as_ref() {
@@ -322,7 +323,7 @@ impl Expr {
             | Self::BinOp(_, _, _)
             | Self::Record(_)
             | Self::Proj(_, _, _) => {
-                let found = self.infer(span, env)?;
+                let found = self.infer_resolved(span, env)?;
                 if found.equiv(expected, &env.type_defs) {
                     Ok(())
                 } else {
@@ -337,6 +338,10 @@ impl Expr {
 
     fn infer(&mut self, span: SourceSpan, env: &Env) -> Result<RcType, LError> {
         self.resolve(span, env)?;
+        self.infer_resolved(span, env)
+    }
+
+    fn infer_resolved(&mut self, span: SourceSpan, env: &Env) -> Result<RcType, LError> {
         match self {
             Self::Error => Ok(RcType::new(Type::Error)),
             Self::Var(var) => {
@@ -498,10 +503,9 @@ impl Expr {
                 let var = &var.locatee;
                 if env.expr_vars.contains_key(var) {
                     Ok(())
-                } else if env.func_sigs.contains_key(var) {
-                    Err(Located::new(Error::UnknownExprVar(*var, true), span))
                 } else {
-                    Err(Located::new(Error::UnknownExprVar(*var, false), span))
+                    let is_func = env.func_sigs.contains_key(var);
+                    Err(Located::new(Error::UnknownExprVar(*var, is_func), span))
                 }
             }
             Self::AppClo(clo, args) => {
@@ -516,19 +520,12 @@ impl Expr {
             }
             Self::AppFun(fun, opt_types, _args) => {
                 let mismatch = || {
-                    Err(Located::new(
-                        Error::GenericFuncArityMismatch {
-                            expr_var: fun.locatee,
-                            expected: 0,
-                            found: opt_types.as_ref().map_or(0, |types| types.len()),
-                        },
-                        fun.span,
-                    ))
+                    Err(Located::new(Error::BadNonGenericCall { expr_var: fun.locatee }, fun.span))
                 };
                 if env.expr_vars.contains_key(&fun.locatee) {
                     mismatch()
                 } else if let Some(func_sig) = env.func_sigs.get(&fun.locatee) {
-                    if func_sig.type_params.is_empty() {
+                    if func_sig.type_params.is_empty() && opt_types.is_some() {
                         mismatch()
                     } else {
                         Ok(())

@@ -529,62 +529,6 @@ fn rule_func_inst_unknown_1() {
 }
 
 #[test]
-fn rule_func_inst_on_var_0() {
-    insta::assert_snapshot!(check_error(r#"
-    fn f() -> Int {
-        let g = fn () { 0 };
-        g@<>()
-    }
-    "#), @r###"
-      4 |         g@<>()
-                  ~
-    `g` is not a generic function and must be called as `g(...)`.
-    "###);
-}
-
-#[test]
-fn rule_func_inst_on_var_1() {
-    insta::assert_snapshot!(check_error(r#"
-    fn f() -> Int {
-        let g = fn () { 0 };
-        g@<Int>()
-    }
-    "#), @r###"
-      4 |         g@<Int>()
-                  ~
-    `g` is not a generic function but is applied to 1 type argument.
-    "###);
-}
-
-#[test]
-fn rule_func_inst_on_mono_func_0() {
-    insta::assert_snapshot!(check_error(r#"
-    fn g() -> Int { 0 }
-    fn f() -> Int {
-        g@<>()
-    }
-    "#), @r###"
-      4 |         g@<>()
-                  ~
-    `g` is not a generic function and must be called as `g(...)`.
-    "###);
-}
-
-#[test]
-fn rule_func_inst_on_mono_func_1() {
-    insta::assert_snapshot!(check_error(r#"
-    fn g() -> Int { 0 }
-    fn f() -> Int {
-        g@<Int>()
-    }
-    "#), @r###"
-      4 |         g@<Int>()
-                  ~
-    `g` is not a generic function but is applied to 1 type argument.
-    "###);
-}
-
-#[test]
 fn rule_func_inst_no_types_on_poly_func() {
     insta::assert_snapshot!(check_error(r#"
     fn g<A>(x: A) -> A { x }
@@ -594,7 +538,7 @@ fn rule_func_inst_no_types_on_poly_func() {
     "#), @r###"
       4 |         g(1)
                   ~
-    Generic function `g` expects 1 type argument but is applied to 0 type arguments.
+    `g` is a generic function that expects 1 type argument but is applied to 0 type arguments.
     "###);
 }
 
@@ -608,7 +552,7 @@ fn rule_func_inst_zero_types_on_poly_func() {
     "#), @r###"
       4 |         g@<>(1)
                   ~
-    Generic function `g` expects 1 type argument but is applied to 0 type arguments.
+    `g` is a generic function that expects 1 type argument but is applied to 0 type arguments.
     "###);
 }
 
@@ -622,7 +566,7 @@ fn rule_func_inst_too_many_types() {
     "#), @r###"
       4 |         g@<Int, Bool>(1)
                   ~
-    Generic function `g` expects 1 type argument but is applied to 2 type arguments.
+    `g` is a generic function that expects 1 type argument but is applied to 2 type arguments.
     "###);
 }
 
@@ -636,7 +580,7 @@ fn rule_func_inst_too_few_types() {
     "#), @r###"
       4 |         g@<Int>(1)
                   ~
-    Generic function `g` expects 2 type arguments but is applied to 1 type argument.
+    `g` is a generic function that expects 2 type arguments but is applied to 1 type argument.
     "###);
 }
 

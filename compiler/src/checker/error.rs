@@ -12,6 +12,7 @@ pub enum Error {
     UnexpectedGeneric(TypeVar, Arity),
     GenericTypeArityMismatch { type_var: TypeVar, expected: Arity, found: Arity },
     GenericFuncArityMismatch { expr_var: ExprVar, expected: Arity, found: Arity },
+    BadNonGenericCall { expr_var: ExprVar },
     TypeMismatch { expected: RcType, found: RcType },
     ParamTypeMismatch { param: ExprVar, expected: RcType, found: RcType },
     ParamNeedsType(ExprVar),
@@ -101,21 +102,12 @@ impl fmt::Display for Error {
                 expr_var,
                 expected,
                 found,
-            } => {
-                if *expected > 0 {
-                    write!(
+            } => write!(
                     f,
-                    "Generic function `{}` expects {} type argument{} but is applied to {} type argument{}.",
-                    expr_var, expected, plural(*expected), found, plural(*found))
-                } else if *found == 0 {
-                    write!(f, "`{}` is not a generic function and must be called as `{}(...)`.", expr_var, expr_var)
-                } else {
-                    write!(
-                        f,
-                        "`{}` is not a generic function but is applied to {} type argument{}.",
-                        expr_var, found, plural(*found)
-                    )
-                }
+                    "`{}` is a generic function that expects {} type argument{} but is applied to {} type argument{}.",
+                    expr_var, expected, plural(*expected), found, plural(*found)),
+            Self::BadNonGenericCall { expr_var } => {
+                write!(f, "`{}` is not a generic function and must be called as `{}(...)`.", expr_var, expr_var)
             }
             Self::TypeMismatch { expected, found } => write!(
                 f,

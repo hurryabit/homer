@@ -5,6 +5,7 @@ pub mod debug;
 #[macro_use]
 mod ident;
 mod iter;
+pub use iter::ExprRef;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Module {

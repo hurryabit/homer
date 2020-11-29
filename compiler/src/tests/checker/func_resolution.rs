@@ -2,263 +2,726 @@
 use super::*;
 
 #[test]
-fn resolve_func_mono() {
-    insta::assert_debug_snapshot!(check_output_func_body("f", r#"
+fn resolve_var_check_fun_param() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f(resolve_me: Int) -> Int {
+        resolve_me
+    }
+    "#), @r###"
+    [
+        VAR "resolve_me" @ 4:9-4:19,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_var_infer_fun_param() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f(resolve_me: Int) -> Int {
+        let x = resolve_me;
+        x
+    }
+    "#), @r###"
+    [
+        VAR "resolve_me" @ 4:17-4:27,
+        VAR "x" @ 5:9-5:10,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_var_check_lam_check_param() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f() -> (Int) -> Int {
+        fn (resolve_me) { resolve_me }
+    }
+    "#), @r###"
+    [
+        VAR "resolve_me" @ 4:27-4:37,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_var_infer_lam_check_param() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f() -> (Int) -> Int {
+        fn (resolve_me) {
+            let x = resolve_me;
+            x
+        }
+    }
+    "#), @r###"
+    [
+        VAR "resolve_me" @ 5:21-5:31,
+        VAR "x" @ 6:13-6:14,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_var_check_lam_infer_param() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f() -> (Int) -> Int {
+        let f = fn (resolve_me: Int) { resolve_me };
+        f
+    }
+    "#), @r###"
+    [
+        VAR "resolve_me" @ 4:40-4:50,
+        VAR "f" @ 5:9-5:10,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_var_infer_lam_infer_param() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f() -> (Int) -> Int {
+        let f = fn (resolve_me: Int) {
+            let x = resolve_me;
+            x
+        };
+        f
+    }
+    "#), @r###"
+    [
+        VAR "resolve_me" @ 5:21-5:31,
+        VAR "x" @ 6:13-6:14,
+        VAR "f" @ 8:9-8:10,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_var_check_let_check_bound() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f() -> Int {
+        let resolve_me: Int = 0;
+        resolve_me
+    }
+    "#), @r###"
+    [
+        VAR "resolve_me" @ 5:9-5:19,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_var_infer_let_check_bound() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f() -> Int {
+        let resolve_me: Int = 0;
+        let x = resolve_me;
+        x
+    }
+    "#), @r###"
+    [
+        VAR "resolve_me" @ 5:17-5:27,
+        VAR "x" @ 6:9-6:10,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_var_check_let_infer_bound() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f() -> Int {
+        let resolve_me = 0;
+        resolve_me
+    }
+    "#), @r###"
+    [
+        VAR "resolve_me" @ 5:9-5:19,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_var_infer_let_infer_bound() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f() -> Int {
+        let resolve_me = 0;
+        let x = resolve_me;
+        x
+    }
+    "#), @r###"
+    [
+        VAR "resolve_me" @ 5:17-5:27,
+        VAR "x" @ 6:9-6:10,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_var_check_branch_bound() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f(x: [C(Int)]) -> Int {
+        match x {
+            C(resolve_me) => resolve_me,
+        }
+    }
+    "#), @r###"
+    [
+        VAR "x" @ 4:15-4:16,
+        VAR "resolve_me" @ 5:30-5:40,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_var_infer_branch_bound() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f(x: [C(Int)]) -> Int {
+        match x {
+            C(resolve_me) => {
+                let x = resolve_me;
+                x
+            }
+        }
+    }
+    "#), @r###"
+    [
+        VAR "x" @ 4:15-4:16,
+        VAR "resolve_me" @ 6:25-6:35,
+        VAR "x" @ 7:17-7:18,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_var_check_unknown() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> Int {
+        resolve_me
+    }
+    "#), @r###"
+      3 |         resolve_me
+                  ~~~~~~~~~~
+    Undeclared variable `resolve_me`.
+    "###);
+}
+
+#[test]
+fn resolve_var_infer_unknown() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> Int {
+        let x = resolve_me;
+        x
+    }
+    "#), @r###"
+      3 |         let x = resolve_me;
+                          ~~~~~~~~~~
+    Undeclared variable `resolve_me`.
+    "###);
+}
+
+#[test]
+fn resolve_var_check_is_func() {
+    insta::assert_snapshot!(check_error(r#"
     fn resolve_me() -> Int { 0 }
-    fn f() -> Int { resolve_me() }
-    "#), @r###"
-    APPFUN
-        fun: resolve_me @ 3:21-3:31
-    "###);
-}
-
-#[test]
-fn resolve_func_poly() {
-    insta::assert_debug_snapshot!(check_output_func_body("f", r#"
-    fn resolve_me<A>() -> Int { 0 }
-    fn f() -> Int { resolve_me@<Int>() }
-    "#), @r###"
-    APPFUN
-        fun: resolve_me @ 3:21-3:31
-        type_arg: INT @ 3:33-3:36
-    "###);
-}
-
-#[test]
-fn resolve_func_param() {
-    insta::assert_debug_snapshot!(check_output_func_body("f", r#"
-    fn resolve_me() -> Bool { true }
-    fn f(resolve_me: () -> Int) -> Int { resolve_me() }
-    "#), @r###"
-    APPCLO
-        clo: resolve_me @ 3:42-3:52
-    "###);
-}
-
-#[test]
-fn resolve_let_infer_infer() {
-    insta::assert_debug_snapshot!(check_output_func_body("f", r#"
-    fn resolve_me() -> Bool { true }
-    fn f() -> Int {
-        let r = {
-            let resolve_me = fn () { 0 };
-            resolve_me()
-        };
-        r
+    fn g() -> () -> Int {
+        resolve_me
     }
     "#), @r###"
-    LET
-        binder: r @ 4:13-4:14
-        type: INFERRED @ 4:13-4:14
-            type: INT
-        bindee: LET @ 5:13-6:25
-            binder: resolve_me @ 5:17-5:27
-            type: INFERRED @ 5:17-5:27
-                type: FUN
-                    result: INT
-            bindee: LAM @ 5:30-5:41
-                body: 0 @ 5:38-5:39
-            tail: APPCLO @ 6:13-6:25
-                clo: resolve_me @ 6:13-6:23
-        tail: VAR @ 8:9-8:10
-            var: r @ 8:9-8:10
+      4 |         resolve_me
+                  ~~~~~~~~~~
+    Undeclared variable `resolve_me`. There is a function of the same name.
+    If you want to use the function as a closure, you have to wrap it
+    explicitly: `fn (...) { resolve_me(...) }`.
     "###);
 }
 
 #[test]
-fn resolve_let_infer_check() {
-    insta::assert_debug_snapshot!(check_output_func_body("f", r#"
+fn resolve_var_infer_is_func() {
+    insta::assert_snapshot!(check_error(r#"
+    fn resolve_me() -> Int { 0 }
+    fn g() -> () -> Int {
+        let x = resolve_me;
+        x
+    }
+    "#), @r###"
+      4 |         let x = resolve_me;
+                          ~~~~~~~~~~
+    Undeclared variable `resolve_me`. There is a function of the same name.
+    If you want to use the function as a closure, you have to wrap it
+    explicitly: `fn (...) { resolve_me(...) }`.
+    "###);
+}
+
+#[test]
+fn resolve_clo_check_fun_param() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
     fn resolve_me() -> Bool { true }
-    fn f() -> Int {
-        let resolve_me = fn () { 0 };
+    fn f(resolve_me: () -> Int) -> Int {
         resolve_me()
     }
     "#), @r###"
-    LET
-        binder: resolve_me @ 4:13-4:23
-        type: INFERRED @ 4:13-4:23
-            type: FUN
-                result: INT
-        bindee: LAM @ 4:26-4:37
-            body: 0 @ 4:34-4:35
-        tail: APPCLO @ 5:9-5:21
-            clo: resolve_me @ 5:9-5:19
+    [
+        CLO "resolve_me" @ 4:9-4:19,
+    ]
     "###);
 }
 
 #[test]
-fn resolve_let_check_infer() {
-    insta::assert_debug_snapshot!(check_output_func_body("f", r#"
+fn resolve_clo_infer_fun_param() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
     fn resolve_me() -> Bool { true }
-    fn f() -> Int {
-        let r = {
-            let resolve_me: () -> Int = fn () { 0 };
-            resolve_me()
-        };
-        r
+    fn f(resolve_me: () -> Int) -> Int {
+        let x = resolve_me();
+        x
     }
     "#), @r###"
-    LET
-        binder: r @ 4:13-4:14
-        type: INFERRED @ 4:13-4:14
-            type: INT
-        bindee: LET @ 5:13-6:25
-            binder: resolve_me @ 5:17-5:27
-            type: FUN @ 5:29-5:38
-                result: INT @ 5:35-5:38
-            bindee: LAM @ 5:41-5:52
-                body: 0 @ 5:49-5:50
-            tail: APPCLO @ 6:13-6:25
-                clo: resolve_me @ 6:13-6:23
-        tail: VAR @ 8:9-8:10
-            var: r @ 8:9-8:10
+    [
+        CLO "resolve_me" @ 4:17-4:27,
+        VAR "x" @ 5:9-5:10,
+    ]
     "###);
 }
 
 #[test]
-fn resolve_let_check_check() {
-    insta::assert_debug_snapshot!(check_output_func_body("f", r#"
+fn resolve_clo_check_lam_check_param() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
     fn resolve_me() -> Bool { true }
-    fn f() -> Int {
-        let resolve_me: () -> Int = fn () { 0 };
-        resolve_me()
+    fn f() -> (() -> Int) -> Int {
+        fn (resolve_me) { resolve_me() }
     }
     "#), @r###"
-    LET
-        binder: resolve_me @ 4:13-4:23
-        type: FUN @ 4:25-4:34
-            result: INT @ 4:31-4:34
-        bindee: LAM @ 4:37-4:48
-            body: 0 @ 4:45-4:46
-        tail: APPCLO @ 5:9-5:21
-            clo: resolve_me @ 5:9-5:19
+    [
+        CLO "resolve_me" @ 4:27-4:37,
+    ]
     "###);
 }
 
 #[test]
-fn resolve_lam_param_infer() {
-    insta::assert_debug_snapshot!(check_output_func_body("f", r#"
+fn resolve_clo_infer_lam_check_param() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f() -> (() -> Int) -> Int {
+        fn (resolve_me) {
+            let x = resolve_me();
+            x
+        }
+    }
+    "#), @r###"
+    [
+        CLO "resolve_me" @ 5:21-5:31,
+        VAR "x" @ 6:13-6:14,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_clo_check_lam_infer_param() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
     fn resolve_me() -> Bool { true }
     fn f() -> (() -> Int) -> Int {
         let f = fn (resolve_me: () -> Int) { resolve_me() };
         f
     }
     "#), @r###"
-    LET
-        binder: f @ 4:13-4:14
-        type: INFERRED @ 4:13-4:14
-            type: FUN
-                param: FUN
-                    result: INT
-                result: INT
-        bindee: LAM @ 4:17-4:60
-            param: resolve_me @ 4:21-4:31
-            type: FUN @ 4:33-4:42
-                result: INT @ 4:39-4:42
-            body: APPCLO @ 4:46-4:58
-                clo: resolve_me @ 4:46-4:56
-        tail: VAR @ 5:9-5:10
-            var: f @ 5:9-5:10
+    [
+        CLO "resolve_me" @ 4:46-4:56,
+        VAR "f" @ 5:9-5:10,
+    ]
     "###);
 }
 
 #[test]
-fn resolve_lam_param_check_unannotated() {
-    insta::assert_debug_snapshot!(check_output_func_body("f", r#"
+fn resolve_clo_infer_lam_infer_param() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
     fn resolve_me() -> Bool { true }
     fn f() -> (() -> Int) -> Int {
-        fn (resolve_me) { resolve_me() }
+        let f = fn (resolve_me: () -> Int) {
+            let x = resolve_me();
+            x
+        };
+        f
     }
     "#), @r###"
-    LAM
-        param: resolve_me @ 4:13-4:23
-        type: INFERRED @ 4:13-4:23
-            type: FUN
-                result: INT
-        body: APPCLO @ 4:27-4:39
-            clo: resolve_me @ 4:27-4:37
+    [
+        CLO "resolve_me" @ 5:21-5:31,
+        VAR "x" @ 6:13-6:14,
+        VAR "f" @ 8:9-8:10,
+    ]
     "###);
 }
 
 #[test]
-fn resolve_lam_param_check_annotated() {
-    insta::assert_debug_snapshot!(check_output_func_body("f", r#"
-    fn resolve_me() -> Bool { true }
-    fn f() -> (() -> Int) -> Int {
-        fn (resolve_me: () -> Int) { resolve_me() }
-    }
-    "#), @r###"
-    LAM
-        param: resolve_me @ 4:13-4:23
-        type: FUN @ 4:25-4:34
-            result: INT @ 4:31-4:34
-        body: APPCLO @ 4:38-4:50
-            clo: resolve_me @ 4:38-4:48
-    "###);
-}
-
-#[test]
-fn resolve_match() {
-    insta::assert_debug_snapshot!(check_output_func_body("f", r#"
+fn resolve_clo_check_let_check_bound() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
     fn resolve_me() -> Bool { true }
     fn f() -> Int {
-        let f: [F(() -> Int)] = F(fn () { 0 });
-        match f {
-            F(resolve_me) => resolve_me(),
+        let resolve_me: () -> Int = fn () { 0 };
+        resolve_me()
+    }
+    "#), @r###"
+    [
+        CLO "resolve_me" @ 5:9-5:19,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_clo_infer_let_check_bound() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f() -> Int {
+        let resolve_me: () -> Int = fn () { 0 };
+        let x = resolve_me();
+        x
+    }
+    "#), @r###"
+    [
+        CLO "resolve_me" @ 5:17-5:27,
+        VAR "x" @ 6:9-6:10,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_clo_check_let_infer_bound() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f() -> Int {
+        let resolve_me = fn () { 0 };
+        resolve_me()
+    }
+    "#), @r###"
+    [
+        CLO "resolve_me" @ 5:9-5:19,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_clo_infer_let_infer_bound() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f() -> Int {
+        let resolve_me = fn () { 0 };
+        let x = resolve_me();
+        x
+    }
+    "#), @r###"
+    [
+        CLO "resolve_me" @ 5:17-5:27,
+        VAR "x" @ 6:9-6:10,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_clo_check_branch_bound() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f(x: [C(() -> Int)]) -> Int {
+        match x {
+            C(resolve_me) => resolve_me(),
         }
     }
     "#), @r###"
-    LET
-        binder: f @ 4:13-4:14
-        type: VARIANT @ 4:16-4:30
-            constr: F @ 4:17-4:18
-            type: FUN @ 4:19-4:28
-                result: INT @ 4:25-4:28
-        bindee: VARIANT @ 4:33-4:47
-            constr: F/0
-            payload: LAM @ 4:35-4:46
-                body: 0 @ 4:43-4:44
-        tail: MATCH @ 5:9-7:10
-            scrut: VAR @ 5:15-5:16
-                var: f @ 5:15-5:16
-            branch: BRANCH
-                pattern: PATTERN @ 6:13-6:26
-                    constr: F/0
-                    binder: resolve_me @ 6:15-6:25
-                rhs: APPCLO @ 6:30-6:42
-                    clo: resolve_me @ 6:30-6:40
+    [
+        VAR "x" @ 4:15-4:16,
+        CLO "resolve_me" @ 5:30-5:40,
+    ]
     "###);
 }
 
 #[test]
-fn resolve_implicit_closure_let() {
-    insta::assert_snapshot!(check_error(r#"
-    fn f() -> Int { 0 }
-    fn g() -> Int {
-        let h = f;
-        h()
+fn resolve_clo_infer_branch_bound() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Bool { true }
+    fn f(x: [C(() -> Int)]) -> Int {
+        match x {
+            C(resolve_me) => {
+                let x = resolve_me();
+                x
+            }
+        }
     }
     "#), @r###"
-      4 |         let h = f;
-                          ~
-    Undeclared variable `f`. There is a function of the same name.
-    If you want to use the function as a closure, you have to wrap it
-    explicitly: `fn (...) { f(...) }`.
+    [
+        VAR "x" @ 4:15-4:16,
+        CLO "resolve_me" @ 6:25-6:35,
+        VAR "x" @ 7:17-7:18,
+    ]
     "###);
 }
 
 #[test]
-fn resolve_implicit_closure_arg() {
+fn resolve_clo_check_unknown() {
     insta::assert_snapshot!(check_error(r#"
-    fn f() -> Int { 0 }
-    fn g(h: (() -> Int) -> Int) -> Int {
-        h(f)
+    fn f() -> Int {
+        resolve_me()
     }
     "#), @r###"
-      4 |         h(f)
-                    ~
-    Undeclared variable `f`. There is a function of the same name.
-    If you want to use the function as a closure, you have to wrap it
-    explicitly: `fn (...) { f(...) }`.
+      3 |         resolve_me()
+                  ~~~~~~~~~~
+    Undeclared variable `resolve_me`.
+    "###);
+}
+
+#[test]
+fn resolve_clo_infer_unknown() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> Int {
+        let x = resolve_me();
+        x
+    }
+    "#), @r###"
+      3 |         let x = resolve_me();
+                          ~~~~~~~~~~
+    Undeclared variable `resolve_me`.
+    "###);
+}
+
+#[test]
+fn resolve_mono_fun_check() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Int { 0 }
+    fn f() -> Int {
+        resolve_me()
+    }
+    "#), @r###"
+    [
+        FUN "resolve_me" @ 4:9-4:19,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_mono_fun_infer() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me() -> Int { 0 }
+    fn f() -> Int {
+        let x = resolve_me();
+        x
+    }
+    "#), @r###"
+    [
+        FUN "resolve_me" @ 4:17-4:27,
+        VAR "x" @ 5:9-5:10,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_poly_fun_check_poly_fun() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me<A>() -> Int { 0 }
+    fn f() -> Int {
+        resolve_me@<Int>()
+    }
+    "#), @r###"
+    [
+        FUN "resolve_me" @ 4:9-4:19,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_poly_fun_infer_poly_fun() {
+    insta::assert_debug_snapshot!(check_output_func_refs("f", r#"
+    fn resolve_me<A>() -> Int { 0 }
+    fn f() -> Int {
+        let x = resolve_me@<Int>();
+        x
+    }
+    "#), @r###"
+    [
+        FUN "resolve_me" @ 4:17-4:27,
+        VAR "x" @ 5:9-5:10,
+    ]
+    "###);
+}
+
+#[test]
+fn resolve_poly_fun_check_unknown() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> Int {
+        resolve_me@<Int>()
+    }
+    "#), @r###"
+      3 |         resolve_me@<Int>()
+                  ~~~~~~~~~~
+    Undeclared variable `resolve_me`.
+    "###);
+}
+
+#[test]
+fn resolve_poly_fun_infer_unknown() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> Int {
+        let x = resolve_me@<Int>();
+        x
+    }
+    "#), @r###"
+      3 |         let x = resolve_me@<Int>();
+                          ~~~~~~~~~~
+    Undeclared variable `resolve_me`.
+    "###);
+}
+
+#[test]
+fn resolve_poly_fun_check_mono_fun() {
+    insta::assert_snapshot!(check_error(r#"
+    fn resolve_me() -> Int { 0 }
+    fn f() -> Int {
+        resolve_me@<Int>()
+    }
+    "#), @r###"
+      4 |         resolve_me@<Int>()
+                  ~~~~~~~~~~
+    `resolve_me` is not a generic function and must be called as `resolve_me(...)`.
+    "###);
+}
+
+#[test]
+fn resolve_poly_fun_infer_mono_fun() {
+    insta::assert_snapshot!(check_error(r#"
+    fn resolve_me() -> Int { 0 }
+    fn f() -> Int {
+        let x = resolve_me@<Int>();
+        x
+    }
+    "#), @r###"
+      4 |         let x = resolve_me@<Int>();
+                          ~~~~~~~~~~
+    `resolve_me` is not a generic function and must be called as `resolve_me(...)`.
+    "###);
+}
+
+#[test]
+fn resolve_poly_fun_check_clo() {
+    insta::assert_snapshot!(check_error(r#"
+    fn resolve_me<A>() -> Int { 0 }
+    fn f() -> Int {
+        let resolve_me = fn() { 0 };
+        resolve_me@<Int>()
+    }
+    "#), @r###"
+      5 |         resolve_me@<Int>()
+                  ~~~~~~~~~~
+    `resolve_me` is not a generic function and must be called as `resolve_me(...)`.
+    "###);
+}
+
+#[test]
+fn resolve_poly_fun_infer_clo() {
+    insta::assert_snapshot!(check_error(r#"
+    fn resolve_me<A>() -> Int { 0 }
+    fn f() -> Int {
+        let x = {
+            let resolve_me = fn () { 0 };
+            resolve_me@<Int>()
+        };
+        x
+    }
+    "#), @r###"
+      6 |             resolve_me@<Int>()
+                      ~~~~~~~~~~
+    `resolve_me` is not a generic function and must be called as `resolve_me(...)`.
+    "###);
+}
+
+#[test]
+fn resolve_poly0_fun_check_unknown() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> Int {
+        resolve_me@<>()
+    }
+    "#), @r###"
+      3 |         resolve_me@<>()
+                  ~~~~~~~~~~
+    Undeclared variable `resolve_me`.
+    "###);
+}
+
+#[test]
+fn resolve_poly0_fun_infer_unknown() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> Int {
+        let x = resolve_me@<>();
+        x
+    }
+    "#), @r###"
+      3 |         let x = resolve_me@<>();
+                          ~~~~~~~~~~
+    Undeclared variable `resolve_me`.
+    "###);
+}
+
+#[test]
+fn resolve_poly0_fun_check_mono_fun() {
+    insta::assert_snapshot!(check_error(r#"
+    fn resolve_me() -> Int { 0 }
+    fn f() -> Int {
+        resolve_me@<>()
+    }
+    "#), @r###"
+      4 |         resolve_me@<>()
+                  ~~~~~~~~~~
+    `resolve_me` is not a generic function and must be called as `resolve_me(...)`.
+    "###);
+}
+
+#[test]
+fn resolve_poly0_fun_infer_mono_fun() {
+    insta::assert_snapshot!(check_error(r#"
+    fn resolve_me() -> Int { 0 }
+    fn f() -> Int {
+        let x = resolve_me@<>();
+        x
+    }
+    "#), @r###"
+      4 |         let x = resolve_me@<>();
+                          ~~~~~~~~~~
+    `resolve_me` is not a generic function and must be called as `resolve_me(...)`.
+    "###);
+}
+
+#[test]
+fn resolve_poly0_fun_check_clo() {
+    insta::assert_snapshot!(check_error(r#"
+    fn resolve_me<A>() -> Int { 0 }
+    fn f() -> Int {
+        let resolve_me = fn() { 0 };
+        resolve_me@<>()
+    }
+    "#), @r###"
+      5 |         resolve_me@<>()
+                  ~~~~~~~~~~
+    `resolve_me` is not a generic function and must be called as `resolve_me(...)`.
+    "###);
+}
+
+#[test]
+fn resolve_poly0_fun_infer_clo() {
+    insta::assert_snapshot!(check_error(r#"
+    fn resolve_me<A>() -> Int { 0 }
+    fn f() -> Int {
+        let x = {
+            let resolve_me = fn () { 0 };
+            resolve_me@<>()
+        };
+        x
+    }
+    "#), @r###"
+      6 |             resolve_me@<>()
+                      ~~~~~~~~~~
+    `resolve_me` is not a generic function and must be called as `resolve_me(...)`.
     "###);
 }
