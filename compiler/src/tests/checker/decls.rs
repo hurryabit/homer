@@ -2,9 +2,11 @@ use super::*;
 
 #[test]
 fn type_decl_1() {
-    check_success(r#"
+    check_success(
+        r#"
     type List<A> = [Nil | Cons({head: A, tail: List<A>})]
-    "#);
+    "#,
+    );
 }
 
 #[test]
@@ -55,16 +57,18 @@ fn type_decl_illformed_body() {
 
 #[test]
 fn func_decl_1() {
-  check_success(r#"
-  type List<A> = [Nil | Cons({head: A, tail: List<A>})]
-  fn map<A, B>(xs: List<A>, f: (A) -> B) -> List<B> {
-    let g = fn (xs: List<A>) { map@<A, B>(xs, f)};
-    match xs {
-      Nil => Nil,
-      Cons(xs) => Cons({head = f(xs.head), tail = g(xs.tail)}),
-    }
-  }
-  "#);
+    check_success(
+        r#"
+        type List<A> = [Nil | Cons({head: A, tail: List<A>})]
+        fn map<A, B>(xs: List<A>, f: (A) -> B) -> List<B> {
+          let g = fn (xs: List<A>) { map@<A, B>(xs, f)};
+          match xs {
+            Nil => Nil,
+            Cons(xs) => Cons({head = f(xs.head), tail = g(xs.tail)}),
+          }
+        }
+        "#,
+    );
 }
 
 #[test]

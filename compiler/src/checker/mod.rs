@@ -1,7 +1,8 @@
 use crate::*;
 use diagnostic::*;
 use error::{Error, LError};
-use location::Humanizer;
+use location::{Located, SourceSpan};
+use std::cell::Cell;
 use std::collections;
 use std::hash::Hash;
 use std::rc::Rc;
@@ -9,32 +10,31 @@ use syntax::*;
 use types::*;
 
 mod error;
+pub mod info;
 mod types;
-
-type Span = location::Span<location::ParserLoc>;
-
-type Located<T> = location::Located<T, location::ParserLoc>;
 
 type Arity = usize;
 
-type Type = types::Type;
+pub use info::SymbolInfo;
+pub use types::{RcType, SynType, Type};
 
 #[derive(Clone)]
 struct Env {
     builtin_types: Rc<collections::HashMap<TypeVar, Box<dyn Fn() -> syntax::Type>>>,
     type_defs: Rc<collections::HashMap<TypeVar, TypeScheme>>,
-    func_sigs: Rc<collections::HashMap<ExprVar, TypeScheme>>,
+    func_sigs: Rc<collections::HashMap<ExprVar, Rc<FuncSig>>>,
     type_vars: im::HashSet<TypeVar>,
-    expr_vars: im::HashMap<ExprVar, RcType>,
+    expr_vars: im::HashMap<ExprVar, (SourceSpan, RcType)>,
+    symbols: Rc<Cell<Vec<SymbolInfo>>>,
 }
 
 impl Module {
-    pub fn check(&self, humanizer: &Humanizer) -> Result<Self, Diagnostic> {
+    pub fn check(&self) -> Result<(Self, Vec<SymbolInfo>), Diagnostic> {
         let mut module = self.clone();
         match module.check_impl() {
-            Ok(()) => Ok(module),
+            Ok(symbols) => Ok((module, symbols)),
             Err(error) => Err(Diagnostic {
-                span: error.span.humanize(humanizer),
+                span: error.span,
                 severity: Severity::Error,
                 source: Source::Checker,
                 message: format!("{}", error.locatee),
@@ -42,24 +42,18 @@ impl Module {
         }
     }
 
-    fn check_impl(&mut self) -> Result<(), LError> {
+    fn check_impl(&mut self) -> Result<Vec<SymbolInfo>, LError> {
         if let Some((span, name)) = find_duplicate(self.type_decls().map(|decl| decl.name.as_ref()))
         {
             return Err(Located::new(
-                Error::DuplicateTypeDecl {
-                    var: *name.locatee,
-                    original: span,
-                },
+                Error::DuplicateTypeDecl { var: *name.locatee, original: span },
                 name.span,
             ));
         }
         if let Some((span, name)) = find_duplicate(self.func_decls().map(|decl| decl.name.as_ref()))
         {
             return Err(Located::new(
-                Error::DuplicateFuncDecl {
-                    var: *name.locatee,
-                    original: span,
-                },
+                Error::DuplicateFuncDecl { var: *name.locatee, original: span },
                 name.span,
             ));
         }
@@ -71,13 +65,15 @@ impl Module {
         env.type_defs = Rc::new(self.type_defs());
         let func_sigs = self
             .func_decls_mut()
-            .map(|decl| Ok((decl.name.locatee, decl.check_signature(&env)?)))
+            .map(|decl| Ok((decl.name.locatee, Rc::new(decl.check_signature(&env)?))))
             .collect::<Result<_, _>>()?;
         env.func_sigs = Rc::new(func_sigs);
         for decl in self.func_decls_mut() {
             decl.check(&env)?;
         }
-        Ok(())
+        let mut symbols = env.symbols.take();
+        symbols.sort_by_key(|symbol| symbol.span().start);
+        Ok(symbols)
     }
 
     fn type_defs(&self) -> collections::HashMap<TypeVar, TypeScheme> {
@@ -97,11 +93,7 @@ impl Module {
 
 impl TypeDecl {
     fn check(&mut self, env: &Env) -> Result<(), LError> {
-        let Self {
-            name: _,
-            params,
-            body,
-        } = self;
+        let Self { name: _, params, body } = self;
         LTypeVar::check_unique(params.iter())?;
         let env = &mut env.clone();
         env.type_vars = params.iter().map(|param| param.locatee).collect();
@@ -110,14 +102,8 @@ impl TypeDecl {
 }
 
 impl FuncDecl {
-    fn check_signature(&mut self, env: &Env) -> Result<TypeScheme, LError> {
-        let Self {
-            name: _,
-            type_params,
-            expr_params,
-            return_type,
-            body: _,
-        } = self;
+    fn check_signature(&mut self, env: &Env) -> Result<FuncSig, LError> {
+        let Self { name, type_params, expr_params, return_type, body: _ } = self;
         LTypeVar::check_unique(type_params.iter())?;
         let env = &mut env.clone();
         env.type_vars = type_params.iter().map(|param| param.locatee).collect();
@@ -125,32 +111,23 @@ impl FuncDecl {
             typ.check(env)?;
         }
         return_type.check(env)?;
-        Ok(TypeScheme {
-            params: type_params.iter().map(|param| param.locatee).collect(),
-            body: RcType::new(Type::Fun(
-                expr_params
-                    .iter()
-                    .map(|(_, typ)| RcType::from_lsyntax(typ))
-                    .collect(),
-                RcType::from_lsyntax(return_type),
-            )),
+        Ok(FuncSig {
+            name: *name,
+            type_params: type_params.iter().map(|param| param.locatee).collect(),
+            params: expr_params
+                .iter()
+                .map(|(var, typ)| (var.locatee, RcType::from_lsyntax(typ)))
+                .collect(),
+            result: RcType::from_lsyntax(return_type),
         })
     }
 
     fn check(&mut self, env: &Env) -> Result<(), LError> {
-        let Self {
-            name: _,
-            type_params,
-            expr_params,
-            return_type,
-            body,
-        } = self;
+        let Self { name: _, type_params, expr_params, return_type, body } = self;
         let env = &mut env.clone();
         env.type_vars = type_params.iter().map(|param| param.locatee).collect();
         env.intro_params(
-            expr_params
-                .iter()
-                .map(|(var, typ)| Ok((*var, RcType::from_lsyntax(typ)))),
+            expr_params.iter().map(|(var, typ)| Ok((*var, RcType::from_lsyntax(typ)))),
             |env| body.check(env, &RcType::from_lsyntax(return_type)),
         )
     }
@@ -163,12 +140,13 @@ impl LType {
 }
 
 impl syntax::Type {
-    fn check(&mut self, span: Span, env: &Env) -> Result<(), LError> {
+    fn check(&mut self, span: SourceSpan, env: &Env) -> Result<(), LError> {
         match self {
             Self::Error => Ok(()),
             Self::Int => panic!("Int in Type.check"),
             Self::Bool => panic!("Bool in Type.check"),
             Self::Var(var) => {
+                let var = &var.locatee;
                 if env.type_vars.contains(var) {
                     Ok(())
                 } else if let Some(scheme) = env.type_defs.get(var) {
@@ -234,6 +212,7 @@ impl syntax::Type {
                 }
                 Ok(())
             }
+            Self::Inferred(_) => panic!("IMPOSSIBLE: only introduced by type checker"),
         }
     }
 }
@@ -255,7 +234,8 @@ impl LExpr {
 }
 
 impl Expr {
-    fn check(&mut self, span: Span, env: &Env, expected: &RcType) -> Result<(), LError> {
+    fn check(&mut self, span: SourceSpan, env: &Env, expected: &RcType) -> Result<(), LError> {
+        self.resolve(span, env)?;
         match self {
             Self::Lam(params, body) => {
                 match expected.weak_normalize_env(env).as_ref() {
@@ -283,23 +263,19 @@ impl Expr {
                                     }
                                     Ok((*var, found))
                                 } else {
-                                    *opt_type_ann =
-                                        Some(Located::new(expected.to_syntax(), var.span));
+                                    *opt_type_ann = Some(expected.as_inferred(var));
                                     Ok((*var, expected.clone()))
                                 }
                             }),
                             |env| body.check(env, result),
                         )
                     }
-                    _ => Err(Located::new(
-                        Error::BadLam(expected.clone(), params.len()),
-                        span,
-                    )),
+                    _ => Err(Located::new(Error::BadLam(expected.clone(), params.len()), span)),
                 }
             }
-            Self::Let(binder, opt_type_ann, bindee, body) => {
+            Self::Let(binder, opt_type_ann, bindee, tail) => {
                 let binder_typ = check_let_bindee(env, binder, opt_type_ann, bindee)?;
-                env.intro_binder(binder, binder_typ, |env| body.check(env, expected))
+                env.intro_binder(binder, binder_typ, |env| tail.check(env, expected))
             }
             Self::If(cond, then, elze) => {
                 cond.check(env, &RcType::new(Type::Bool))?;
@@ -307,10 +283,12 @@ impl Expr {
                 elze.check(env, &expected)?;
                 Ok(())
             }
-            Self::Variant(constr, opt_payload) => match expected.weak_normalize_env(env).as_ref() {
-                Type::Variant(cons) => {
-                    if let Some(opt_typ) = find_by_key(&cons, constr) {
-                        match (opt_payload, opt_typ) {
+            Self::Variant(constr, rank, payload) => match expected.weak_normalize_env(env).as_ref()
+            {
+                Type::Variant(constrs) => {
+                    if let Some(constr_rank) = constrs.iter().position(|x| x.0 == *constr) {
+                        *rank = Some(constr_rank as u32);
+                        match (payload, &constrs[constr_rank].1) {
                             (None, None) => Ok(()),
                             (Some(payload), Some(typ)) => payload.check(env, typ),
                             (opt_payload, opt_typ) => LError::variant_payload(
@@ -322,21 +300,17 @@ impl Expr {
                             ),
                         }
                     } else {
-                        Err(Located::new(
-                            Error::BadVariantConstr(expected.clone(), *constr),
-                            span,
-                        ))
+                        Err(Located::new(Error::BadVariantConstr(expected.clone(), *constr), span))
                     }
                 }
-                _ => Err(Located::new(
-                    Error::UnexpectedVariantType(expected.clone(), *constr),
-                    span,
-                )),
+                _ => {
+                    Err(Located::new(Error::UnexpectedVariantType(expected.clone(), *constr), span))
+                }
             },
             Self::Match(scrut, branches) => {
                 let branches = check_match_patterns(env, scrut, branches)?;
-                for (binder, body) in branches {
-                    env.intro_opt_binder(binder, |env| body.check(env, expected))?;
+                for (binder, rhs) in branches {
+                    env.intro_opt_binder(binder, |env| rhs.check(env, expected))?;
                 }
                 Ok(())
             }
@@ -344,20 +318,17 @@ impl Expr {
             | Self::Var(_)
             | Self::Num(_)
             | Self::Bool(_)
-            | Self::App(_, _)
+            | Self::AppClo(_, _)
+            | Self::AppFun(_, _, _)
             | Self::BinOp(_, _, _)
-            | Self::FuncInst(_, _)
             | Self::Record(_)
-            | Self::Proj(_, _) => {
-                let found = self.infer(span, env)?;
+            | Self::Proj(_, _, _) => {
+                let found = self.infer_resolved(span, env)?;
                 if found.equiv(expected, &env.type_defs) {
                     Ok(())
                 } else {
                     Err(Located::new(
-                        Error::TypeMismatch {
-                            found,
-                            expected: expected.clone(),
-                        },
+                        Error::TypeMismatch { found, expected: expected.clone() },
                         span,
                     ))
                 }
@@ -365,30 +336,18 @@ impl Expr {
         }
     }
 
-    fn infer(&mut self, span: Span, env: &Env) -> Result<RcType, LError> {
+    fn infer(&mut self, span: SourceSpan, env: &Env) -> Result<RcType, LError> {
+        self.resolve(span, env)?;
+        self.infer_resolved(span, env)
+    }
+
+    fn infer_resolved(&mut self, span: SourceSpan, env: &Env) -> Result<RcType, LError> {
         match self {
             Self::Error => Ok(RcType::new(Type::Error)),
             Self::Var(var) => {
-                if let Some(found) = env.expr_vars.get(var) {
-                    Ok(found.clone())
-                } else if let Some(TypeScheme { params, body }) = env.func_sigs.get(var) {
-                    let arity = params.len();
-                    if arity == 0 {
-                        *self = Self::FuncInst(Located::new(*var, span), vec![]);
-                        Ok(body.clone())
-                    } else {
-                        Err(Located::new(
-                            Error::GenericFuncArityMismatch {
-                                expr_var: *var,
-                                expected: arity,
-                                found: 0,
-                            },
-                            span,
-                        ))
-                    }
-                } else {
-                    Err(Located::new(Error::UnknownExprVar(*var), span))
-                }
+                let (def, typ) = env.expr_vars.get(&var.locatee).unwrap();
+                env.add_symbol(SymbolInfo::ExprVar { var: *var, typ: typ.clone(), def: *def });
+                Ok(typ.clone())
             }
             Self::Num(_) => Ok(RcType::new(Type::Int)),
             Self::Bool(_) => Ok(RcType::new(Type::Bool)),
@@ -409,31 +368,72 @@ impl Expr {
                 )?;
                 Ok(RcType::new(Type::Fun(param_types, result)))
             }
-            Self::App(func, args) => {
-                let func_type = func.infer(env)?;
-                let num_args = args.len();
-                match func_type.weak_normalize_env(env).as_ref() {
-                    Type::Fun(params, result) if params.len() == num_args => {
+            Self::AppClo(clo, args) => {
+                let (def, clo_type) = env.expr_vars.get(&clo.locatee).unwrap();
+                env.add_symbol(SymbolInfo::ExprVar { var: *clo, typ: clo_type.clone(), def: *def });
+                match clo_type.weak_normalize_env(env).as_ref() {
+                    Type::Fun(params, result) if args.len() == params.len() => {
                         for (arg, typ) in args.iter_mut().zip(params.iter()) {
                             arg.check(env, typ)?;
                         }
                         Ok(result.clone())
                     }
-                    _ => {
-                        let func = match func.locatee {
-                            Expr::Var(var) => Some(var),
-                            Expr::FuncInst(func, _) => Some(func.locatee),
-                            _ => None,
-                        };
+                    _ => Err(Located::new(
+                        Error::BadApp {
+                            func: Some(clo.locatee),
+                            func_type: clo_type.clone(),
+                            num_args: args.len(),
+                        },
+                        span,
+                    )),
+                }
+            }
+            Self::AppFun(fun, opt_types, args) => {
+                let num_types = opt_types.as_ref().map_or(0, |types| types.len());
+                if let Some(types) = opt_types {
+                    for typ in types.iter_mut() {
+                        typ.check(env)?;
+                    }
+                }
+                let func_sig = env.func_sigs.get(&fun.locatee).unwrap();
+                // NOTE(MH): The name resolution only passes `f@<>(...)` on
+                // when `f` is a polymorphic function.
+                if matches!(opt_types, Some(types) if types.is_empty()) {
+                    assert!(!func_sig.params.is_empty());
+                }
+                env.add_symbol(SymbolInfo::FuncRef { var: *fun, def: Rc::clone(func_sig) });
+                if num_types == func_sig.type_params.len() {
+                    let types: Vec<_> = opt_types
+                        .as_ref()
+                        .unwrap_or(&vec![])
+                        .iter()
+                        .map(RcType::from_lsyntax)
+                        .collect();
+                    let (params, result) = func_sig.instantiate(&types);
+                    if args.len() == params.len() {
+                        for (arg, typ) in args.iter_mut().zip(params.iter()) {
+                            arg.check(env, typ)?;
+                        }
+                        Ok(result)
+                    } else {
                         Err(Located::new(
                             Error::BadApp {
-                                func,
-                                func_type,
-                                num_args,
+                                func: Some(fun.locatee),
+                                func_type: RcType::new(Type::Fun(params, result)),
+                                num_args: args.len(),
                             },
                             span,
                         ))
                     }
+                } else {
+                    Err(Located::new(
+                        Error::GenericFuncArityMismatch {
+                            expr_var: fun.locatee,
+                            expected: func_sig.type_params.len(),
+                            found: num_types,
+                        },
+                        fun.span,
+                    ))
                 }
             }
             Self::BinOp(lhs, op, rhs) => match op {
@@ -454,42 +454,9 @@ impl Expr {
                     Ok(RcType::new(Type::Bool))
                 }
             },
-            Self::FuncInst(var, types) => {
-                let num_types = types.len();
-                for typ in types.iter_mut() {
-                    typ.check(env)?;
-                }
-                if env.expr_vars.contains_key(&var.locatee) {
-                    Err(Located::new(
-                        Error::GenericFuncArityMismatch {
-                            expr_var: var.locatee,
-                            expected: 0,
-                            found: num_types,
-                        },
-                        span,
-                    ))
-                } else if let Some(scheme) = env.func_sigs.get(&var.locatee) {
-                    let arity = scheme.params.len();
-                    if arity == num_types && num_types > 0 {
-                        let types: Vec<_> = types.iter().map(RcType::from_lsyntax).collect();
-                        Ok(scheme.instantiate(&types))
-                    } else {
-                        Err(Located::new(
-                            Error::GenericFuncArityMismatch {
-                                expr_var: var.locatee,
-                                expected: arity,
-                                found: num_types,
-                            },
-                            span,
-                        ))
-                    }
-                } else {
-                    Err(Located::new(Error::UnknownExprVar(var.locatee), var.span))
-                }
-            }
-            Self::Let(binder, opt_type_ann, bindee, body) => {
+            Self::Let(binder, opt_type_ann, bindee, tail) => {
                 let binder_typ = check_let_bindee(env, binder, opt_type_ann, bindee)?;
-                env.intro_binder(binder, binder_typ, |env| body.infer(env))
+                env.intro_binder(binder, binder_typ, |env| tail.infer(env))
             }
             Self::If(cond, then, elze) => {
                 cond.check(env, &RcType::new(Type::Bool))?;
@@ -504,39 +471,85 @@ impl Expr {
                     .collect::<Result<_, _>>()?;
                 Ok(RcType::new(Type::Record(fields)))
             }
-            Self::Proj(record, field) => {
+            Self::Proj(record, field, index) => {
                 let record_type = record.infer(env)?;
                 let field = field.locatee;
                 match record_type.weak_normalize_env(env).as_ref() {
                     Type::Record(fields) => {
-                        if let Some(field_typ) = find_by_key(&fields, &field) {
-                            Ok(field_typ.clone())
+                        if let Some(field_index) = fields.iter().position(|x| x.0 == field) {
+                            *index = Some(field_index as u32);
+                            Ok(fields[field_index].1.clone())
                         } else {
-                            Err(Located::new(
-                                Error::BadRecordProj { record_type, field },
-                                span,
-                            ))
+                            Err(Located::new(Error::BadRecordProj { record_type, field }, span))
                         }
                     }
-                    _ => Err(Located::new(
-                        Error::BadRecordProj { record_type, field },
-                        span,
-                    )),
+                    _ => Err(Located::new(Error::BadRecordProj { record_type, field }, span)),
                 }
             }
             Self::Match(scrut, branches) => {
                 let branches = check_match_patterns(env, scrut, branches)?;
                 let mut iter = branches.into_iter();
-                let (binder, body) = iter
+                let (binder, rhs) = iter
                     .next()
                     .expect("IMPOSSIBLE: check_match_pattern ensures we have at least one branch");
-                let body_type = env.intro_opt_binder(binder, |env| body.infer(env))?;
-                for (binder, body) in iter {
-                    env.intro_opt_binder(binder, |env| body.check(env, &body_type))?;
+                let rhs_type = env.intro_opt_binder(binder, |env| rhs.infer(env))?;
+                for (binder, rhs) in iter {
+                    env.intro_opt_binder(binder, |env| rhs.check(env, &rhs_type))?;
                 }
-                Ok(body_type)
+                Ok(rhs_type)
             }
-            Self::Variant(_, _) => Err(Located::new(Error::TypeAnnsNeeded, span)),
+            Self::Variant(_, _, _) => Err(Located::new(Error::TypeAnnsNeeded, span)),
+        }
+    }
+
+    fn resolve(&mut self, span: SourceSpan, env: &Env) -> Result<(), LError> {
+        match self {
+            Self::Var(var) => {
+                let var = &var.locatee;
+                if env.expr_vars.contains_key(var) {
+                    Ok(())
+                } else {
+                    let is_func = env.func_sigs.contains_key(var);
+                    Err(Located::new(Error::UnknownExprVar(*var, is_func), span))
+                }
+            }
+            Self::AppClo(clo, args) => {
+                if env.expr_vars.contains_key(&clo.locatee) {
+                    Ok(())
+                } else if env.func_sigs.contains_key(&clo.locatee) {
+                    *self = Self::AppFun(*clo, None, std::mem::take(args));
+                    Ok(())
+                } else {
+                    Err(Located::new(Error::UnknownExprVar(clo.locatee, false), clo.span))
+                }
+            }
+            Self::AppFun(fun, opt_types, _args) => {
+                let mismatch = || {
+                    Err(Located::new(Error::BadNonGenericCall { expr_var: fun.locatee }, fun.span))
+                };
+                if env.expr_vars.contains_key(&fun.locatee) {
+                    mismatch()
+                } else if let Some(func_sig) = env.func_sigs.get(&fun.locatee) {
+                    if func_sig.type_params.is_empty() && opt_types.is_some() {
+                        mismatch()
+                    } else {
+                        Ok(())
+                    }
+                } else {
+                    Err(Located::new(Error::UnknownExprVar(fun.locatee, false), fun.span))
+                }
+            }
+            Self::Error
+            | Self::Num(_)
+            | Self::Bool(_)
+            | Self::Lam(_, _)
+            | Self::BinOp(_, _, _)
+            | Self::Let(_, _, _, _)
+            | Self::If(_, _, _)
+            | Self::Record(_)
+            | Self::Proj(_, _, _)
+            | Self::Variant(_, _, _)
+            | Self::Match(_, _) => Ok(()),
         }
     }
 }
@@ -558,6 +571,7 @@ impl Env {
             func_sigs: Rc::new(collections::HashMap::new()),
             type_vars: im::HashSet::new(),
             expr_vars: im::HashMap::new(),
+            symbols: Rc::new(Cell::new(Vec::new())),
         }
     }
 
@@ -566,7 +580,8 @@ impl Env {
         F: FnOnce(&Self) -> Result<R, LError>,
     {
         let mut env = self.clone();
-        env.expr_vars.insert(var.locatee, typ);
+        env.expr_vars.insert(var.locatee, (var.span, typ.clone()));
+        self.add_symbol(SymbolInfo::ExprBinder { var: *var, typ });
         f(&env)
     }
 
@@ -575,21 +590,19 @@ impl Env {
         I: IntoIterator<Item = Result<(LExprVar, RcType), LError>>,
         F: FnOnce(&Self) -> Result<R, LError>,
     {
-        let mut seen = std::collections::HashMap::new();
+        let mut seen = collections::HashMap::new();
         let mut env = self.clone();
         for binder_or_err in params {
             let (var, typ) = binder_or_err?;
             if let Some(&original) = seen.get(&var.locatee) {
                 return Err(Located::new(
-                    Error::DuplicateParam {
-                        var: var.locatee,
-                        original,
-                    },
+                    Error::DuplicateParam { var: var.locatee, original },
                     var.span,
                 ));
             } else {
                 seen.insert(var.locatee, var.span);
-                env.expr_vars.insert(var.locatee, typ.clone());
+                env.expr_vars.insert(var.locatee, (var.span, typ.clone()));
+                self.add_symbol(SymbolInfo::ExprBinder { var, typ });
             }
         }
         f(&env)
@@ -599,11 +612,16 @@ impl Env {
     where
         F: FnOnce(&Self) -> Result<R, LError>,
     {
-        if let Some((var, typ)) = binder {
-            self.intro_binder(var, typ, f)
-        } else {
-            f(self)
+        match binder {
+            None => f(self),
+            Some((var, typ)) => self.intro_binder(var, typ, f),
         }
+    }
+
+    fn add_symbol(&self, info: SymbolInfo) {
+        let mut symbols = self.symbols.take();
+        symbols.push(info);
+        self.symbols.set(symbols);
     }
 }
 
@@ -611,10 +629,7 @@ impl LTypeVar {
     fn check_unique<'a, I: Iterator<Item = &'a LTypeVar>>(iter: I) -> Result<(), LError> {
         if let Some((span, lvar)) = find_duplicate(iter.map(Located::as_ref)) {
             Err(Located::new(
-                Error::DuplicateTypeVar {
-                    var: *lvar.locatee,
-                    original: span,
-                },
+                Error::DuplicateTypeVar { var: *lvar.locatee, original: span },
                 lvar.span,
             ))
         } else {
@@ -636,7 +651,7 @@ fn check_let_bindee(
         Ok(typ)
     } else {
         let typ = bindee.infer(env)?;
-        *opt_type_ann = Some(Located::new(typ.to_syntax(), binder.span));
+        *opt_type_ann = Some(typ.as_inferred(binder));
         Ok(typ)
     }
 }
@@ -652,30 +667,54 @@ fn check_match_patterns<'a>(
     match scrut_type.weak_normalize_env(env).as_ref() {
         Type::Variant(constrs) => {
             if !branches.is_empty() {
-                branches
+                let mut matched = std::collections::BTreeSet::new();
+                let branches = branches
                     .iter_mut()
-                    .map(|Branch { pattern, body }| {
-                        let constr = pattern.locatee.constr;
-                        if let Some(opt_typ) = find_by_key(constrs, &constr) {
-                            match (&pattern.locatee.binder, opt_typ) {
-                                (None, None) => Ok((None, body)),
-                                (Some(var), Some(typ)) => Ok((Some((var, typ.clone())), body)),
-                                (opt_payload, opt_typ) => LError::variant_payload(
-                                    opt_payload,
-                                    opt_typ,
-                                    &scrut_type,
-                                    constr,
+                    .map(|Branch { pattern, rhs }| {
+                        let Pattern { constr, rank, binder } = &mut pattern.locatee;
+                        if let Some(constr_rank) = constrs.iter().position(|x| x.0 == *constr) {
+                            if matched.contains(&constr_rank) {
+                                Err(Located::new(
+                                    Error::OverlappingMatch(scrut_type.clone(), *constr),
                                     pattern.span,
-                                ),
+                                ))
+                            } else {
+                                matched.insert(constr_rank);
+                                *rank = Some(constr_rank as u32);
+                                match (binder, &constrs[constr_rank].1) {
+                                    (None, None) => Ok((None, rhs)),
+                                    (Some(binder), Some(typ)) => {
+                                        Ok((Some((&*binder, typ.clone())), rhs))
+                                    }
+                                    (opt_binder, opt_typ) => LError::variant_payload(
+                                        opt_binder,
+                                        opt_typ,
+                                        &scrut_type,
+                                        *constr,
+                                        pattern.span,
+                                    ),
+                                }
                             }
                         } else {
                             Err(Located::new(
-                                Error::BadBranch(scrut_type.clone(), constr),
+                                Error::BadBranch(scrut_type.clone(), *constr),
                                 pattern.span,
                             ))
                         }
                     })
-                    .collect::<Result<_, _>>()
+                    .collect::<Result<Vec<_>, _>>()?;
+                if matched.len() < constrs.len() {
+                    let missing_rank = (0..constrs.len())
+                        .find(|rank| !matched.contains(rank))
+                        .expect("IMPOSSIBLE");
+                    let missing_constr = constrs[missing_rank].0;
+                    Err(Located::new(
+                        Error::NonExhaustiveMatch(scrut_type, missing_constr),
+                        scrut.span,
+                    ))
+                } else {
+                    Ok(branches)
+                }
             } else {
                 Err(Located::new(Error::EmptyMatch, scrut.span))
             }
@@ -686,7 +725,7 @@ fn check_match_patterns<'a>(
 
 fn find_duplicate<T: Eq + Hash, I: Iterator<Item = Located<T>>>(
     iter: I,
-) -> Option<(Span, Located<T>)> {
+) -> Option<(SourceSpan, Located<T>)> {
     let mut seen = std::collections::HashMap::new();
     for lvar in iter {
         if let Some(span) = seen.get(&lvar.locatee) {
@@ -696,9 +735,4 @@ fn find_duplicate<T: Eq + Hash, I: Iterator<Item = Located<T>>>(
         }
     }
     None
-}
-
-fn find_by_key<'a, K: Eq, V>(vec: &'a[(K, V)], key: &K) -> Option<&'a V> {
-    vec.iter()
-        .find_map(|(k, v)| if k == key { Some(v) } else { None })
 }

@@ -1,6 +1,6 @@
 macro_rules! ident_type {
     ($type_name:ident) => {
-        #[derive(Clone, Copy, Eq, Hash, PartialEq)]
+        #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
         pub struct $type_name(lasso::Spur);
 
         impl $type_name {
@@ -21,11 +21,7 @@ macro_rules! ident_type {
 
         impl std::fmt::Debug for $type_name {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                f.write_fmt(format_args!(
-                    "{}({:?})",
-                    stringify!($type_name),
-                    self.as_str(),
-                ))
+                f.write_fmt(format_args!("{}({:?})", stringify!($type_name), self.as_str(),))
             }
         }
     };

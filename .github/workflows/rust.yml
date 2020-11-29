@@ -20,8 +20,8 @@ jobs:
       run: rustup show
     - name: Build
       run: cargo build --all-targets --release --locked --verbose
-    # - name: Format
-    #   run: cargo fmt -- --check
+    - name: Format
+      run: cargo fmt --all -- --check
     - name: Clippy
       run: cargo clippy --all-targets --release --locked --verbose -- --deny warnings
     - name: Test

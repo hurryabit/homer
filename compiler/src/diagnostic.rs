@@ -14,7 +14,7 @@ pub enum Source {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Diagnostic {
-    pub span: Span<HumanLoc>,
+    pub span: SourceSpan,
     pub severity: Severity,
     pub source: Source,
     pub message: String,
@@ -22,12 +22,7 @@ pub struct Diagnostic {
 
 impl Diagnostic {
     pub fn to_lsp(&self) -> lsp_types::Diagnostic {
-        let Self {
-            span,
-            severity,
-            source,
-            message,
-        } = self;
+        let Self { span, severity, source, message } = self;
         use lsp_types::*;
         lsp_types::Diagnostic {
             range: span.to_lsp(),
@@ -39,15 +34,20 @@ impl Diagnostic {
     }
 }
 
-impl HumanLoc {
-    fn to_lsp(&self) -> lsp_types::Position {
+impl SourceLocation {
+    pub fn from_lsp(lsp: lsp_types::Position) -> Self {
+        let lsp_types::Position { line, character: column } = lsp;
+        Self { line, column }
+    }
+
+    pub fn to_lsp(&self) -> lsp_types::Position {
         let Self { line, column } = self;
         lsp_types::Position::new(*line, *column)
     }
 }
 
-impl Span<HumanLoc> {
-    fn to_lsp(&self) -> lsp_types::Range {
+impl SourceSpan {
+    pub fn to_lsp(&self) -> lsp_types::Range {
         let Self { start, end } = self;
         lsp_types::Range::new(start.to_lsp(), end.to_lsp())
     }
@@ -83,10 +83,7 @@ impl Diagnostic {
                 span.start.line + 1, // NOTE(MH): We're 0-base internal, and 1-based for users.
                 line,
                 " ".repeat((span.start.column + 6) as usize),
-                "~".repeat(std::cmp::max(
-                    (span.end.column - span.start.column) as usize,
-                    1,
-                )),
+                "~".repeat(std::cmp::max((span.end.column - span.start.column) as usize, 1,)),
                 message
             )
         } else {

@@ -1,220 +1,199 @@
 use super::*;
-use crate::location;
+use crate::ast;
 use std::fmt;
 
-type Span = location::Span<location::ParserLoc>;
-
-impl Debug for Module {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+impl ast::Debug for Module {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         let Self { decls } = self;
-        writer.node("MODULE", |writer| {
-            for decl in decls {
-                writer.child("decl", decl)?;
-            }
-            Ok(())
-        })
+        writer.node("MODULE", |writer| writer.children("decl", decls))
     }
 }
 
-impl Debug for Decl {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        use Decl::*;
+impl ast::Debug for Decl {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         match self {
-            Type(decl) => decl.write(writer),
-            Func(decl) => decl.write(writer),
+            Self::Type(decl) => decl.write(writer),
+            Self::Func(decl) => decl.write(writer),
         }
     }
 }
 
-impl Debug for TypeDecl {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+impl ast::Debug for TypeDecl {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         let Self { name, params, body } = self;
         writer.node("TYPEDECL", |writer| {
             writer.child("name", name)?;
-            for param in params {
-                writer.child("type_param", param)?;
-            }
-            writer.child("type", body)
+            writer.children("type_param", params)?;
+            writer.child("body", body)
         })
     }
 }
 
-impl Debug for FuncDecl {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        let Self {
-            name,
-            type_params,
-            expr_params,
-            return_type,
-            body,
-        } = self;
+impl ast::Debug for FuncDecl {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
+        let Self { name, type_params, expr_params, return_type, body } = self;
         writer.node("FUNCDECL", |writer| {
             writer.child("name", name)?;
-            for type_param in type_params {
-                writer.child("type_param", type_param)?;
-            }
-            for (param, typ) in expr_params {
-                writer.child("param", param)?;
-                writer.child("type", typ)?;
-            }
+            writer.children("type_param", type_params)?;
+            writer.children_pair("param", "type", expr_params)?;
             writer.child("result", return_type)?;
             writer.child("body", body)
         })
     }
 }
 
-impl Debug for TypeVar {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+impl ast::Debug for TypeVar {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         writer.leaf(self.as_str())
     }
 }
 
-impl Debug for Type {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        use Type::*;
+impl ast::Debug for Type {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         match self {
-            Error => writer.leaf("ERROR"),
-            Var(name) => name.write(writer),
-            SynApp(syn, args) => writer.node("APP", |writer| {
+            Self::Error => writer.leaf("ERROR"),
+            Self::Var(var) => writer.node("VAR", |writer| writer.child("var", var)),
+            Self::SynApp(syn, args) => writer.node("APP", |writer| {
                 writer.child("syn", syn)?;
-                for arg in args {
-                    writer.child("type_arg", arg)?;
-                }
-                Ok(())
+                writer.children("type_arg", args)
             }),
-            Int => writer.leaf("INT"),
-            Bool => writer.leaf("BOOL"),
-            Fun(params, result) => writer.node("FUN", |writer| {
-                for param in params {
-                    writer.child("param", param)?;
-                }
+            Self::Int => writer.leaf("INT"),
+            Self::Bool => writer.leaf("BOOL"),
+            Self::Fun(params, result) => writer.node("FUN", |writer| {
+                writer.children("param", params)?;
                 writer.child("result", result)
             }),
-            Record(fields) => writer.node("RECORD", |writer| {
-                for (field, typ) in fields {
-                    writer.child("field", field)?;
-                    writer.child("type", typ)?;
-                }
-                Ok(())
-            }),
-            Variant(constrs) => writer.node("VARIANT", |writer| {
+            Self::Record(fields) => {
+                writer.node("RECORD", |writer| writer.children_pair("field", "type", fields))
+            }
+            Self::Variant(constrs) => writer.node("VARIANT", |writer| {
                 for (constr, opt_typ) in constrs {
                     writer.child("constr", constr)?;
-                    if let Some(typ) = opt_typ {
-                        writer.child("type", typ)?;
-                    }
+                    writer.child_if_some("type", opt_typ)?;
                 }
                 Ok(())
             }),
+            Self::Inferred(typ) => writer.node("INFERRED", |writer| writer.child("type", typ)),
         }
     }
 }
 
-impl Debug for ExprVar {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+impl ast::Debug for ExprVar {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         writer.leaf(self.as_str())
     }
 }
 
-impl Debug for ExprCon {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+impl ast::Debug for (ExprVar, u32) {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
+        writer.leaf(&format!("{}/{}", self.0.as_str(), self.1))
+    }
+}
+
+impl ast::Debug for (ExprVar, Option<u32>) {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
+        match self.1 {
+            None => self.0.write(writer),
+            Some(n) => (self.0, n).write(writer),
+        }
+    }
+}
+
+impl ast::Debug for ExprCon {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         writer.leaf(self.as_str())
     }
 }
 
-impl Debug for Expr {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        use Expr::*;
+impl ast::Debug for (ExprCon, u32) {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
+        writer.leaf(&format!("{}/{}", self.0.as_str(), self.1))
+    }
+}
+
+impl ast::Debug for (ExprCon, Option<u32>) {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
+        match self.1 {
+            None => self.0.write(writer),
+            Some(n) => (self.0, n).write(writer),
+        }
+    }
+}
+
+impl ast::Debug for Expr {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         match self {
-            Error => writer.leaf("ERROR"),
-            Var(name) => name.write(writer),
-            Num(n) => writer.leaf(&n.to_string()),
-            Bool(b) => writer.leaf(&b.to_string()),
-            Lam(params, body) => writer.node("LAM", |writer| {
+            Self::Error => writer.leaf("ERROR"),
+            Self::Var(var) => writer.node("VAR", |writer| writer.child("var", var)),
+            Self::Num(n) => writer.leaf(&n.to_string()),
+            Self::Bool(b) => writer.leaf(&b.to_string()),
+            Self::Lam(params, body) => writer.node("LAM", |writer| {
                 for (param, opt_typ) in params {
                     writer.child("param", param)?;
-                    if let Some(typ) = opt_typ {
-                        writer.child("type", typ)?;
-                    }
+                    writer.child_if_some("type", opt_typ)?;
                 }
                 writer.child("body", body)
             }),
-            App(fun, args) => writer.node("APP", |writer| {
-                writer.child("fun", fun)?;
-                for arg in args {
-                    writer.child("arg", arg)?;
-                }
-                Ok(())
+            Self::AppClo(fun, args) => writer.node("APPCLO", |writer| {
+                writer.child("clo", fun)?;
+                writer.children("arg", args)
             }),
-            BinOp(lhs, op, rhs) => writer.node("BINOP", |writer| {
+            Self::AppFun(fun, types, args) => writer.node("APPFUN", |writer| {
+                writer.child("fun", fun)?;
+                writer.children("type_arg", types.as_ref().unwrap_or(&vec![]))?;
+                writer.children("arg", args)
+            }),
+            Self::BinOp(lhs, op, rhs) => writer.node("BINOP", |writer| {
                 writer.child("lhs", lhs)?;
                 writer.child("op", op)?;
                 writer.child("rhs", rhs)
             }),
-            FuncInst(fun, types) => writer.node("FUNCINST", |writer| {
-                writer.child("fun", fun)?;
-                for typ in types {
-                    writer.child("type_arg", typ)?;
-                }
-                Ok(())
-            }),
-            Let(binder, opt_typ, bindee, body) => writer.node("LET", |writer| {
+            Self::Let(binder, opt_typ, bindee, tail) => writer.node("LET", |writer| {
                 writer.child("binder", binder)?;
-                if let Some(typ) = opt_typ {
-                    writer.child("type", typ)?;
-                }
+                writer.child_if_some("type", opt_typ)?;
                 writer.child("bindee", bindee)?;
-                writer.child("body", body)
+                writer.child("tail", tail)
             }),
-            If(cond, then, elze) => writer.node("IF", |writer| {
+            Self::If(cond, then, elze) => writer.node("IF", |writer| {
                 writer.child("cond", cond)?;
                 writer.child("then", then)?;
                 writer.child("else", elze)
             }),
-            Record(fields) => writer.node("RECORD", |writer| {
-                for (field, value) in fields {
-                    writer.child("field", field)?;
-                    writer.child("value", value)?;
-                }
-                Ok(())
-            }),
-            Proj(record, field) => writer.node("PROJ", |writer| {
+            Self::Record(fields) => {
+                writer.node("RECORD", |writer| writer.children_pair("field", "value", fields))
+            }
+            Self::Proj(record, field, index) => writer.node("PROJ", |writer| {
                 writer.child("record", record)?;
-                writer.child("field", field)
+                writer.child("field", &field.map(|f| (f, *index)))
             }),
-            Variant(constr, opt_payload) => writer.node("VARIANT", |writer| {
-                writer.child("constr", constr)?;
-                if let Some(payload) = opt_payload {
-                    writer.child("payload", payload)?;
-                }
+            Self::Variant(constr, rank, payload) => writer.node("VARIANT", |writer| {
+                writer.child("constr", &(*constr, *rank))?;
+                writer.child_if_some("payload", payload)?;
                 Ok(())
             }),
-            Match(scrut, branches) => writer.node("MATCH", |writer| {
+            Self::Match(scrut, branches) => writer.node("MATCH", |writer| {
                 writer.child("scrut", scrut)?;
-                for branch in branches {
-                    writer.child("branch", branch)?;
-                }
-                Ok(())
+                writer.children("branch", branches)
             }),
         }
     }
 }
 
-impl Debug for Branch {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        let Self { pattern, body: rhs } = self;
+impl ast::Debug for Branch {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
+        let Self { pattern, rhs } = self;
         writer.node("BRANCH", |writer| {
             writer.child("pattern", pattern)?;
-            writer.child("body", rhs)
+            writer.child("rhs", rhs)
         })
     }
 }
 
-impl Debug for Pattern {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        let Self { constr, binder } = self;
+impl ast::Debug for Pattern {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
+        let Self { constr, rank, binder } = self;
         writer.node("PATTERN", |writer| {
-            writer.child("constr", constr)?;
+            writer.child("constr", &(*constr, *rank))?;
             if let Some(binder) = binder {
                 writer.child("binder", binder)?;
             }
@@ -223,94 +202,29 @@ impl Debug for Pattern {
     }
 }
 
-impl Debug for OpCode {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        use OpCode::*;
+impl ast::Debug for OpCode {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         match self {
-            Add => writer.leaf("ADD"),
-            Sub => writer.leaf("SUB"),
-            Mul => writer.leaf("MUL"),
-            Div => writer.leaf("DIV"),
-            Equals => writer.leaf("EQUALS"),
-            NotEq => writer.leaf("NOTEQ"),
-            Less => writer.leaf("LESS"),
-            LessEq => writer.leaf("LESSEQ"),
-            Greater => writer.leaf("GREATER"),
-            GreaterEq => writer.leaf("GREATEREQ"),
+            Self::Add => writer.leaf("ADD"),
+            Self::Sub => writer.leaf("SUB"),
+            Self::Mul => writer.leaf("MUL"),
+            Self::Div => writer.leaf("DIV"),
+            Self::Equals => writer.leaf("EQUALS"),
+            Self::NotEq => writer.leaf("NOTEQ"),
+            Self::Less => writer.leaf("LESS"),
+            Self::LessEq => writer.leaf("LESSEQ"),
+            Self::Greater => writer.leaf("GREATER"),
+            Self::GreaterEq => writer.leaf("GREATEREQ"),
         }
     }
 }
 
-pub trait Debug {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result;
-}
-
-impl<T: Debug> Debug for Located<T> {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        writer.set_next_span(self.span);
-        self.locatee.write(writer)
-    }
-}
-
-impl<T: Debug> Debug for Box<T> {
-    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
-        self.as_ref().write(writer)
-    }
-}
-
-pub struct DebugWriter<'a> {
-    writer: &'a mut dyn fmt::Write,
-    indent_level: usize,
-    next_span: Option<Span>,
-}
-
-impl<'a> DebugWriter<'a> {
-    const INDENT_SIZE: usize = 4;
-
-    pub fn new(writer: &'a mut dyn fmt::Write) -> Self {
-        Self {
-            writer,
-            indent_level: 0,
-            next_span: None,
+impl fmt::Debug for ExprRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Var(var) => write!(f, "VAR {:?} @ {:?}", var.locatee.as_str(), var.span),
+            Self::Clo(clo) => write!(f, "CLO {:?} @ {:?}", clo.locatee.as_str(), clo.span),
+            Self::Fun(fun) => write!(f, "FUN {:?} @ {:?}", fun.locatee.as_str(), fun.span),
         }
-    }
-
-    pub fn fmt(debug: &dyn Debug, writer: &'a mut dyn fmt::Write) -> fmt::Result {
-        debug.write(&mut Self::new(writer))
-    }
-
-    pub fn set_next_span(&mut self, span: Span) {
-        self.next_span = Some(span)
-    }
-
-    pub fn leaf(&mut self, label: &str) -> fmt::Result {
-        if let Some(span) = self.next_span.take() {
-            write!(self.writer, "{} @ {:?}...{:?}", label, span.start, span.end)
-        } else {
-            self.writer.write_str(label)
-        }
-    }
-
-    pub fn node<F>(&mut self, label: &str, f: F) -> fmt::Result
-    where
-        F: Fn(&mut Self) -> fmt::Result,
-    {
-        self.leaf(label)?;
-        self.indent_level += 1;
-        f(self)?;
-        self.indent_level -= 1;
-        Ok(())
-    }
-
-    pub fn child(&mut self, label: &str, item: &impl Debug) -> fmt::Result {
-        self.writer.write_char('\n')?;
-        self.indent()?;
-        write!(self.writer, "{}: ", label)?;
-        item.write(self)
-    }
-
-    fn indent(&mut self) -> fmt::Result {
-        self.writer
-            .write_str(&" ".repeat(Self::INDENT_SIZE * self.indent_level))
     }
 }

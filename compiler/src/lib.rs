@@ -1,9 +1,17 @@
 #[macro_use]
+extern crate im;
+#[macro_use]
 extern crate lalrpop_util;
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate static_assertions;
 
+pub mod anf;
+#[macro_use]
+pub mod ast;
 pub mod build;
+pub mod cek;
 pub mod checker;
 pub mod diagnostic;
 pub mod location;
@@ -11,6 +19,7 @@ pub mod parser;
 pub mod syntax;
 pub mod backend;
 pub mod backend_wasm;
+mod util;
 
 lalrpop_mod!(
     #[allow(clippy::all)]
@@ -24,7 +33,9 @@ lazy_static! {
 
 #[cfg(test)]
 mod tests {
+    mod anf;
     mod build;
+    mod cek;
     mod checker;
     mod parser;
 }

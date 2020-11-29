@@ -1,6 +1,6 @@
 use crate::*;
+use checker::SymbolInfo;
 use diagnostic::Diagnostic;
-use location::Humanizer;
 use std::fmt;
 use std::sync::Arc;
 use syntax::Module;
@@ -24,41 +24,39 @@ impl fmt::Debug for Uri {
     }
 }
 
+type CheckedModuleOutcome = (Option<Arc<Module>>, Arc<Vec<SymbolInfo>>, Arc<Vec<Diagnostic>>);
+
 #[salsa::query_group(CompilerStorage)]
 trait Compiler: salsa::Database {
     #[salsa::input]
     fn input(&self, uri: Uri) -> Arc<String>;
 
-    fn humanizer(&self, uri: Uri) -> Arc<Humanizer>;
+    fn parsed_module(&self, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>);
 
-    fn parsed_module(&self, uri: Uri) -> (Arc<Option<Module>>, Arc<Vec<Diagnostic>>);
+    fn checked_module(&self, uri: Uri) -> CheckedModuleOutcome;
 
-    fn checked_module(&self, uri: Uri) -> (Arc<Option<Module>>, Arc<Vec<Diagnostic>>);
+    fn anf_module(&self, uri: Uri) -> Option<Arc<anf::Module>>;
 }
 
-fn humanizer(db: &dyn Compiler, uri: Uri) -> Arc<Humanizer> {
+fn parsed_module(db: &dyn Compiler, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>) {
     let input = db.input(uri);
-    Arc::new(Humanizer::new(&input))
+    let (opt_parsed_module, diagnostics) = Module::parse(&input);
+    (opt_parsed_module.map(Arc::new), Arc::new(diagnostics))
 }
 
-fn parsed_module(db: &dyn Compiler, uri: Uri) -> (Arc<Option<Module>>, Arc<Vec<Diagnostic>>) {
-    let input = db.input(uri);
-    let humanizer = db.humanizer(uri);
-    let (opt_parsed_module, diagnostics) = Module::parse(&input, &humanizer);
-    (Arc::new(opt_parsed_module), Arc::new(diagnostics))
-}
-
-fn checked_module(db: &dyn Compiler, uri: Uri) -> (Arc<Option<Module>>, Arc<Vec<Diagnostic>>) {
-    let humanizer = db.humanizer(uri);
-    let (opt_checked_module, diagnostics) = if let Some(parsed_module) = &*db.parsed_module(uri).0 {
-        match parsed_module.check(&humanizer) {
-            Ok(checked_module) => (Some(checked_module), vec![]),
-            Err(diagnostic) => (None, vec![diagnostic]),
-        }
-    } else {
-        (None, vec![])
+fn checked_module(db: &dyn Compiler, uri: Uri) -> CheckedModuleOutcome {
+    let (opt_checked_module, symbols, diagnostics) = match db.parsed_module(uri).0 {
+        None => (None, vec![], vec![]),
+        Some(parsed_module) => match parsed_module.check() {
+            Err(diagnostic) => (None, vec![], vec![diagnostic]),
+            Ok((checked_module, symbols)) => (Some(checked_module), symbols, vec![]),
+        },
     };
-    (Arc::new(opt_checked_module), Arc::new(diagnostics))
+    (opt_checked_module.map(Arc::new), Arc::new(symbols), Arc::new(diagnostics))
+}
+
+fn anf_module(db: &dyn Compiler, uri: Uri) -> Option<Arc<anf::Module>> {
+    db.checked_module(uri).0.map(|checked_module| Arc::new(checked_module.to_anf()))
 }
 
 #[salsa::database(CompilerStorage)]
@@ -73,22 +71,23 @@ impl CompilerDB {
     pub fn new() -> Self {
         // NOTE(MH): We force the initialization of the interner to avoid races.
         crate::INTERNER.len();
-        Self {
-            storage: salsa::Storage::default(),
-        }
+        Self { storage: salsa::Storage::default() }
     }
 
     pub fn set_input(&mut self, uri: Uri, input: Arc<String>) {
         (self as &mut dyn Compiler).set_input(uri, input);
     }
 
-    pub fn best_module(&self, uri: Uri) -> Arc<Option<Module>> {
-        let opt_checked_module = self.checked_module(uri).0;
-        if opt_checked_module.is_some() {
-            opt_checked_module
-        } else {
-            self.parsed_module(uri).0
-        }
+    pub fn checked_module(&self, uri: Uri) -> Option<Arc<Module>> {
+        (self as &dyn Compiler).checked_module(uri).0
+    }
+
+    pub fn symbols(&self, uri: Uri) -> Arc<Vec<SymbolInfo>> {
+        (self as &dyn Compiler).checked_module(uri).1
+    }
+
+    pub fn anf_module(&self, uri: Uri) -> Option<Arc<anf::Module>> {
+        (self as &dyn Compiler).anf_module(uri)
     }
 
     pub fn with_diagnostics<R, F>(&self, uri: Uri, f: F) -> R
@@ -96,7 +95,7 @@ impl CompilerDB {
         F: FnOnce(&mut dyn Iterator<Item = &Diagnostic>) -> R,
     {
         let parser_diagnostics = self.parsed_module(uri).1;
-        let checker_diagnostics = self.checked_module(uri).1;
+        let checker_diagnostics = (self as &dyn Compiler).checked_module(uri).2;
         f(&mut parser_diagnostics.iter().chain(checker_diagnostics.iter()))
     }
 }

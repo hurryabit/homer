@@ -11,14 +11,18 @@ fn parse_error(input: &'static str) -> String {
 
 #[test]
 fn type_var() {
-    insta::assert_debug_snapshot!(parse_output("A"), @"A");
+    insta::assert_debug_snapshot!(parse_output("A"), @r###"
+    VAR
+        var: A @ 1:1-1:2
+    "###);
 }
 
 #[test]
 fn func0() {
     insta::assert_debug_snapshot!(parse_output("() -> Int"), @r###"
     FUN
-        result: Int @ 6...9
+        result: VAR @ 1:7-1:10
+            var: Int @ 1:7-1:10
     "###);
 }
 
@@ -26,8 +30,10 @@ fn func0() {
 fn func1() {
     insta::assert_debug_snapshot!(parse_output("(Int) -> Int"), @r###"
     FUN
-        param: Int @ 1...4
-        result: Int @ 9...12
+        param: VAR @ 1:2-1:5
+            var: Int @ 1:2-1:5
+        result: VAR @ 1:10-1:13
+            var: Int @ 1:10-1:13
     "###);
 }
 
@@ -35,8 +41,10 @@ fn func1() {
 fn func1_extra_comma() {
     insta::assert_debug_snapshot!(parse_output("(Int,) -> Int"), @r###"
     FUN
-        param: Int @ 1...4
-        result: Int @ 10...13
+        param: VAR @ 1:2-1:5
+            var: Int @ 1:2-1:5
+        result: VAR @ 1:11-1:14
+            var: Int @ 1:11-1:14
     "###);
 }
 
@@ -44,8 +52,9 @@ fn func1_extra_comma() {
 fn syn_app1() {
     insta::assert_debug_snapshot!(parse_output("A<Int>"), @r###"
     APP
-        syn: A @ 0...1
-        type_arg: Int @ 2...5
+        syn: A @ 1:1-1:2
+        type_arg: VAR @ 1:3-1:6
+            var: Int @ 1:3-1:6
     "###);
 }
 
@@ -53,8 +62,9 @@ fn syn_app1() {
 fn syn_app1_extra_comma() {
     insta::assert_debug_snapshot!(parse_output("A<Int,>"), @r###"
     APP
-        syn: A @ 0...1
-        type_arg: Int @ 2...5
+        syn: A @ 1:1-1:2
+        type_arg: VAR @ 1:3-1:6
+            var: Int @ 1:3-1:6
     "###);
 }
 
@@ -62,9 +72,11 @@ fn syn_app1_extra_comma() {
 fn syn_app2() {
     insta::assert_debug_snapshot!(parse_output("A<Int, Bool>"), @r###"
     APP
-        syn: A @ 0...1
-        type_arg: Int @ 2...5
-        type_arg: Bool @ 7...11
+        syn: A @ 1:1-1:2
+        type_arg: VAR @ 1:3-1:6
+            var: Int @ 1:3-1:6
+        type_arg: VAR @ 1:8-1:12
+            var: Bool @ 1:8-1:12
     "###);
 }
 
@@ -77,8 +89,9 @@ fn record0() {
 fn record1() {
     insta::assert_debug_snapshot!(parse_output("{x: Int}"), @r###"
     RECORD
-        field: x @ 1...2
-        type: Int @ 4...7
+        field: x @ 1:2-1:3
+        type: VAR @ 1:5-1:8
+            var: Int @ 1:5-1:8
     "###);
 }
 
@@ -86,8 +99,9 @@ fn record1() {
 fn record1_extra_comma() {
     insta::assert_debug_snapshot!(parse_output("{x: Int,}"), @r###"
     RECORD
-        field: x @ 1...2
-        type: Int @ 4...7
+        field: x @ 1:2-1:3
+        type: VAR @ 1:5-1:8
+            var: Int @ 1:5-1:8
     "###);
 }
 
@@ -95,7 +109,7 @@ fn record1_extra_comma() {
 fn variant1_unit() {
     insta::assert_debug_snapshot!(parse_output("[A]"), @r###"
     VARIANT
-        constr: A @ 1...2
+        constr: A @ 1:2-1:3
     "###);
 }
 
@@ -103,8 +117,9 @@ fn variant1_unit() {
 fn variant1_payload() {
     insta::assert_debug_snapshot!(parse_output("[A(Int)]"), @r###"
     VARIANT
-        constr: A @ 1...2
-        type: Int @ 3...6
+        constr: A @ 1:2-1:3
+        type: VAR @ 1:4-1:7
+            var: Int @ 1:4-1:7
     "###);
 }
 
@@ -112,8 +127,8 @@ fn variant1_payload() {
 fn variant2_units() {
     insta::assert_debug_snapshot!(parse_output("[A | B]"), @r###"
     VARIANT
-        constr: A @ 1...2
-        constr: B @ 5...6
+        constr: A @ 1:2-1:3
+        constr: B @ 1:6-1:7
     "###);
 }
 
@@ -121,9 +136,10 @@ fn variant2_units() {
 fn variant2_unit_payload() {
     insta::assert_debug_snapshot!(parse_output("[A | B(Int)]"), @r###"
     VARIANT
-        constr: A @ 1...2
-        constr: B @ 5...6
-        type: Int @ 7...10
+        constr: A @ 1:2-1:3
+        constr: B @ 1:6-1:7
+        type: VAR @ 1:8-1:11
+            var: Int @ 1:8-1:11
     "###);
 }
 
@@ -131,9 +147,10 @@ fn variant2_unit_payload() {
 fn variant2_payload_unit() {
     insta::assert_debug_snapshot!(parse_output("[A(Bool) | B]"), @r###"
     VARIANT
-        constr: A @ 1...2
-        type: Bool @ 3...7
-        constr: B @ 11...12
+        constr: A @ 1:2-1:3
+        type: VAR @ 1:4-1:8
+            var: Bool @ 1:4-1:8
+        constr: B @ 1:12-1:13
     "###);
 }
 
@@ -141,10 +158,12 @@ fn variant2_payload_unit() {
 fn variant2_payloads() {
     insta::assert_debug_snapshot!(parse_output("[A(Bool) | B(Int)]"), @r###"
     VARIANT
-        constr: A @ 1...2
-        type: Bool @ 3...7
-        constr: B @ 11...12
-        type: Int @ 13...16
+        constr: A @ 1:2-1:3
+        type: VAR @ 1:4-1:8
+            var: Bool @ 1:4-1:8
+        constr: B @ 1:12-1:13
+        type: VAR @ 1:14-1:17
+            var: Int @ 1:14-1:17
     "###);
 }
 
@@ -154,9 +173,10 @@ fn variant2_payloads() {
 fn variant2_extra_bar() {
     insta::assert_debug_snapshot!(parse_output("[A | B(Int) |]"), @r###"
     VARIANT
-        constr: A @ 1...2
-        constr: B @ 5...6
-        type: Int @ 7...10
+        constr: A @ 1:2-1:3
+        constr: B @ 1:6-1:7
+        type: VAR @ 1:8-1:11
+            var: Int @ 1:8-1:11
     "###);
 }
 
@@ -164,8 +184,9 @@ fn variant2_extra_bar() {
 fn func_type_zero_params_one_comma() {
     insta::assert_snapshot!(parse_error("(,) -> Int"), @r###"
     FUN
-        param: ERROR @ 1...1
-        result: Int @ 7...10
+        param: ERROR @ 1:2-1:2
+        result: VAR @ 1:8-1:11
+            var: Int @ 1:8-1:11
     --------------------------------------------------
       1 | (,) -> Int
            ~
@@ -178,8 +199,8 @@ fn func_type_zero_params_one_comma() {
 fn type_app_zero_args() {
     insta::assert_snapshot!(parse_error("A<>"), @r###"
     APP
-        syn: A @ 0...1
-        type_arg: ERROR @ 2...2
+        syn: A @ 1:1-1:2
+        type_arg: ERROR @ 1:3-1:3
     --------------------------------------------------
       1 | A<>
             ~

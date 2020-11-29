@@ -1,14 +1,11 @@
-use crate::location;
-use debug::DebugWriter;
-use std::fmt;
+use crate::checker;
+use crate::location::Located;
 
-mod debruijn;
-mod debug;
+pub mod debug;
 #[macro_use]
 mod ident;
 mod iter;
-
-type Located<T> = location::Located<T, location::ParserLoc>;
+pub use iter::ExprRef;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Module {
@@ -40,13 +37,14 @@ pub struct FuncDecl {
 #[derive(Clone, Eq, PartialEq)]
 pub enum Type {
     Error,
-    Var(TypeVar),
+    Var(LTypeVar),
     SynApp(LTypeVar, Vec<LType>),
     Int,
     Bool,
     Fun(Vec<LType>, Box<LType>),
     Record(Vec<(LExprVar, LType)>),
     Variant(Vec<(LExprCon, Option<LType>)>),
+    Inferred(checker::RcType),
 }
 
 pub type LType = Located<Type>;
@@ -54,18 +52,18 @@ pub type LType = Located<Type>;
 #[derive(Clone, Eq, PartialEq)]
 pub enum Expr {
     Error,
-    Var(ExprVar),
+    Var(LExprVar),
     Num(i64),
     Bool(bool),
     Lam(Vec<(LExprVar, Option<LType>)>, Box<LExpr>),
-    App(Box<LExpr>, Vec<LExpr>),
+    AppClo(LExprVar, Vec<LExpr>),
+    AppFun(LExprVar, Option<Vec<LType>>, Vec<LExpr>),
     BinOp(Box<LExpr>, OpCode, Box<LExpr>),
-    FuncInst(LExprVar, Vec<LType>), // Instantiate function at monomorphic type.
     Let(LExprVar, Option<LType>, Box<LExpr>, Box<LExpr>),
     If(Box<LExpr>, Box<LExpr>, Box<LExpr>),
     Record(Vec<(LExprVar, LExpr)>),
-    Proj(Box<LExpr>, LExprVar),
-    Variant(ExprCon, Option<Box<LExpr>>),
+    Proj(Box<LExpr>, LExprVar, Option<u32>),
+    Variant(ExprCon, Option<u32>, Option<Box<LExpr>>),
     Match(Box<LExpr>, Vec<Branch>),
 }
 
@@ -74,12 +72,13 @@ pub type LExpr = Located<Expr>;
 #[derive(Clone, Eq, PartialEq)]
 pub struct Branch {
     pub pattern: LPattern,
-    pub body: LExpr,
+    pub rhs: LExpr,
 }
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Pattern {
     pub constr: ExprCon,
+    pub rank: Option<u32>,
     pub binder: Option<LExprVar>,
 }
 
@@ -120,32 +119,8 @@ impl Default for Expr {
     }
 }
 
-impl fmt::Debug for Module {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        DebugWriter::fmt(self, f)
-    }
-}
-
-impl fmt::Debug for Decl {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        DebugWriter::fmt(self, f)
-    }
-}
-
-impl fmt::Debug for FuncDecl {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        DebugWriter::fmt(self, f)
-    }
-}
-
-impl fmt::Debug for Type {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        DebugWriter::fmt(self, f)
-    }
-}
-
-impl fmt::Debug for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        DebugWriter::fmt(self, f)
-    }
-}
+derive_fmt_debug!(Module);
+derive_fmt_debug!(Decl);
+derive_fmt_debug!(FuncDecl);
+derive_fmt_debug!(Type);
+derive_fmt_debug!(Expr);
