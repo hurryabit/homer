@@ -31,6 +31,9 @@ cranelift-codegen = "0.68.0"
 cranelift-frontend = "0.68.0"
 cranelift-module = "0.68.0"
 cranelift-simplejit = "0.68.0"
+wasmtime = "0.21.0"
+anyhow = "1.0.19"
+parity-wasm = "0.42.1"
 
 [dev-dependencies]
 insta = "1.2.0"

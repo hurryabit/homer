@@ -15,19 +15,25 @@
   (import "runtime" "assert_i32" (func $assert_i32 (param i32)))
   (import "runtime" "assert_boxed_i32" (func $assert_boxed_i32 (param i32)))
 
+  (import "runtime" "get_funcidx" (func $get_funcidx (result i32)))
+
   ;; let x = ...
   ;; fn foo(a: Int) -> Int { a + x }
-  (func $foo (result i32)
+  (func $foo
+    call $dup
+    ;; stack: <a> <a> <ptr to clo>
     (call $loadenv
-      (i32.const 1)  ;; skip a
+      (i32.const 2)  ;; skip a's
       (i32.const 0)) ;; load x
-    ;; stack: <x> <a> <ptr to clo>
+    ;; stack: <x> <a> <a> <ptr to clo>
     call $add
-    ;; stack: <a + x> <ptr to clo>
-    call $deref_i32
+    ;; stack: <a + x> <a> <ptr to clo>
+
+    (call $ret (i32.const 1))
+    ;; stack: <a + x>
   )
 
-  (func $test_closure
+  (func (export "test_closure")
     call $assert_stackempty
     (call $alloc_i32 (i32.const 123))
     (call $alloc_closure
@@ -50,6 +56,24 @@
     call $pop_ ;; 123
     call $pop_ ;; 222
     call $pop_ ;; <clo>
+
+    call $assert_stackempty
+  )
+
+  (func (export "test_closure_apply")
+    call $assert_stackempty
+
+    (call $alloc_i32 (i32.const 123))
+    (call $alloc_closure
+       (i32.const 0) ;; index of $foo
+       (i32.const 1))
+
+    call $get_funcidx ;; load funcidx to wasm stack
+    (call $alloc_i32 (i32.const 5)) ;; push foo's argument
+    call_indirect (type $proc) ;; invoke $foo
+
+    (call $assert_boxed_i32 (i32.const 128))
+    call $pop_
 
     call $assert_stackempty
   )
@@ -141,5 +165,10 @@
     call $pop_ ;; <clo1>
     call $assert_stackempty
   )
+
+
+  (type $proc (func))
+  (table funcref
+    (elem $foo))
 
 )

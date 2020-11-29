@@ -2,13 +2,6 @@ with import <nixpkgs-unstable> {
     crossSystem = {
       config = "wasm32-unknown-wasi";
       useLLVM = true;
-
-      # config = "wasm32-wasi";
-      # arch = "wasm32";
-      # libc = null;
-      # useLLVM = true;
-      # disableDynamicLinker = true;
-      # thread-model = "single";
     };
 };
 

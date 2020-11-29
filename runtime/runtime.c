@@ -1,9 +1,8 @@
 
 typedef unsigned int u32;
-typedef unsigned int ptr_t; // TODO: where to get the pointer size?
+typedef __UINTPTR_TYPE__ ptr_t;
 typedef int i32;
 typedef unsigned char u8;
-
 
 // Heap storage
 #define MEM_SIZE 1024
@@ -16,9 +15,9 @@ static u8* mem_end = memA + MEM_SIZE;
 
 // Stack storage
 #define STACK_SIZE 1024
-static u32 stack[STACK_SIZE]; // FIXME should be ptr_t
-static u32* stack_end = &stack[STACK_SIZE];
-static u32* sp = &stack[STACK_SIZE];
+static ptr_t stack[STACK_SIZE];
+static ptr_t* stack_end = &stack[STACK_SIZE];
+static ptr_t* sp = &stack[STACK_SIZE];
 
 typedef enum {
   T_I32 = 0,
@@ -48,8 +47,8 @@ struct block {
 #define BLK_HDR_SIZE sizeof(struct block)
 #define PTR(p) ((ptr_t)p)
 
-void push(u32 p) { sp--; *sp = p; }
-u32 pop() { return *sp++; }
+void push(ptr_t p) { sp--; *sp = p; }
+ptr_t pop() { return *sp++; }
 void pop_() { sp++; }
 void dup() { *(sp - 1) = *sp; sp--; }
 
@@ -116,6 +115,12 @@ void alloc_closure(u32 funcidx, u32 nvars) {
   push(PTR(blk));
 }
 
+u32 get_funcidx() {
+  struct block *blk = BLK(*sp);
+  if (blk->tag != T_CLOSURE) { __abort__(); };
+  return blk->data.clo.funcidx;
+}
+
 void add() { alloc_i32(BLK(pop())->data.i32 + BLK(pop())->data.i32); }
 void sub() { alloc_i32(BLK(pop())->data.i32 - BLK(pop())->data.i32); }
 
@@ -130,7 +135,7 @@ i32 deref_i32() {
 }
 
 void ret(u32 nargs) {
-  u32 result = *sp;
+  ptr_t result = *sp;
   sp += nargs + 1;
   *sp = result;
 }
@@ -170,7 +175,7 @@ void gc() {
   // Copy the blocks reachable from stack to the 'to' space.
   u8 *to_end = to;
   {
-    u32 *spt = sp;
+    ptr_t *spt = sp;
     while (spt < stack_end) {
       *spt = copy_block(*spt, &to_end);
       spt++;
