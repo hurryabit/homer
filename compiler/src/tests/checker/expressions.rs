@@ -1037,6 +1037,20 @@ fn rule_app_clo_too_few_args() {
 }
 
 #[test]
+fn rule_app_clo_mismatch_arg1() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> Int {
+        let g = fn (x: Int) { x };
+        g(CheckMe)
+    }
+    "#), @r###"
+      4 |         g(CheckMe)
+                    ~~~~~~~
+    Expected an expression of type `Int` but found variant constructor `CheckMe`.
+    "###);
+}
+
+#[test]
 fn rule_app_clo_mismatch_arg2() {
     insta::assert_snapshot!(check_error(r#"
     fn f() -> Int {
