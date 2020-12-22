@@ -13,13 +13,15 @@ typedef long long i64;
 typedef unsigned char u8;
 
 // Heap storage
-#define HEAP_SIZE 1024
+#define HEAP_SIZE 65536
 static u8 memA[HEAP_SIZE];
 static u8 memB[HEAP_SIZE];
 static u8* from = memA;
 static u8* to = memB;
 static u8* hp = memA;
 static u8* mem_end = &memA[HEAP_SIZE];
+
+// TODO: Consider using __builtin_wasm_memory_grow() to resize heap & stack.
 
 // Stack storage
 #define STACK_SIZE 1024
@@ -35,11 +37,12 @@ static struct closure *current_closure = (struct closure*)0;
 // Heap block tags
 typedef enum {
   T_MIN = 1,
-  T_I32 = 1,
+  T_I32 = T_MIN,
   T_I64 = 2,
   T_CLOSURE = 3,
-  T_VARIANT = 4,
-  T_FWD = 5,
+  T_VARIANT0 = 4,
+  T_VARIANT1 = 5,
+  T_FWD = 6,
   T_MAX = T_FWD,
 } tag_t;
 
@@ -130,7 +133,6 @@ void assert_stackempty() {
   }
 }
 
-
 void assert_heapempty() {
   garbage_collect();
   if (hp != from) {
@@ -157,7 +159,12 @@ void assert_closure(struct block *blk) {
   }
 }
 
-void garbage_collect();
+void assert_variant(struct block *blk) {
+  if (blk->tag != T_VARIANT0 && blk->tag != T_VARIANT1) {
+    abort_with(ABORT_EXPECTED_T + T_VARIANT0);
+  }
+}
+
 void needheap(u32 n) {
   if (hp + n > mem_end) {
     garbage_collect();
@@ -189,10 +196,20 @@ void alloc_i64(i64 x) {
   push(PTR(blk));
 }
 
+void alloc_variant_0(i32 rank) {
+  needheap(BLK_HDR_SIZE + sizeof(u32));
+  struct block *blk = BLK(hp);
+  blk->tag = T_VARIANT1;
+  blk->size = BLK_HDR_SIZE;
+  blk->data.variant.rank = rank;
+  hp += blk->size;
+  push(PTR(blk));
+}
+
 void alloc_variant(i32 rank, i32 payload) {
   needheap(BLK_HDR_SIZE + sizeof(u32));
   struct block *blk = BLK(hp);
-  blk->tag = T_VARIANT;
+  blk->tag = T_VARIANT1;
   blk->size = BLK_HDR_SIZE;
   blk->data.variant.rank = rank;
   if (payload >= 0) {
@@ -351,11 +368,15 @@ i64 deref_i64() {
 }
 
 u32 get_rank(u32 off) {
-  return get_blk(*(sp + off), T_VARIANT)->data.variant.rank;
+  struct block *blk = BLK(*(sp + off));
+  assert_variant(blk);
+  return blk->data.variant.rank;
 }
 
 void load_payload(u32 off) {
-  push(get_blk(*(sp + off), T_VARIANT)->data.variant.payload);
+  struct block *blk = BLK(*(sp + off));
+  assert_variant(blk);
+  push(blk->data.variant.payload);
 }
 
 
@@ -375,7 +396,6 @@ void *memcopy(void *dst, const void *src, u32 n) {
   }
   return dst;
 }
-
 
 // Copy block from 'from' space to 'to' space and return the new block location.
 ptr_t copy_block(ptr_t p, u8 **to_end) {
@@ -425,11 +445,19 @@ void garbage_collect() {
         }
         break;
       }
+      case T_VARIANT1: {
+        struct variant *v = &blk->data.variant;
+        v->payload = copy_block(v->payload, &to_end);
+        break;
+      }
       case T_I32:
       case T_I64:
         break;
       case T_FWD:
         abort_with(ABORT_FWD_IN_TO_SPACE);
+
+      default:
+        abort_with(ABORT_UNIMPLEMENTED);
     }
     top += blk->size;
   }

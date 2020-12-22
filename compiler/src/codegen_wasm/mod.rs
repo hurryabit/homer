@@ -266,12 +266,10 @@ impl<'a> Fungen<'a> {
                     self.emit(I32Const(*rank as i32));
                     if let Some(atom) = payload {
                         self.emit(I32Const(atom.0.0 as i32 - 1));
+                        self.call_runtime("alloc_variant");
                     } else {
-                        // TODO a bit messy, perhaps better would be to have
-                        // tags variant0 and variant1 or some such?
-                        self.emit(I32Const(-1));
+                        self.call_runtime("alloc_variant_0");
                     }
-                    self.call_runtime("alloc_variant");
                 }
                 
                 Bindee::Match(scrut, branches) => {

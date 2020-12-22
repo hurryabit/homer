@@ -3,7 +3,7 @@ all: test.wasm
 
 
 %.o : %.c
-	wasm32-unknown-wasi-clang -Wall -nostdlib --target=wasm32 -Oz $< -c -o $@
+	wasm32-unknown-wasi-clang -Wall -Werror -nostdlib --target=wasm32 -Oz $< -c -o $@
 
 %.o : %.wat
 	wat2wasm --relocatable $< -o $@
