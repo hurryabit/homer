@@ -222,8 +222,9 @@ impl<'a> Fungen<'a> {
                 Bindee::AppFunc(index, _name, args) => {
                     // FIXME tail-call optimization. If this is the last binding we can
                     // shift the arguments over the frame.
-                    for arg in args {
-                        self.get_atom(arg);
+                    for (Atom(IdxVar(idx, _)), off) in args.iter().zip(0..) {
+                        self.emit(I32Const(*idx as i32 - 1 + off));
+                        self.call_runtime("load");                
                     }
 
                     // Emit a direct call. Index is offset by the runtime functions
