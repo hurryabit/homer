@@ -1,4 +1,4 @@
-use homer_compiler::{build, cek, syntax};
+use homer_compiler::{build, cek, syntax, backend_wasm};
 use std::sync::Arc;
 
 #[allow(clippy::iter_nth_zero)]
@@ -21,7 +21,17 @@ fn run() -> std::io::Result<bool> {
         }
     });
 
+
     if let Some(module) = db.anf_module(uri) {
+
+        match backend_wasm::gen_module(&module) {
+            Ok(wasm_module) =>
+                parity_wasm::elements::serialize_to_file("/tmp/out.wasm", wasm_module).unwrap(),
+            Err(err) =>
+                eprintln!("Error: {:?}", err),
+        }
+
+
         let machine = cek::Machine::new(&module, syntax::ExprVar::new("main"));
         let result = machine.run();
         println!("Result: {}", result.value());

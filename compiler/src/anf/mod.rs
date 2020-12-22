@@ -533,3 +533,6 @@ impl fmt::Display for OpCode {
         })
     }
 }
+
+derive_fmt_debug!(Expr);
+derive_fmt_debug!(FuncDecl);

@@ -1,34 +1,82 @@
 
+/** Homer's WebAssembly Runtime
+ * 
+ * Provides the heap and stack memories plus the utilities
+ * to manage them.
+ */
+
+// Data types
 typedef unsigned int u32;
 typedef __UINTPTR_TYPE__ ptr_t;
 typedef int i32;
+typedef long long i64;
 typedef unsigned char u8;
 
 // Heap storage
-#define MEM_SIZE 1024
-static u8 memA[MEM_SIZE];
-static u8 memB[MEM_SIZE];
+#define HEAP_SIZE 1024
+static u8 memA[HEAP_SIZE];
+static u8 memB[HEAP_SIZE];
 static u8* from = memA;
 static u8* to = memB;
 static u8* hp = memA;
-static u8* mem_end = memA + MEM_SIZE;
+static u8* mem_end = &memA[HEAP_SIZE];
 
 // Stack storage
 #define STACK_SIZE 1024
 static ptr_t stack[STACK_SIZE];
-static ptr_t* stack_end = &stack[STACK_SIZE];
+static ptr_t* stack_start = &stack[STACK_SIZE];
+//static ptr_t* stack_end = &stack[0];
 static ptr_t* sp = &stack[STACK_SIZE];
 
+// Pointer to the closure we're currently invoking.
+// TODO consider removing this.
+static struct closure *current_closure = (struct closure*)0;
+
+// Heap block tags
 typedef enum {
-  T_I32 = 0,
-  T_CLOSURE = 1,
-  T_FWD = 2
+  T_MIN = 1,
+  T_I32 = 1,
+  T_I64 = 2,
+  T_CLOSURE = 3,
+  T_VARIANT = 4,
+  T_FWD = 5,
+  T_MAX = T_FWD,
 } tag_t;
+
+// Abort reasons
+enum {
+  ABORT_ASSERT_STACKEMPTY = 1,
+  ABORT_ASSERT_I32 = 2,
+  ABORT_ASSERT_BOXED_I32 = 3,
+  ABORT_OUT_OF_MEMORY = 7,
+  ABORT_CURRENT_CLOSURE_UNSET = 8,
+  ABORT_BAD_BLOCK = 9,
+  ABORT_FWD_IN_TO_SPACE = 10,
+  ABORT_ERROR = 11,
+  ABORT_UNIMPLEMENTED = 90,
+
+  ABORT_EXPECTED_T = 100,
+  // ...
+  ABORT_EXPECTED_T_MAX = ABORT_EXPECTED_T + T_MAX, 
+};
+
+// Host functions.
+void log_i32(i32 x) __attribute__((__import_module__("host"), __import_name__("log_i32")));
+void abort_with(i32 reason) __attribute__((__import_module__("host"), __import_name__("abort")));
+
+void error() {
+  abort_with(ABORT_ERROR);
+}
 
 struct closure {
   u32 funcidx;
   u8 nvars;
-  u32 vars[0];
+  ptr_t vars[0];
+};
+
+struct variant {
+  u32 rank;
+  ptr_t payload;
 };
 
 struct block {
@@ -38,8 +86,10 @@ struct block {
   // FIXME(JM): Block size larger than necessary.
   union {
     i32 i32;
+    i64 i64;
     ptr_t fwd;
     struct closure clo;
+    struct variant variant;
   } data;
 };
 
@@ -47,49 +97,61 @@ struct block {
 #define BLK_HDR_SIZE sizeof(struct block)
 #define PTR(p) ((ptr_t)p)
 
+struct block* get_blk(ptr_t p, tag_t tag) {
+  struct block *blk = BLK(p);
+  if (blk->tag != tag) {
+    abort_with(ABORT_EXPECTED_T + tag);
+  }
+  return blk;
+}
+
 void push(ptr_t p) { sp--; *sp = p; }
 ptr_t pop() { return *sp++; }
 void pop_() { sp++; }
 void dup() { *(sp - 1) = *sp; sp--; }
 
-void __abort__() {
-  // TODO better abort
-  (*((u8*)999999999))++;
+void load(i32 off) {
+  *sp = *(sp + off);
+  sp--;
 }
 
 void assert_stackempty() {
-  if (sp != stack_end) {
-    (*((u8*)666666666))++;
-    __abort__();
+  if (sp != stack_start) {
+    abort_with(ABORT_ASSERT_STACKEMPTY);
   }
 }
 
 void assert_i32(i32 x) {
   if (*sp != x) {
-    (*((u8*)(90000000+*sp)))++;
+    abort_with(ABORT_ASSERT_I32);
   }
 }
 
 void assert_boxed_i32(i32 x) {
-  struct block* blk = BLK(*sp);
-  if (blk->tag != T_I32) {
-    (*((u8*)787878787))++;
-  }
+  struct block* blk = get_blk(*sp, T_I32);
   if (blk->data.i32 != x) {
-    (*((u8*)(70000000+blk->data.i32)))++;
+    abort_with(ABORT_ASSERT_BOXED_I32);
   }
 }
 
-void gc();
+void assert_closure(struct block *blk) {
+  if (blk->tag != T_CLOSURE) {
+    abort_with(ABORT_EXPECTED_T + T_CLOSURE);
+  }
+}
+
+void garbage_collect();
 void needheap(u32 n) {
   if (hp + n > mem_end) {
-    gc();
+    garbage_collect();
   }
   if (hp + n > mem_end) {
-    __abort__();
+    abort_with(ABORT_OUT_OF_MEMORY);
   }
 }
 
+// FIXME: Should probably have a naming convention that tells whether the function
+// pushes to homer stack or wasm stack.
 void alloc_i32(i32 x) {
   needheap(BLK_HDR_SIZE);
   struct block *blk = BLK(hp);
@@ -100,43 +162,179 @@ void alloc_i32(i32 x) {
   push(PTR(blk));
 }
 
-void alloc_closure(u32 funcidx, u32 nvars) {
+void alloc_i64(i64 x) {
+  needheap(BLK_HDR_SIZE);
+  struct block *blk = BLK(hp);
+  blk->tag = T_I64;
+  blk->size = BLK_HDR_SIZE;
+  blk->data.i64 = x;
+  hp += blk->size;
+  push(PTR(blk));
+}
+
+void alloc_variant(i32 rank, i32 payload) {
+  needheap(BLK_HDR_SIZE + sizeof(u32));
+  struct block *blk = BLK(hp);
+  blk->tag = T_VARIANT;
+  blk->size = BLK_HDR_SIZE;
+  blk->data.variant.rank = rank;
+  if (payload >= 0) {
+    blk->data.variant.payload = *(sp + payload);
+  }
+  hp += blk->size;
+  push(PTR(blk));
+}
+
+static inline struct block* alloc_closure_internal(u32 funcidx, u32 nvars) {
   needheap(BLK_HDR_SIZE + sizeof(u32)*nvars);
   struct block *blk = BLK(hp);
   blk->tag = T_CLOSURE;
   blk->size = BLK_HDR_SIZE + sizeof(u32)*nvars;
   blk->data.clo.funcidx = funcidx;
   blk->data.clo.nvars = nvars;
-  for (int i = 0; i < nvars; i++) {
-    // FIXME: which way around should we store the variables?
-    blk->data.clo.vars[i] = *sp++;
-  }
   hp += blk->size;
+  return blk;
+}
+
+void alloc_closure_from_stack(u32 funcidx, u32 nvars) {
+  struct block *blk = alloc_closure_internal(funcidx, nvars);
+  ptr_t *tsp = sp;
+  for (int i = 0; i < nvars; i++) {
+    blk->data.clo.vars[i] = *tsp++;
+  }
   push(PTR(blk));
 }
 
-u32 get_funcidx() {
-  struct block *blk = BLK(*sp);
-  if (blk->tag != T_CLOSURE) { __abort__(); };
+void alloc_closure_0(u32 funcidx) {
+  struct block *blk = alloc_closure_internal(funcidx, 0);
+  push(PTR(blk));
+}
+
+void alloc_closure_1(u32 funcidx, u32 off1) {
+  struct block *blk = alloc_closure_internal(funcidx, 1);
+  blk->data.clo.vars[0] = *(sp + off1);
+  push(PTR(blk));
+}
+
+void alloc_closure_2(u32 funcidx, u32 off1, u32 off2) {
+  struct block *blk = alloc_closure_internal(funcidx, 2);
+  blk->data.clo.vars[0] = *(sp + off1);
+  blk->data.clo.vars[1] = *(sp + off2);
+  push(PTR(blk));
+}
+
+void alloc_closure_3(u32 funcidx, u32 off1, u32 off2, u32 off3) {
+  struct block *blk = alloc_closure_internal(funcidx, 3);
+  blk->data.clo.vars[0] = *(sp + off1);
+  blk->data.clo.vars[1] = *(sp + off2);
+  blk->data.clo.vars[2] = *(sp + off3);
+  push(PTR(blk));
+}
+
+void alloc_closure_4(u32 funcidx, u32 off1, u32 off2, u32 off3, u32 off4) {
+  struct block *blk = alloc_closure_internal(funcidx, 3);
+  blk->data.clo.vars[0] = *(sp + off1);
+  blk->data.clo.vars[1] = *(sp + off2);
+  blk->data.clo.vars[2] = *(sp + off3);
+  blk->data.clo.vars[3] = *(sp + off4);
+  push(PTR(blk));
+}
+
+void alloc_closure_5(u32 funcidx, u32 off1, u32 off2, u32 off3, u32 off4, u32 off5) {
+  struct block *blk = alloc_closure_internal(funcidx, 3);
+  blk->data.clo.vars[0] = *(sp + off1);
+  blk->data.clo.vars[1] = *(sp + off2);
+  blk->data.clo.vars[2] = *(sp + off3);
+  blk->data.clo.vars[3] = *(sp + off4);
+  blk->data.clo.vars[4] = *(sp + off5);
+  push(PTR(blk));
+}
+
+void alloc_closure_6(u32 funcidx, u32 off1, u32 off2, u32 off3, u32 off4, u32 off5, u32 off6) {
+  struct block *blk = alloc_closure_internal(funcidx, 3);
+  blk->data.clo.vars[0] = *(sp + off1);
+  blk->data.clo.vars[1] = *(sp + off2);
+  blk->data.clo.vars[2] = *(sp + off3);
+  blk->data.clo.vars[3] = *(sp + off4);
+  blk->data.clo.vars[4] = *(sp + off5);
+  blk->data.clo.vars[5] = *(sp + off6);
+  push(PTR(blk));
+}
+
+// Prepare for closure application by copying the captured variables to top of stack and returning
+// the function index.
+u32 prep_app_closure(u32 off) {
+  struct block *blk = get_blk(*(sp + off), T_CLOSURE);
+  for (int i = 0; i < blk->data.clo.nvars; i++) {
+    *--sp = blk->data.clo.vars[i];
+  }
+  current_closure = &blk->data.clo;
   return blk->data.clo.funcidx;
 }
 
-void add() { alloc_i32(BLK(pop())->data.i32 + BLK(pop())->data.i32); }
-void sub() { alloc_i32(BLK(pop())->data.i32 - BLK(pop())->data.i32); }
+void push_param(u32 off) {
+  // TODO: Remove the current_closure hack. We'd need to otherwise save and restore it. Not worth it
+  // right now.
+  if (!current_closure) { abort_with(ABORT_CURRENT_CLOSURE_UNSET); }
+  push(*(sp + off + current_closure->nvars /* captured variables */));
+}
+
+u32 get_funcidx() {
+  struct block *blk = get_blk(*sp, T_CLOSURE);
+  return blk->data.clo.funcidx;
+}
+
+void add(i32 a, i32 b) {
+  struct block *blk_a = get_blk(*(sp + a), T_I64);
+  struct block *blk_b = get_blk(*(sp + b), T_I64);
+  alloc_i64(blk_a->data.i64 + blk_b->data.i64);
+}
+void sub(i32 a, i32 b) { 
+  struct block *blk_a = get_blk(*(sp + a), T_I64);
+  struct block *blk_b = get_blk(*(sp + b), T_I64);
+  alloc_i64(blk_a->data.i64 - blk_b->data.i64);
+}
+
+void div(i32 a, i32 b) { 
+  struct block *blk_a = get_blk(*(sp + a), T_I64);
+  struct block *blk_b = get_blk(*(sp + b), T_I64);
+  alloc_i64(blk_a->data.i64 / blk_b->data.i64);
+}
+
+void mul(i32 a, i32 b) { 
+  struct block *blk_a = get_blk(*(sp + a), T_I64);
+  struct block *blk_b = get_blk(*(sp + b), T_I64);
+  alloc_i64(blk_a->data.i64 * blk_b->data.i64);
+}
+void equals(i32 a, i32 b) { 
+  struct block *blk_a = BLK(*(sp + a));
+  struct block *blk_b = BLK(*(sp + b));
+  // TODO structural equality.
+  push(blk_a == blk_b);
+ }
 
 void loadenv(u32 off, u32 idx) {
-  struct block *blk = BLK(*(sp + off));
-  if (blk->tag != T_CLOSURE) { __abort__(); };
+  struct block *blk = get_blk(*(sp + off), T_CLOSURE);
   push(blk->data.clo.vars[idx]);
 }
 
 i32 deref_i32() {
-  return BLK(pop())->data.i32;
+  return get_blk(pop(), T_I32)->data.i32;
 }
 
-void ret(u32 nargs) {
+i64 deref_i64() {
+  return get_blk(pop(), T_I64)->data.i64;
+}
+
+u32 get_rank(u32 off) {
+  return get_blk(*(sp + off), T_VARIANT)->data.variant.rank;
+}
+
+// Return from a function by shifting out the frame and leaving
+// the return value on top.
+void ret(u32 n) {
   ptr_t result = *sp;
-  sp += nargs + 1;
+  sp += n;
   *sp = result;
 }
 
@@ -158,7 +356,9 @@ ptr_t copy_block(ptr_t p, u8 **to_end) {
     // Block has already been copied, return its new address.
     return blk->data.fwd;
   } else {
-    if (blk->tag != T_CLOSURE && blk->tag != T_I32) __abort__();
+    if (blk->tag < T_MIN || blk->tag > T_MAX) {
+      abort_with(ABORT_BAD_BLOCK);
+    }
 
     // Copy the block and set up forwarding.
     ptr_t newp = PTR(*to_end);
@@ -171,12 +371,12 @@ ptr_t copy_block(ptr_t p, u8 **to_end) {
   }
 }
 
-void gc() {
+void garbage_collect() {
   // Copy the blocks reachable from stack to the 'to' space.
   u8 *to_end = to;
   {
     ptr_t *spt = sp;
-    while (spt < stack_end) {
+    while (spt < stack_start) {
       *spt = copy_block(*spt, &to_end);
       spt++;
     }
@@ -197,16 +397,17 @@ void gc() {
         break;
       }
       case T_I32:
+      case T_I64:
         break;
       case T_FWD:
-        __abort__();
+        abort_with(ABORT_FWD_IN_TO_SPACE);
     }
     top += blk->size;
   }
 
   // Swap spaces.
   hp = to_end;
-  mem_end = to + MEM_SIZE;
+  mem_end = to + HEAP_SIZE;
 
   {
     u8 *tmp = from;

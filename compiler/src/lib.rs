@@ -17,7 +17,7 @@ pub mod diagnostic;
 pub mod location;
 pub mod parser;
 pub mod syntax;
-pub mod backend;
+//pub mod backend;
 pub mod backend_wasm;
 mod util;
 

@@ -5,17 +5,25 @@ use wasmtime::*;
 fn main() -> Result<()> {
     let engine = Engine::default();
     let store = Store::new(&engine);
-
     let mut linker = Linker::new(&store);
+
+    linker.func("host", "log_i32", |x: i32| println!("{}", x))?;
+    linker.func("host", "abort", |x: i32| panic!("abort: {}", x))?;
+
     let runtime = Module::from_file(&engine, "runtime/runtime.wasm")?;
-    let test = Module::from_file(&engine, "runtime/test.wat")?;
+    let test = Module::from_file(&engine, "/tmp/out.wasm")?;
     let runtime_inst = linker.instantiate(&runtime)?;
     linker.instance("runtime", &runtime_inst)?;
-
-    // And with that we can perform the final link and the execute the module.
     let test_inst = linker.instantiate(&test)?;
-    let run = test_inst.get_func("test_closure_apply").unwrap();
+
+    let run = test_inst.get_func("main").unwrap();
+
     let run = run.get0::<()>()?;
     run()?;
+
+    let deref = runtime_inst.get_func("deref_i64").unwrap().get0::<i64>()?;
+    let result = deref()?;
+    println!("result: {}", result);
+
     Ok(())
 }

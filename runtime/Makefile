@@ -8,9 +8,10 @@ all: test.wasm
 %.o : %.wat
 	wat2wasm --relocatable $< -o $@
 
-runtime.wasm:
+runtime.wasm: runtime.o
 	wasm32-unknown-wasi-wasm-ld --no-entry \
 	  --export-all \
+	  --allow-undefined \
   	  runtime.o -o runtime.wasm
 
 
