@@ -33,7 +33,7 @@ type List<A> = [ Nil | Cons({ head: A, tail: List<A> }) ]
 fn map_list<A, B>(lst: List<A>, f: (A) -> B) -> List<B> {
     match lst {
         Nil => Nil,
-        Cons(lst) => Cons({ head = f(lst.head), tail = map_list@<A, B>(lst.tail, f) }),
+        Cons(lst) => Cons({ head = f(lst.head), tail = map_list(lst.tail, f) }),
     }
 }
 
@@ -54,21 +54,21 @@ fn tail<A>(lst: List<A>) -> Option<List<A>> {
 fn fold_left<A, B>(lst: List<A>, init: B, f: (B, A) -> B) -> B {
     match lst {
         Nil => init,
-        Cons(lst) => fold_left@<A, B>(lst.tail, f(init, lst.head), f),
+        Cons(lst) => fold_left(lst.tail, f(init, lst.head), f),
     }
 }
 
 fn fold_right<A, B>(lst: List<A>, f: (A, B) -> B, init: B) -> B {
     match lst {
         Nil => init,
-        Cons(lst) => fold_right@<A, B>(lst.tail, f, f(lst.head, init)),
+        Cons(lst) => fold_right(lst.tail, f, f(lst.head, init)),
     }
 }
 
 fn append<A>(xs: List<A>, ys: List<A>) -> List<A> {
-    fold_right@<A, List<A>>(xs, fn (z, zs) { Cons({head = z, tail = zs}) }, ys)
+    fold_right(xs, fn (z, zs) { Cons({head = z, tail = zs}) }, ys)
 }
 
 fn concat<A>(xss: List<List<A>>) -> List<A> {
-    fold_right@<List<A>, List<A>>(xss, fn (ys, zs) { append@<A>(ys, zs) }, Nil)
+    fold_right(xss, fn (ys, zs) { append(ys, zs) }, Nil)
 }

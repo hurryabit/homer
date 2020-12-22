@@ -476,6 +476,7 @@ fn rule_mono_app_fun_infer_ok() {
 }
 
 #[test]
+#[ignore = "unification based type inference can handle this now"]
 fn rule_mono_app_fun_check_on_poly_fun() {
     insta::assert_snapshot!(check_error(r#"
     fn poly_fun<A>(x: A) -> A { x }
@@ -490,6 +491,7 @@ fn rule_mono_app_fun_check_on_poly_fun() {
 }
 
 #[test]
+#[ignore = "unification based type inference can handle this now"]
 fn rule_mono_app_fun_infer_on_poly_fun() {
     insta::assert_snapshot!(check_error(r#"
     fn poly_fun<A>(x: A) -> A { x }
@@ -1031,6 +1033,20 @@ fn rule_app_clo_too_few_args() {
       4 |         g()
                   ~~~
     `g` cannot be applied to 0 arguments because it has has type `(Int) -> Int`.
+    "###);
+}
+
+#[test]
+fn rule_app_clo_mismatch_arg1() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> Int {
+        let g = fn (x: Int) { x };
+        g(CheckMe)
+    }
+    "#), @r###"
+      4 |         g(CheckMe)
+                    ~~~~~~~
+    Expected an expression of type `Int` but found variant constructor `CheckMe`.
     "###);
 }
 

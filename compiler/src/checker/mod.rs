@@ -26,6 +26,7 @@ struct Env {
     type_vars: im::HashSet<TypeVar>,
     expr_vars: im::HashMap<ExprVar, (SourceSpan, RcType)>,
     symbols: Rc<Cell<Vec<SymbolInfo>>>,
+    unification_var_counter: Rc<Cell<u32>>,
 }
 
 impl Module {
@@ -273,6 +274,11 @@ impl Expr {
                     _ => Err(Located::new(Error::BadLam(expected.clone(), params.len()), span)),
                 }
             }
+            Self::AppFun(fun, opt_types, args) => {
+                check_app_fun(env, span, fun, opt_types, args, |result| {
+                    found_vs_expected(env, span, result, expected)
+                })
+            }
             Self::Let(binder, opt_type_ann, bindee, tail) => {
                 let binder_typ = check_let_bindee(env, binder, opt_type_ann, bindee)?;
                 env.intro_binder(binder, binder_typ, |env| tail.check(env, expected))
@@ -319,19 +325,11 @@ impl Expr {
             | Self::Num(_)
             | Self::Bool(_)
             | Self::AppClo(_, _)
-            | Self::AppFun(_, _, _)
             | Self::BinOp(_, _, _)
             | Self::Record(_)
             | Self::Proj(_, _, _) => {
                 let found = self.infer_resolved(span, env)?;
-                if found.equiv(expected, &env.type_defs) {
-                    Ok(())
-                } else {
-                    Err(Located::new(
-                        Error::TypeMismatch { found, expected: expected.clone() },
-                        span,
-                    ))
-                }
+                found_vs_expected(env, span, found, expected)
             }
         }
     }
@@ -389,52 +387,7 @@ impl Expr {
                 }
             }
             Self::AppFun(fun, opt_types, args) => {
-                let num_types = opt_types.as_ref().map_or(0, |types| types.len());
-                if let Some(types) = opt_types {
-                    for typ in types.iter_mut() {
-                        typ.check(env)?;
-                    }
-                }
-                let func_sig = env.func_sigs.get(&fun.locatee).unwrap();
-                // NOTE(MH): The name resolution only passes `f@<>(...)` on
-                // when `f` is a polymorphic function.
-                if matches!(opt_types, Some(types) if types.is_empty()) {
-                    assert!(!func_sig.params.is_empty());
-                }
-                env.add_symbol(SymbolInfo::FuncRef { var: *fun, def: Rc::clone(func_sig) });
-                if num_types == func_sig.type_params.len() {
-                    let types: Vec<_> = opt_types
-                        .as_ref()
-                        .unwrap_or(&vec![])
-                        .iter()
-                        .map(RcType::from_lsyntax)
-                        .collect();
-                    let (params, result) = func_sig.instantiate(&types);
-                    if args.len() == params.len() {
-                        for (arg, typ) in args.iter_mut().zip(params.iter()) {
-                            arg.check(env, typ)?;
-                        }
-                        Ok(result)
-                    } else {
-                        Err(Located::new(
-                            Error::BadApp {
-                                func: Some(fun.locatee),
-                                func_type: RcType::new(Type::Fun(params, result)),
-                                num_args: args.len(),
-                            },
-                            span,
-                        ))
-                    }
-                } else {
-                    Err(Located::new(
-                        Error::GenericFuncArityMismatch {
-                            expr_var: fun.locatee,
-                            expected: func_sig.type_params.len(),
-                            found: num_types,
-                        },
-                        fun.span,
-                    ))
-                }
+                check_app_fun(env, span, fun, opt_types, args, Ok)
             }
             Self::BinOp(lhs, op, rhs) => match op {
                 OpCode::Add | OpCode::Sub | OpCode::Mul | OpCode::Div => {
@@ -572,6 +525,7 @@ impl Env {
             type_vars: im::HashSet::new(),
             expr_vars: im::HashMap::new(),
             symbols: Rc::new(Cell::new(Vec::new())),
+            unification_var_counter: Rc::new(Cell::new(1)),
         }
     }
 
@@ -623,6 +577,12 @@ impl Env {
         symbols.push(info);
         self.symbols.set(symbols);
     }
+
+    fn fresh_unification_type(&self) -> RcType {
+        let name = self.unification_var_counter.get();
+        self.unification_var_counter.set(name + 1);
+        RcType::new(Type::UnificationVar(UnificationCell::new_free(name)))
+    }
 }
 
 impl LTypeVar {
@@ -635,6 +595,19 @@ impl LTypeVar {
         } else {
             Ok(())
         }
+    }
+}
+
+fn found_vs_expected(
+    env: &Env,
+    span: SourceSpan,
+    found: RcType,
+    expected: &RcType,
+) -> Result<(), LError> {
+    if found.equiv(expected, &env.type_defs) {
+        Ok(())
+    } else {
+        Err(Located::new(Error::TypeMismatch { found, expected: expected.clone() }, span))
     }
 }
 
@@ -653,6 +626,74 @@ fn check_let_bindee(
         let typ = bindee.infer(env)?;
         *opt_type_ann = Some(typ.as_inferred(binder));
         Ok(typ)
+    }
+}
+
+fn check_app_fun<R, F: FnOnce(RcType) -> Result<R, LError>>(
+    env: &Env,
+    span: SourceSpan,
+    fun: &LExprVar,
+    opt_types: &mut Option<Vec<LType>>,
+    args: &mut Vec<LExpr>,
+    check_or_pass: F,
+) -> Result<R, LError> {
+    if let Some(types) = opt_types {
+        for typ in types.iter_mut() {
+            typ.check(env)?;
+        }
+    }
+    let func_sig = env.func_sigs.get(&fun.locatee).unwrap();
+    // NOTE(MH): The name resolution only passes `f@<>(...)` on when `f` is a
+    // polymorphic function.
+    if matches!(opt_types, Some(types) if types.is_empty()) {
+        assert!(!func_sig.params.is_empty());
+    }
+    env.add_symbol(SymbolInfo::FuncRef { var: *fun, def: Rc::clone(func_sig) });
+    let num_type_params = func_sig.type_params.len();
+    let num_types = opt_types.as_ref().map_or(num_type_params, |types| types.len());
+    if num_types == num_type_params {
+        let types: Vec<_> = match opt_types {
+            Some(types) => types.iter().map(RcType::from_lsyntax).collect(),
+            None => {
+                let (types, syntax_types) = (0..num_types)
+                    .map(|_| {
+                        let typ = env.fresh_unification_type();
+                        (typ.clone(), typ.as_inferred(fun))
+                    })
+                    .unzip();
+                *opt_types = Some(syntax_types);
+                types
+            }
+        };
+        let (params, result) = func_sig.instantiate(&types);
+        if args.len() == params.len() {
+            // NOTE(MH): In check mode, we get better inference if we first
+            // unify the expected type with the result type before we check the
+            // arguments.
+            let result = check_or_pass(result);
+            for (arg, typ) in args.iter_mut().zip(params.iter()) {
+                arg.check(env, typ)?;
+            }
+            result
+        } else {
+            Err(Located::new(
+                Error::BadApp {
+                    func: Some(fun.locatee),
+                    func_type: RcType::new(Type::Fun(params, result)),
+                    num_args: args.len(),
+                },
+                span,
+            ))
+        }
+    } else {
+        Err(Located::new(
+            Error::GenericFuncArityMismatch {
+                expr_var: fun.locatee,
+                expected: func_sig.type_params.len(),
+                found: num_types,
+            },
+            fun.span,
+        ))
     }
 }
 
