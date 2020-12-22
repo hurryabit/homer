@@ -3,7 +3,6 @@ use anf::*;
 use parity_wasm::builder;
 use parity_wasm::elements;
 use parity_wasm::elements::Instruction::*;
-use std::rc::Rc;
 
 pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
     let mut builder = builder::module();
@@ -88,7 +87,7 @@ pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
     // for direct calls.
     let mut table_entries = Vec::new();
     loop {
-        let mut closures = std::mem::replace(&mut fungen.closures, Vec::new());    
+        let closures = std::mem::replace(&mut fungen.closures, Vec::new());    
         if closures.is_empty() {
             break
         }
@@ -268,7 +267,8 @@ impl<'a> Fungen<'a> {
                     if let Some(atom) = payload {
                         self.emit(I32Const(atom.0.0 as i32 - 1));
                     } else {
-                        // TODO a bit messy, perhaps better would be to have to variant tags.
+                        // TODO a bit messy, perhaps better would be to have
+                        // tags variant0 and variant1 or some such?
                         self.emit(I32Const(-1));
                     }
                     self.call_runtime("alloc_variant");

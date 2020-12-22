@@ -1,4 +1,4 @@
-use homer_compiler::{build, cek, syntax, backend_wasm};
+use homer_compiler::{build, cek, syntax, codegen_wasm};
 use std::sync::Arc;
 
 #[allow(clippy::iter_nth_zero)]
@@ -26,7 +26,7 @@ fn run() -> std::io::Result<bool> {
 
         println!("module {:?}", module);
 
-        match backend_wasm::gen_module(&module) {
+        match codegen_wasm::gen_module(&module) {
             Ok(wasm_module) =>
                 parity_wasm::elements::serialize_to_file("/tmp/out.wasm", wasm_module).unwrap(),
             Err(err) =>

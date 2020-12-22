@@ -17,8 +17,7 @@ pub mod diagnostic;
 pub mod location;
 pub mod parser;
 pub mod syntax;
-//pub mod backend;
-pub mod backend_wasm;
+pub mod codegen_wasm;
 mod util;
 
 lalrpop_mod!(

@@ -319,16 +319,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
-name = "cranelift"
-version = "0.68.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60686f89c5145bc9a961dabbb83954baa429bde4c5977a0a5d3f8552f2990273"
-dependencies = [
- "cranelift-codegen",
- "cranelift-frontend",
-]
-
-[[package]]
 name = "cranelift-bforest"
 version = "0.68.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -395,19 +385,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cranelift-module"
-version = "0.68.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fdaf0b5c93a610ff988fe5e2adbb7f6afa89cf702ca41acc3479dc35638d3a8d"
-dependencies = [
- "anyhow",
- "cranelift-codegen",
- "cranelift-entity",
- "log",
- "thiserror",
-]
-
-[[package]]
 name = "cranelift-native"
 version = "0.68.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -416,24 +393,6 @@ dependencies = [
  "cranelift-codegen",
  "raw-cpuid",
  "target-lexicon",
-]
-
-[[package]]
-name = "cranelift-simplejit"
-version = "0.68.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2522ebdff6ba637c0b5e75bc3d40cc990ac1128e13547b740f10fc7b16d3991"
-dependencies = [
- "cranelift-codegen",
- "cranelift-entity",
- "cranelift-module",
- "cranelift-native",
- "errno",
- "libc",
- "log",
- "region",
- "target-lexicon",
- "winapi",
 ]
 
 [[package]]
@@ -929,11 +888,6 @@ version = "0.1.0"
 dependencies = [
  "Inflector",
  "anyhow",
- "cranelift",
- "cranelift-codegen",
- "cranelift-frontend",
- "cranelift-module",
- "cranelift-simplejit",
  "criterion",
  "crossbeam",
  "flexi_logger",
