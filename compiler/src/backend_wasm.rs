@@ -64,8 +64,7 @@ pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
     for decl in &module.func_decls {
         let instrs = fungen.gen_fun(
             &decl.body, 
-            decl.params.len(), 
-            decl.body.bindings.len());
+            decl.params.len());
 
         let loc = builder.push_function(
             builder::function()
@@ -97,8 +96,7 @@ pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
         for (table_index, closure) in closures {
             let instrs = fungen.gen_fun(
                 &closure.body, 
-                closure.params.len() + closure.captured.len(), 
-                closure.body.bindings.len());
+                closure.params.len() + closure.captured.len());
 
             let loc = builder.push_function(
                 builder::function()
@@ -139,12 +137,10 @@ impl<'a> Fungen<'a> {
         table_index
     }
 
-    pub fn gen_fun(&mut self, expr: &'a Expr, nargs: usize, nvars: usize) -> Vec<elements::Instruction> {
+    pub fn gen_fun(&mut self, expr: &'a Expr, nargs: usize) -> Vec<elements::Instruction> {
         self.gen_expr(expr);
-    
-        let num_to_pop = (nargs + nvars) as i32 - 1 /* except last binding, i.e. the return value */;
-        if num_to_pop > 0 {
-          self.emit(I32Const(num_to_pop));
+        if nargs > 0 {
+          self.emit(I32Const(nargs as i32));
           self.call_runtime("ret");
         }
         self.emit(End);
@@ -164,7 +160,7 @@ impl<'a> Fungen<'a> {
     }
 
     pub fn get_atom(&mut self, atom: &Atom) {
-        self.emit(I32Const(atom.0.0 as i32));
+        self.emit(I32Const(atom.0.0 as i32 - 1));
         self.call_runtime("load");
     }
 
@@ -181,7 +177,7 @@ impl<'a> Fungen<'a> {
                 }
                 Bindee::Bool(b) => {
                     self.emit(I32Const(if *b { 1 } else { 0 }));
-                    self.call_runtime("alloc_i64"); // TODO: Tags for true/false?
+                    self.call_runtime("alloc_i32");
                 }
                 Bindee::MakeClosure(mk_clo) => {
                     let table_index = self.push_closure(mk_clo);
@@ -257,7 +253,7 @@ impl<'a> Fungen<'a> {
 
                 Bindee::If(cond, then, elze) => {
                     self.get_atom(cond);
-                    self.call_runtime("deref_i64");
+                    self.call_runtime("deref_i32");
                     self.emit(If(elements::BlockType::NoResult));
                     self.gen_expr(&then);
                     self.emit(Else);
@@ -311,7 +307,18 @@ impl<'a> Fungen<'a> {
 
                     // Emit the branch bodies
                     for (branch, index) in branches.iter().zip(0..) {
+                        let has_binder = branch.pattern.binder.is_some();
+                        if has_binder {
+                            self.emit(I32Const(0));
+                            self.call_runtime("load_payload");
+                        }
                         self.gen_expr(&branch.rhs);
+
+                        if has_binder {
+                            self.emit(I32Const(1));
+                            self.call_runtime("ret");
+                        }
+
                         // Branch to outer block, if needed.
                         let block = branches.len() as u32 - 1 - index;
                         if block > 0 {
@@ -321,7 +328,9 @@ impl<'a> Fungen<'a> {
                     }
 
                 }
-            }
+            }    
         }
+        self.emit(I32Const(expr.bindings.len() as i32 - 1));
+        self.call_runtime("ret");
     }
 }

@@ -46,13 +46,14 @@ typedef enum {
 // Abort reasons
 enum {
   ABORT_ASSERT_STACKEMPTY = 1,
-  ABORT_ASSERT_I32 = 2,
-  ABORT_ASSERT_BOXED_I32 = 3,
-  ABORT_OUT_OF_MEMORY = 7,
-  ABORT_CURRENT_CLOSURE_UNSET = 8,
-  ABORT_BAD_BLOCK = 9,
-  ABORT_FWD_IN_TO_SPACE = 10,
-  ABORT_ERROR = 11,
+  ABORT_ASSERT_HEAPEMPTY = 2,
+  ABORT_ASSERT_I32 = 3,
+  ABORT_ASSERT_BOXED_I32 = 4,
+  ABORT_OUT_OF_MEMORY = 5,
+  ABORT_CURRENT_CLOSURE_UNSET = 6,
+  ABORT_BAD_BLOCK = 7,
+  ABORT_FWD_IN_TO_SPACE = 8,
+  ABORT_ERROR = 9,
   ABORT_UNIMPLEMENTED = 90,
 
   ABORT_EXPECTED_T = 100,
@@ -63,27 +64,35 @@ enum {
 // Host functions.
 void log_i32(i32 x) __attribute__((__import_module__("host"), __import_name__("log_i32")));
 void abort_with(i32 reason) __attribute__((__import_module__("host"), __import_name__("abort")));
+void error() { abort_with(ABORT_ERROR); }
 
-void error() {
-  abort_with(ABORT_ERROR);
-}
+// Forward declarations.
+void garbage_collect();
 
+
+// Closure: pointer to an entry in the function table and the enclosed
+// variables.
 struct closure {
   u32 funcidx;
   u8 nvars;
   ptr_t vars[0];
 };
 
+// Variant: rank (e.g. which variant) and a payload (if any).
+// Currently we don't distinquish between variants which have a payload
+// and which do not. The payload is uninitialized if the variant does not have
+// a payload.
 struct variant {
   u32 rank;
   ptr_t payload;
 };
 
+// Block: Heap is divided into blocks which carry the tag and size of the object.
 struct block {
   u32 tag:8;
   u32 size:24;
 
-  // FIXME(JM): Block size larger than necessary.
+  // FIXME(JM): Block size larger than necessary, though this is more convenient.
   union {
     i32 i32;
     i64 i64;
@@ -111,13 +120,21 @@ void pop_() { sp++; }
 void dup() { *(sp - 1) = *sp; sp--; }
 
 void load(i32 off) {
-  *sp = *(sp + off);
+  *(sp - 1) = *(sp + off);
   sp--;
 }
 
 void assert_stackempty() {
   if (sp != stack_start) {
     abort_with(ABORT_ASSERT_STACKEMPTY);
+  }
+}
+
+
+void assert_heapempty() {
+  garbage_collect();
+  if (hp != from) {
+    abort_with(ABORT_ASSERT_HEAPEMPTY);
   }
 }
 
@@ -306,6 +323,13 @@ void mul(i32 a, i32 b) {
   struct block *blk_b = get_blk(*(sp + b), T_I64);
   alloc_i64(blk_a->data.i64 * blk_b->data.i64);
 }
+
+void greater(i32 a, i32 b) { 
+  struct block *blk_a = get_blk(*(sp + a), T_I64);
+  struct block *blk_b = get_blk(*(sp + b), T_I64);
+  alloc_i32(blk_a->data.i64 > blk_b->data.i64);
+}
+
 void equals(i32 a, i32 b) { 
   struct block *blk_a = BLK(*(sp + a));
   struct block *blk_b = BLK(*(sp + b));
@@ -329,6 +353,11 @@ i64 deref_i64() {
 u32 get_rank(u32 off) {
   return get_blk(*(sp + off), T_VARIANT)->data.variant.rank;
 }
+
+void load_payload(u32 off) {
+  push(get_blk(*(sp + off), T_VARIANT)->data.variant.payload);
+}
+
 
 // Return from a function by shifting out the frame and leaving
 // the return value on top.

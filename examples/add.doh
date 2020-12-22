@@ -6,6 +6,6 @@ fn main() -> Int {
     let foo: (Int) -> Option<Int> = fn(b: Int) { Some(a + b) };
     match foo(20) {
         None => 1,
-        Some(x) => x,
+        Some(x) => if (x > 10) { x + 2 } else { x + 1 },
     }
 }

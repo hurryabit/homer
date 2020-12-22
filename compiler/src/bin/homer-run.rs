@@ -24,6 +24,8 @@ fn run() -> std::io::Result<bool> {
 
     if let Some(module) = db.anf_module(uri) {
 
+        println!("module {:?}", module);
+
         match backend_wasm::gen_module(&module) {
             Ok(wasm_module) =>
                 parity_wasm::elements::serialize_to_file("/tmp/out.wasm", wasm_module).unwrap(),

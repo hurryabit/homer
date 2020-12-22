@@ -25,5 +25,12 @@ fn main() -> Result<()> {
     let result = deref()?;
     println!("result: {}", result);
 
+    let assert_stackempty = runtime_inst.get_func("assert_stackempty").unwrap().get0::<()>()?;
+    assert_stackempty()?;
+
+    let assert_heapempty = runtime_inst.get_func("assert_heapempty").unwrap().get0::<()>()?;
+    assert_heapempty()?;
+
+
     Ok(())
 }
