@@ -302,7 +302,7 @@ impl<'a> Fungen<'a> {
                     for (branch, index) in branches.iter().zip(0..) {
                         let has_binder = branch.pattern.binder.is_some();
                         if has_binder {
-                            self.emit(I32Const(0));
+                            self.emit(I32Const(scrut.0.0 as i32 - 1));
                             self.call_runtime("load_payload");
                         }
                         self.gen_expr(&branch.rhs);
