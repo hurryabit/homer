@@ -42,7 +42,8 @@ typedef enum {
   T_CLOSURE = 3,
   T_VARIANT0 = 4,
   T_VARIANT1 = 5,
-  T_FWD = 6,
+  T_RECORD = 6,
+  T_FWD = 7,
   T_MAX = T_FWD,
 } tag_t;
 
@@ -211,7 +212,7 @@ void alloc_i64(i64 x) {
 void alloc_variant_0(i32 rank) {
   needheap(BLK_HDR_SIZE + sizeof(u32));
   struct block *blk = BLK(hp);
-  blk->tag = T_VARIANT1;
+  blk->tag = T_VARIANT0;
   blk->size = BLK_HDR_SIZE;
   blk->data.variant.rank = rank;
   hp += blk->size;
@@ -246,6 +247,28 @@ void set_var(u32 var, u32 off) {
   struct block *blk = get_blk(*sp, T_CLOSURE);
   assert(var >= 0 && var < blk->data.clo.nvars);
   blk->data.clo.vars[var] = *(sp + off);
+}
+
+void alloc_record(u32 nfields) {
+  needheap(BLK_HDR_SIZE + sizeof(u32)*nfields);
+  struct block *blk = BLK(hp);
+  blk->tag = T_RECORD;
+  blk->size = BLK_HDR_SIZE + sizeof(u32)*nfields;
+  blk->data.record.nfields = nfields;
+  hp += blk->size;
+  push(PTR(blk));
+}
+
+void set_field(u32 field, u32 off) {
+  struct block *blk = get_blk(*sp, T_RECORD);
+  assert(field >= 0 && field < blk->data.record.nfields);
+  blk->data.record.fields[field] = *(sp + off);
+}
+
+void get_field(u32 record, u32 field) {
+  struct block *blk = get_blk(*(sp + record), T_RECORD);
+  assert(field >= 0 && field < blk->data.record.nfields);
+  push(blk->data.record.fields[field]);
 }
 
 // Prepare for closure application by copying the captured variables to top of stack and returning
@@ -300,11 +323,41 @@ void greater(i32 a, i32 b) {
   alloc_i32(blk_a->data.i64 > blk_b->data.i64);
 }
 
+void greater_eq(i32 a, i32 b) { 
+  struct block *blk_a = get_blk(*(sp + a), T_I64);
+  struct block *blk_b = get_blk(*(sp + b), T_I64);
+  alloc_i32(blk_a->data.i64 >= blk_b->data.i64);
+}
+
+void less(i32 a, i32 b) { 
+  struct block *blk_a = get_blk(*(sp + a), T_I64);
+  struct block *blk_b = get_blk(*(sp + b), T_I64);
+  alloc_i32(blk_a->data.i64 < blk_b->data.i64);
+}
+
+void less_eq(i32 a, i32 b) { 
+  struct block *blk_a = get_blk(*(sp + a), T_I64);
+  struct block *blk_b = get_blk(*(sp + b), T_I64);
+  alloc_i32(blk_a->data.i64 <= blk_b->data.i64);
+}
+
+void not_eq(i32 a, i32 b) {
+  struct block *blk_a = get_blk(*(sp + a), T_I64);
+  struct block *blk_b = get_blk(*(sp + b), T_I64);
+  alloc_i32(blk_a->data.i64 != blk_b->data.i64);
+}
+
 void equals(i32 a, i32 b) { 
   struct block *blk_a = BLK(*(sp + a));
   struct block *blk_b = BLK(*(sp + b));
   // TODO structural equality.
-  push(blk_a == blk_b);
+  if (blk_a->tag == T_I64 && blk_b->tag == T_I64) {
+    push(blk_a->data.i64 == blk_b->data.i64);
+  } else if (blk_a->tag == T_I32 && blk_b->tag == T_I32) {
+    push(blk_a->data.i32 == blk_b->data.i32);
+  } else {
+    push(blk_a == blk_b);
+  }
  }
 
 void loadenv(u32 off, u32 idx) {
@@ -403,6 +456,14 @@ void garbage_collect() {
         v->payload = copy_block(v->payload, &to_end);
         break;
       }
+      case T_RECORD: {
+        struct record *rec = &blk->data.record;
+        for (int i = 0; i < rec->nfields; i++) {
+          rec->fields[i] = copy_block(rec->fields[i], &to_end);
+        }
+        break;
+      }
+      case T_VARIANT0:
       case T_I32:
       case T_I64:
         break;

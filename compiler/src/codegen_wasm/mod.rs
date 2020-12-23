@@ -264,13 +264,22 @@ impl<'a> Fungen<'a> {
                     self.emit(End);
                 }
 
-                Bindee::Record(_, _values) => {
-                    // TODO: Consider having primitives to allocate the record
-                    // and then to set the record fields. Do the same for closures
-                    // instead of having the different versions.
-                    panic!("TODO record")
+                Bindee::Record(_, values) => {
+                     self.emit(I32Const(values.len() as i32));
+                     self.call_runtime("alloc_record");
+ 
+                     for (Atom(IdxVar(idx, _)), field) in values.iter().zip(0..) {
+                         self.emit(I32Const(field));
+                         self.emit(I32Const(*idx as i32));
+                         self.call_runtime("set_field");
+                     }
                 }
-                Bindee::Project(_, _, _) => panic!("TODO project"),
+                Bindee::Project(record, index, _) => {
+                    self.emit(I32Const(record.0.0 as i32 - 1));
+                    self.emit(I32Const(*index as i32));
+                    self.call_runtime("get_field");
+                }
+                
                 Bindee::Variant(rank, _constr, payload) => {
                     self.emit(I32Const(*rank as i32));
                     if let Some(atom) = payload {
