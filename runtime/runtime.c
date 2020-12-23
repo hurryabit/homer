@@ -12,6 +12,9 @@ typedef int i32;
 typedef long long i64;
 typedef unsigned char u8;
 
+// FIXME: Don't allocate staticly as it bloats runtime.wasm with the initialization.
+// Instead allocate the linear memory with memory.grow! 
+
 // Heap storage
 #define HEAP_SIZE 65536
 static u8 memA[HEAP_SIZE];

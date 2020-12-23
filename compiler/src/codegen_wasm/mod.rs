@@ -5,50 +5,25 @@ use parity_wasm::elements;
 use parity_wasm::elements::Instruction::*;
 
 pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
-    let mut builder = builder::module();
-    let runtime_module = parity_wasm::deserialize_file("runtime/runtime.wasm").unwrap();
-    let mut runtime_funcs = im::HashMap::new();
+    let mut runtime_module = parity_wasm::deserialize_file("runtime/runtime.wasm").unwrap();
 
-    // Push all the function type signatures from the runtime module into the module we're building.
-    for typ in runtime_module.type_section().unwrap().types() {
-        match typ {
-            elements::Type::Function(ftyp) => {
-                builder.push_signature(
-                    builder::signature()
-                    .with_params(ftyp.params().into())
-                    .with_results(ftyp.results().into())
-                    .build_sig()
-                );
-            },
-        }
-    }
-
-    let funcs = runtime_module.function_section().unwrap().entries();
-    println!("funcs({}): {:?}", funcs.len(), funcs);
-    println!("exports({}): {:?}", runtime_module.export_section().unwrap().entries().len(), runtime_module.export_section().unwrap().entries());
-    // Push imports for all the exported runtime functions into the module we're building.
+    // Build the runtime functions map.
+    let mut runtime_funcs: im::HashMap<String, u32> = im::HashMap::new();
+    let num_imports = runtime_module.import_count(elements::ImportCountType::Function) as u32;
     for export in runtime_module.export_section().unwrap().entries() {
         match export.internal() {
             elements::Internal::Function(idx) => {
-                // FIXME: ehh, isn't there a better way to look up the func?
-                let func = &funcs[*idx as usize - runtime_module.import_count(elements::ImportCountType::Function)];
-                let import = 
-                    builder::import()
-                        .module("runtime")
-                        .field(export.field())
-                        .external()
-                        .func(func.type_ref())
-                        .build();
-
                 runtime_funcs.insert(
-                    export.field(),
-                    builder.push_import(import));
+                    String::from(export.field()),
+                    *idx as u32);
             }
             _ => ()
         }
     }
 
-    let num_runtime_funcs = runtime_funcs.len() as u32;
+    // Create a new builder that extends from the runtime module.
+    runtime_module.table_section_mut().unwrap().entries_mut().clear();
+    let mut builder = builder::from_module(runtime_module);
 
     let mut fungen = Fungen{
         instrs: Vec::new(), 
@@ -76,9 +51,10 @@ pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
 
         builder.push_export(
             self::builder::export()
-            .field(decl.name.as_str())
+            .field(format!("${}", decl.name).as_str()) 
+            // FIXME: ^ would be nicer to mangle the runtime functions instead!
             .internal()
-            .func(num_runtime_funcs + loc.body)
+            .func(loc.body + num_imports)
             .build());
     }
 
@@ -106,7 +82,7 @@ pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
                     .build());
 
             assert!(table_index as usize == table_entries.len());
-            table_entries.push(num_runtime_funcs + loc.body);
+            table_entries.push(loc.body + num_imports);
         }
     }
 
@@ -121,7 +97,7 @@ pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
 
 struct Fungen<'a> {
     instrs: Vec<elements::Instruction>,
-    runtime_funcs: im::HashMap<&'a str, u32>,
+    runtime_funcs: im::HashMap<String, u32>,
     proc_sig: u32, // FIXME yuck
     table_index: u32,
     closures: Vec<(u32, &'a MakeClosure)>,
@@ -232,7 +208,8 @@ impl<'a> Fungen<'a> {
 
                     // Emit a direct call. Index is offset by the runtime functions
                     // that have been imported.
-                    self.emit(Call(*index + self.runtime_funcs.len() as u32));
+                    // FIXME the offset calculation.
+                    self.emit(Call(*index + self.runtime_funcs.len() as u32 + 1 /* import in runtime.c */));
                 }
 
                 Bindee::BinOp(lhs, op, rhs) => {
