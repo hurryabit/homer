@@ -12,30 +12,36 @@ typedef int i32;
 typedef long long i64;
 typedef unsigned char u8;
 
-// FIXME: Don't allocate staticly as it bloats runtime.wasm with the initialization.
-// Instead allocate the linear memory with memory.grow! 
+#define NULL ((void*)0)
 
 // Heap storage
-#define HEAP_SIZE 65536
-static u8 memA[HEAP_SIZE];
-static u8 memB[HEAP_SIZE];
-static u8* from = memA;
-static u8* to = memB;
-static u8* hp = memA;
-static u8* mem_end = &memA[HEAP_SIZE];
+static const u32 WASM_PAGE_SIZE = 65536;
+static const u32 INITIAL_HEAP_SIZE = WASM_PAGE_SIZE;
+static const u32 INITIAL_STACK_SIZE = (WASM_PAGE_SIZE / sizeof(ptr_t));
 
-// TODO: Consider using __builtin_wasm_memory_grow() to resize heap & stack.
+//static u8 memA[HEAP_SIZE];
+//static u8 memB[HEAP_SIZE];
+static u32 heap_size = INITIAL_HEAP_SIZE;
+static u8* from = NULL;
+static u8* to = NULL;
+static u8* hp = NULL;
+static u8* heap_limit = NULL;
+static const u32 heap_headroom = 128;
+
+static u8* mem_start = NULL;
+static u8* mem_end = NULL;
+static u32 mem_size = 0;
 
 // Stack storage
-#define STACK_SIZE 1024
-static ptr_t stack[STACK_SIZE];
-static ptr_t* stack_start = &stack[STACK_SIZE];
-//static ptr_t* stack_end = &stack[0];
-static ptr_t* sp = &stack[STACK_SIZE];
+static u32 stack_size = INITIAL_STACK_SIZE;
+static ptr_t* stack_start = NULL;
+static ptr_t* stack_limit = NULL;
+static ptr_t* sp = NULL;
+static const u32 stack_headroom = 32;
 
 // Pointer to the closure we're currently invoking.
 // TODO consider removing this.
-static struct closure *current_closure = (struct closure*)0;
+static struct closure* current_closure = (struct closure*)0;
 
 // Heap block tags
 typedef enum {
@@ -76,7 +82,7 @@ void error() { abort_with(ABORT_ERROR); }
 
 // Forward declarations.
 void garbage_collect();
-
+void grow();
 
 // Closure: pointer to an entry in the function table and the enclosed
 // variables.
@@ -182,11 +188,17 @@ void assert_variant(struct block *blk) {
 }
 
 void needheap(u32 n) {
-  if (hp + n > mem_end) {
+  if (hp + n + heap_headroom > heap_limit) {
     garbage_collect();
   }
-  if (hp + n > mem_end) {
-    abort_with(ABORT_OUT_OF_MEMORY);
+  if (hp + n + heap_headroom > heap_limit) {
+    grow();
+  }
+}
+
+void check_stack() {
+  if (sp - stack_headroom < stack_limit) {
+    grow();
   }
 }
 
@@ -393,6 +405,24 @@ void ret(u32 n) {
   ptr_t result = *sp;
   sp += n;
   *sp = result;
+
+  check_stack(); // TODO should be invoked when applying!
+}
+
+// Initialize the runtime
+void init() {
+  mem_size = heap_size * 2 + stack_size * sizeof(ptr_t);
+  i32 orig_mem_size_pages = __builtin_wasm_memory_grow(0, mem_size / WASM_PAGE_SIZE);
+  assert(orig_mem_size_pages >= 0);
+  mem_start = (u8*) (orig_mem_size_pages * WASM_PAGE_SIZE);
+  mem_end = mem_start + mem_size;
+  from = mem_start;
+  to = mem_start + heap_size;
+  hp = mem_start;
+  heap_limit = from + heap_size;
+  stack_start = (ptr_t*) mem_end;
+  sp = stack_start;
+  stack_limit = (ptr_t*) (mem_end - stack_size);
 }
 
 // TODO: use WASM's 'memory.copy' ? LLVM memcpy builtin doesn't seem to work.
@@ -402,6 +432,35 @@ void *memcopy(void *dst, const void *src, u32 n) {
     *dst_++ = *src_++;
   }
   return dst;
+}
+
+// Grow the amount of allocated memory
+void grow() {
+  if (from > to) {
+    // from-space is after the to-space which makes extending non-trivial.
+    // run another garbage collection to swap the spaces.
+    garbage_collect();
+  }
+  assert(from < to);
+
+  if (__builtin_wasm_memory_grow(0, mem_size / WASM_PAGE_SIZE) < 0) {
+    abort_with(ABORT_OUT_OF_MEMORY);
+  }
+
+  to += heap_size;
+  heap_limit += heap_size;
+  mem_size *= 2;
+  heap_size *= 2;
+  stack_size *= 2;
+  mem_end = mem_start + mem_size;
+
+  u32 stack_used = stack_start - sp;
+  stack_start = (ptr_t*)mem_end;
+  ptr_t* newsp = stack_start - stack_used;
+  memcopy(newsp, sp, stack_used * sizeof(ptr_t));
+  assert(*sp == *newsp);
+  sp = newsp;
+  stack_limit = stack_start - stack_size;
 }
 
 // Copy block from 'from' space to 'to' space and return the new block location.
@@ -452,11 +511,13 @@ void garbage_collect() {
         }
         break;
       }
+
       case T_VARIANT1: {
         struct variant *v = &blk->data.variant;
         v->payload = copy_block(v->payload, &to_end);
         break;
       }
+
       case T_RECORD: {
         struct record *rec = &blk->data.record;
         for (int i = 0; i < rec->nfields; i++) {
@@ -464,10 +525,12 @@ void garbage_collect() {
         }
         break;
       }
+
       case T_VARIANT0:
       case T_I32:
       case T_I64:
         break;
+
       case T_FWD:
         abort_with(ABORT_FWD_IN_TO_SPACE);
 
@@ -479,11 +542,10 @@ void garbage_collect() {
 
   // Swap spaces.
   hp = to_end;
-  mem_end = to + HEAP_SIZE;
-
   {
     u8 *tmp = from;
     from = to;
     to = tmp;
   }
+  heap_limit = from + heap_size;
 }

@@ -13,8 +13,13 @@ fn main() -> Result<()> {
     let test = Module::from_file(&engine, "/tmp/out.wasm")?;
     let test_inst = linker.instantiate(&test)?;
 
-    let run = test_inst.get_func("$main").unwrap();
 
+    //let memory = test_inst.get_memory("")
+
+    let init = test_inst.get_func("init").unwrap();
+    init.get0::<()>()?()?;
+
+    let run = test_inst.get_func("$main").unwrap();
     let run = run.get0::<()>()?;
     run()?;
 
