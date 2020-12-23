@@ -48,6 +48,7 @@ typedef enum {
 
 // Abort reasons
 enum {
+  ABORT_ASSERT = 0,
   ABORT_ASSERT_STACKEMPTY = 1,
   ABORT_ASSERT_HEAPEMPTY = 2,
   ABORT_ASSERT_I32 = 3,
@@ -77,7 +78,7 @@ void garbage_collect();
 // variables.
 struct closure {
   u32 funcidx;
-  u8 nvars;
+  u8 nvars; // TODO: redundant, can be calculated from size.
   ptr_t vars[0];
 };
 
@@ -90,18 +91,25 @@ struct variant {
   ptr_t payload;
 };
 
+// Record
+struct record {
+  u8 nfields;
+  ptr_t fields[0];
+};
+
 // Block: Heap is divided into blocks which carry the tag and size of the object.
 struct block {
   u32 tag:8;
   u32 size:24;
 
-  // FIXME(JM): Block size larger than necessary, though this is more convenient.
+  // FIXME(JM): Block size larger than strictly necessary, though this is more convenient.
   union {
     i32 i32;
     i64 i64;
     ptr_t fwd;
     struct closure clo;
     struct variant variant;
+    struct record record;
   } data;
 };
 
@@ -125,6 +133,10 @@ void dup() { *(sp - 1) = *sp; sp--; }
 void load(i32 off) {
   *(sp - 1) = *(sp + off);
   sp--;
+}
+
+void assert(i32 cond) {
+  if (!cond) abort_with(ABORT_ASSERT);
 }
 
 void assert_stackempty() {
@@ -219,7 +231,7 @@ void alloc_variant(i32 rank, i32 payload) {
   push(PTR(blk));
 }
 
-static inline struct block* alloc_closure_internal(u32 funcidx, u32 nvars) {
+void alloc_closure(u32 funcidx, u32 nvars) {
   needheap(BLK_HDR_SIZE + sizeof(u32)*nvars);
   struct block *blk = BLK(hp);
   blk->tag = T_CLOSURE;
@@ -227,72 +239,13 @@ static inline struct block* alloc_closure_internal(u32 funcidx, u32 nvars) {
   blk->data.clo.funcidx = funcidx;
   blk->data.clo.nvars = nvars;
   hp += blk->size;
-  return blk;
-}
-
-void alloc_closure_from_stack(u32 funcidx, u32 nvars) {
-  struct block *blk = alloc_closure_internal(funcidx, nvars);
-  ptr_t *tsp = sp;
-  for (int i = 0; i < nvars; i++) {
-    blk->data.clo.vars[i] = *tsp++;
-  }
   push(PTR(blk));
 }
 
-void alloc_closure_0(u32 funcidx) {
-  struct block *blk = alloc_closure_internal(funcidx, 0);
-  push(PTR(blk));
-}
-
-void alloc_closure_1(u32 funcidx, u32 off1) {
-  struct block *blk = alloc_closure_internal(funcidx, 1);
-  blk->data.clo.vars[0] = *(sp + off1);
-  push(PTR(blk));
-}
-
-void alloc_closure_2(u32 funcidx, u32 off1, u32 off2) {
-  struct block *blk = alloc_closure_internal(funcidx, 2);
-  blk->data.clo.vars[0] = *(sp + off1);
-  blk->data.clo.vars[1] = *(sp + off2);
-  push(PTR(blk));
-}
-
-void alloc_closure_3(u32 funcidx, u32 off1, u32 off2, u32 off3) {
-  struct block *blk = alloc_closure_internal(funcidx, 3);
-  blk->data.clo.vars[0] = *(sp + off1);
-  blk->data.clo.vars[1] = *(sp + off2);
-  blk->data.clo.vars[2] = *(sp + off3);
-  push(PTR(blk));
-}
-
-void alloc_closure_4(u32 funcidx, u32 off1, u32 off2, u32 off3, u32 off4) {
-  struct block *blk = alloc_closure_internal(funcidx, 3);
-  blk->data.clo.vars[0] = *(sp + off1);
-  blk->data.clo.vars[1] = *(sp + off2);
-  blk->data.clo.vars[2] = *(sp + off3);
-  blk->data.clo.vars[3] = *(sp + off4);
-  push(PTR(blk));
-}
-
-void alloc_closure_5(u32 funcidx, u32 off1, u32 off2, u32 off3, u32 off4, u32 off5) {
-  struct block *blk = alloc_closure_internal(funcidx, 3);
-  blk->data.clo.vars[0] = *(sp + off1);
-  blk->data.clo.vars[1] = *(sp + off2);
-  blk->data.clo.vars[2] = *(sp + off3);
-  blk->data.clo.vars[3] = *(sp + off4);
-  blk->data.clo.vars[4] = *(sp + off5);
-  push(PTR(blk));
-}
-
-void alloc_closure_6(u32 funcidx, u32 off1, u32 off2, u32 off3, u32 off4, u32 off5, u32 off6) {
-  struct block *blk = alloc_closure_internal(funcidx, 3);
-  blk->data.clo.vars[0] = *(sp + off1);
-  blk->data.clo.vars[1] = *(sp + off2);
-  blk->data.clo.vars[2] = *(sp + off3);
-  blk->data.clo.vars[3] = *(sp + off4);
-  blk->data.clo.vars[4] = *(sp + off5);
-  blk->data.clo.vars[5] = *(sp + off6);
-  push(PTR(blk));
+void set_var(u32 var, u32 off) {
+  struct block *blk = get_blk(*sp, T_CLOSURE);
+  assert(var >= 0 && var < blk->data.clo.nvars);
+  blk->data.clo.vars[var] = *(sp + off);
 }
 
 // Prepare for closure application by copying the captured variables to top of stack and returning

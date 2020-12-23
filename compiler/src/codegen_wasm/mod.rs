@@ -179,20 +179,22 @@ impl<'a> Fungen<'a> {
                     self.call_runtime("alloc_i32");
                 }
                 Bindee::MakeClosure(mk_clo) => {
+                    // Defer the compilation of the lambda body, allocating its function
+                    // table index for the indirect call.
                     let table_index = self.push_closure(mk_clo);
 
-                    // Push the table index allocated to the closure to the WASM stack.
+                    // Allocate the closure.
                     self.emit(I32Const(table_index as i32));
+                    self.emit(I32Const(mk_clo.captured.len() as i32));
+                    self.call_runtime("alloc_closure");
 
-                    // Push the indices of the captured variables to the WASM stack.
-                    for IdxVar(idx, _) in &mk_clo.captured {
-                        self.emit(I32Const(*idx as i32 - 1));
+                    // Capture the variables by setting each variable in the closure
+                    // from the stack.
+                    for (IdxVar(idx, _), var) in mk_clo.captured.iter().zip(0..) {
+                        self.emit(I32Const(var));
+                        self.emit(I32Const(*idx as i32));
+                        self.call_runtime("set_var");
                     }
-                    // ... and invoke the right runtime function to allocate the closure. 
-                    // Runtime takes care of copying the variables into the closure.
-                    // TODO: Perhaps makes sense to reconsider this approach or at least have a generic fallback?
-
-                    self.call_runtime(&format!("alloc_closure_{}", mk_clo.captured.len()));
                 }
                 Bindee::AppClosure(Atom(IdxVar(idx, _)), params) => {
                     // Push the closure stack offset to WASM stack.
@@ -207,7 +209,8 @@ impl<'a> Fungen<'a> {
                         // then we could be smarter here and instead avoid unnecessary shuffling
                         // of the stack, e.g. if the arguments are already on top of stack we don't
                         // need to copy them around (though we'll then need to make sure we don't
-                        // pop them).
+                        // pop them). Or better yet would be if we'd access the variables directly
+                        // from the closure itself rather than having them pushed onto the stack.
                         self.emit(I32Const((idx + offset - 1) as i32));
 
                         // Call PushParam which will push the argument to the top of the stack
@@ -261,7 +264,12 @@ impl<'a> Fungen<'a> {
                     self.emit(End);
                 }
 
-                Bindee::Record(_, _) => panic!("TODO record"),
+                Bindee::Record(_, _values) => {
+                    // TODO: Consider having primitives to allocate the record
+                    // and then to set the record fields. Do the same for closures
+                    // instead of having the different versions.
+                    panic!("TODO record")
+                }
                 Bindee::Project(_, _, _) => panic!("TODO project"),
                 Bindee::Variant(rank, _constr, payload) => {
                     self.emit(I32Const(*rank as i32));
@@ -329,7 +337,12 @@ impl<'a> Fungen<'a> {
                 }
             }    
         }
-        self.emit(I32Const(expr.bindings.len() as i32 - 1));
-        self.call_runtime("ret");
+
+        let num_bindings = expr.bindings.len() as i32;
+        if num_bindings > 1 {
+            self.emit(I32Const(num_bindings - 1));
+            self.call_runtime("ret");
+        }
+
     }
 }
