@@ -213,7 +213,7 @@ void alloc_i64(i64 x) {
 }
 
 void alloc_variant_0(i32 rank) {
-  needheap(BLK_HDR_SIZE + sizeof(u32));
+  needheap(BLK_HDR_SIZE);
   struct block *blk = BLK(hp);
   blk->tag = T_VARIANT0;
   blk->size = BLK_HDR_SIZE;
@@ -223,14 +223,12 @@ void alloc_variant_0(i32 rank) {
 }
 
 void alloc_variant(i32 rank, i32 payload) {
-  needheap(BLK_HDR_SIZE + sizeof(u32));
+  needheap(BLK_HDR_SIZE);
   struct block *blk = BLK(hp);
   blk->tag = T_VARIANT1;
   blk->size = BLK_HDR_SIZE;
   blk->data.variant.rank = rank;
-  if (payload >= 0) {
-    blk->data.variant.payload = *(sp + payload);
-  }
+  blk->data.variant.payload = *(sp + payload);
   hp += blk->size;
   push(PTR(blk));
 }
