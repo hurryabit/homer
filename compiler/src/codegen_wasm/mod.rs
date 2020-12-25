@@ -21,15 +21,24 @@ pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
         }
     }
 
-    // Create a new builder that extends from the runtime module.
+    // The offset to calling any top-level function, e.g. it's the 
+    // number of imported and defined functions already in the module
+    let call_offset = num_imports + runtime_funcs.len() as u32;
+
+    // Clear the existing table. TODO: Add to the existing table instead.
     runtime_module.table_section_mut().unwrap().entries_mut().clear();
+
+    // TODO: Clean out unnecessary items from runtime exports.
+   
+    // Create a new builder that extends from the runtime module.
     let mut builder = builder::from_module(runtime_module);
 
     let mut fungen = Fungen{
         instrs: Vec::new(), 
         runtime_funcs: runtime_funcs,
         closures: Vec::new(),
-        proc_sig:  builder.push_signature(builder::signature().build_sig()),
+        proc_sig: builder.push_signature(builder::signature().build_sig()),
+        call_offset: call_offset,
         table_index: 0,
     };
 
@@ -99,6 +108,7 @@ struct Fungen<'a> {
     instrs: Vec<elements::Instruction>,
     runtime_funcs: im::HashMap<String, u32>,
     proc_sig: u32, // FIXME yuck
+    call_offset: u32,
     table_index: u32,
     closures: Vec<(u32, &'a MakeClosure)>,
 }
@@ -206,10 +216,7 @@ impl<'a> Fungen<'a> {
                         self.call_runtime("load");                
                     }
 
-                    // Emit a direct call. Index is offset by the runtime functions
-                    // that have been imported.
-                    // FIXME the offset calculation.
-                    self.emit(Call(*index + self.runtime_funcs.len() as u32 + 1 /* import in runtime.c */));
+                    self.emit(Call(*index + self.call_offset));
                 }
 
                 Bindee::BinOp(lhs, op, rhs) => {

@@ -1,9 +1,10 @@
-
 /** Homer's WebAssembly Runtime
  * 
  * Provides the heap and stack memories plus the utilities
  * to manage them.
  */
+
+#include "mini-printf.c"
 
 // Data types
 typedef unsigned int u32;
@@ -19,8 +20,6 @@ static const u32 WASM_PAGE_SIZE = 65536;
 static const u32 INITIAL_HEAP_SIZE = WASM_PAGE_SIZE;
 static const u32 INITIAL_STACK_SIZE = (WASM_PAGE_SIZE / sizeof(ptr_t));
 
-//static u8 memA[HEAP_SIZE];
-//static u8 memB[HEAP_SIZE];
 static u32 heap_size = INITIAL_HEAP_SIZE;
 static u8* from = NULL;
 static u8* to = NULL;
@@ -77,8 +76,16 @@ enum {
 
 // Host functions.
 void log_i32(i32 x) __attribute__((__import_module__("host"), __import_name__("log_i32")));
+void log_str(ptr_t off, i32 len) __attribute__((__import_module__("host"), __import_name__("log_str")));
 void abort_with(i32 reason) __attribute__((__import_module__("host"), __import_name__("abort")));
 void error() { abort_with(ABORT_ERROR); }
+
+static char log_buf[1024];
+
+#define logf(fmt, ...) do { \
+  int n = mini_snprintf(log_buf, sizeof(log_buf), fmt, __VA_ARGS__); \
+  log_str((ptr_t)log_buf, n); \
+} while(0)
 
 // Forward declarations.
 void garbage_collect();
@@ -398,7 +405,6 @@ void load_payload(u32 off) {
   push(blk->data.variant.payload);
 }
 
-
 // Return from a function by shifting out the frame and leaving
 // the return value on top.
 void ret(u32 n) {
@@ -411,6 +417,7 @@ void ret(u32 n) {
 
 // Initialize the runtime
 void init() {
+
   mem_size = heap_size * 2 + stack_size * sizeof(ptr_t);
   i32 orig_mem_size_pages = __builtin_wasm_memory_grow(0, mem_size / WASM_PAGE_SIZE);
   assert(orig_mem_size_pages >= 0);
@@ -423,9 +430,13 @@ void init() {
   stack_start = (ptr_t*) mem_end;
   sp = stack_start;
   stack_limit = (ptr_t*) (mem_end - stack_size);
+
+  logf("init allocated %lu bytes (%lu pages)", mem_size, mem_size / WASM_PAGE_SIZE);
 }
 
-// TODO: use WASM's 'memory.copy' ? LLVM memcpy builtin doesn't seem to work.
+// TODO: use WASM's 'memory.copy'?
+// Clang 8 compiles __builtin_memcpy as call to env.memcpy. Clang 9 might do the right thing.
+// OTOH this is more portable.
 void *memcopy(void *dst, const void *src, u32 n) {
   u8 *dst_ = (u8*)dst; u8 *src_ = (u8*)src;
   while (n--) {
@@ -449,6 +460,7 @@ void grow() {
 
   to += heap_size;
   heap_limit += heap_size;
+  u32 orig_mem_size = mem_size;
   mem_size *= 2;
   heap_size *= 2;
   stack_size *= 2;
@@ -461,6 +473,8 @@ void grow() {
   assert(*sp == *newsp);
   sp = newsp;
   stack_limit = stack_start - stack_size;
+
+  logf("grow: %lu -> %lu", orig_mem_size, mem_size);
 }
 
 // Copy block from 'from' space to 'to' space and return the new block location.
@@ -487,6 +501,8 @@ ptr_t copy_block(ptr_t p, u8 **to_end) {
 }
 
 void garbage_collect() {
+  u32 before = hp - from;
+
   // Copy the blocks reachable from stack to the 'to' space.
   u8 *to_end = to;
   {
@@ -548,4 +564,8 @@ void garbage_collect() {
     to = tmp;
   }
   heap_limit = from + heap_size;
+
+  u32 after = hp - from;
+  logf("garbage collect: %lu -> %lu", before, after);
 }
+
