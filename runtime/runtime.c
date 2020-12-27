@@ -37,6 +37,7 @@ static ptr_t* stack_start = NULL;
 static ptr_t* stack_limit = NULL;
 static ptr_t* sp = NULL;
 static const u32 stack_headroom = 32;
+static u32 max_stack = 0;
 
 // Pointer to the closure we're currently invoking.
 // TODO consider removing this.
@@ -206,6 +207,11 @@ void needheap(u32 n) {
 void check_stack() {
   if (sp - stack_headroom < stack_limit) {
     grow();
+  }
+
+  u32 height = (ptr_t*)mem_end - sp;
+  if (height > max_stack) {
+    max_stack = height;
   }
 }
 
@@ -399,6 +405,17 @@ u32 get_rank(u32 off) {
   return blk->data.variant.rank;
 }
 
+// TODO: use WASM's 'memory.copy'?
+// Clang 8 compiles __builtin_memcpy as call to env.memcpy. Clang 9 might do the right thing.
+// OTOH this is more portable.
+void *memcopy(void *dst, const void *src, u32 n) {
+  u8 *dst_ = (u8*)dst; u8 *src_ = (u8*)src;
+  while (n--) {
+    *dst_++ = *src_++;
+  }
+  return dst;
+}
+
 void load_payload(u32 off) {
   struct block *blk = BLK(*(sp + off));
   assert_variant(blk);
@@ -413,6 +430,16 @@ void ret(u32 n) {
   *sp = result;
 
   check_stack(); // TODO should be invoked when applying!
+}
+
+// Shift arguments over the current frame for tail-call optimization
+void shift(u32 frame_size, u32 nargs) {
+  // stack: <args> <bindings> ...
+  for (int i = nargs - 1; i >= 0; i--) {
+    *(sp + frame_size + i) = *(sp + i);
+  }
+  sp += frame_size;
+  // stack: <args> ...
 }
 
 // Initialize the runtime
@@ -434,16 +461,6 @@ void init() {
   logf("init allocated %lu bytes (%lu pages)", mem_size, mem_size / WASM_PAGE_SIZE);
 }
 
-// TODO: use WASM's 'memory.copy'?
-// Clang 8 compiles __builtin_memcpy as call to env.memcpy. Clang 9 might do the right thing.
-// OTOH this is more portable.
-void *memcopy(void *dst, const void *src, u32 n) {
-  u8 *dst_ = (u8*)dst; u8 *src_ = (u8*)src;
-  while (n--) {
-    *dst_++ = *src_++;
-  }
-  return dst;
-}
 
 // Grow the amount of allocated memory
 void grow() {
@@ -567,5 +584,9 @@ void garbage_collect() {
 
   u32 after = hp - from;
   logf("garbage collect: %lu -> %lu", before, after);
+
+
+// XXX
+  logf("max stack: %lu", max_stack);
 }
 
