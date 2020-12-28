@@ -37,4 +37,5 @@ mod tests {
     mod cek;
     mod checker;
     mod parser;
+    mod wasm;
 }

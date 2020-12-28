@@ -378,11 +378,11 @@ void equals(i32 a, i32 b) {
   struct block *blk_b = BLK(*(sp + b));
   // TODO structural equality.
   if (blk_a->tag == T_I64 && blk_b->tag == T_I64) {
-    push(blk_a->data.i64 == blk_b->data.i64);
+    alloc_i32(blk_a->data.i64 == blk_b->data.i64);
   } else if (blk_a->tag == T_I32 && blk_b->tag == T_I32) {
-    push(blk_a->data.i32 == blk_b->data.i32);
+    alloc_i32(blk_a->data.i32 == blk_b->data.i32);
   } else {
-    push(blk_a == blk_b);
+    alloc_i32(blk_a == blk_b);
   }
  }
 
@@ -392,7 +392,19 @@ void loadenv(u32 off, u32 idx) {
 }
 
 i32 deref_i32() {
-  return get_blk(pop(), T_I32)->data.i32;
+  // TODO: Clean up. Hack to allow "if true" as booleans
+  // are 64-bit in order to use the 64-bit comparisons, but
+  // we need i32 for the WASM if statement.
+  struct block *blk = BLK(pop());
+  switch(blk->tag) {
+    case T_I32:
+      return blk->data.i32;
+    case T_I64:
+      return (i32)blk->data.i64;
+    default:
+      abort_with(ABORT_ASSERT_I32);
+      return -1;
+  }
 }
 
 i64 deref_i64() {

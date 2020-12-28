@@ -3,9 +3,12 @@ use anf::*;
 use parity_wasm::builder;
 use parity_wasm::elements;
 use parity_wasm::elements::Instruction::*;
+use parity_wasm::elements::Deserialize;
 
 pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
-    let mut runtime_module = parity_wasm::deserialize_file("runtime/runtime.wasm").unwrap();
+    let mut runtime_bytes = &include_bytes!("../../../runtime/runtime.wasm")[..];
+    let mut runtime_module = 
+        parity_wasm::elements::Module::deserialize(&mut runtime_bytes).unwrap();
 
     // Build the runtime functions map.
     let mut runtime_funcs: im::HashMap<String, u32> = im::HashMap::new();
@@ -168,8 +171,8 @@ impl<'a> Fungen<'a> {
                 self.call_runtime("alloc_i64");
             }
             Bindee::Bool(b) => {
-                self.emit(I32Const(if *b { 1 } else { 0 }));
-                self.call_runtime("alloc_i32");
+                self.emit(I64Const(if *b { 1 } else { 0 }));
+                self.call_runtime("alloc_i64");
             }
             Bindee::MakeClosure(mk_clo) => {
                 // Defer the compilation of the lambda body, allocating its function

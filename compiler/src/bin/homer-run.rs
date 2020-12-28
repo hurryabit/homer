@@ -24,11 +24,11 @@ fn run() -> std::io::Result<bool> {
 
     if let Some(module) = db.anf_module(uri) {
 
-        println!("module {:?}", module);
-
         match codegen_wasm::gen_module(&module) {
-            Ok(wasm_module) =>
-                parity_wasm::elements::serialize_to_file("/tmp/out.wasm", wasm_module).unwrap(),
+            Ok(wasm_module) => {
+                parity_wasm::elements::serialize_to_file("/tmp/out.wasm", wasm_module).unwrap();
+                println!("Compiled {:?} to /tmp/out.wasm", uri);
+            }
             Err(err) =>
                 eprintln!("Error: {:?}", err),
         }
