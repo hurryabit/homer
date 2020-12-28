@@ -64,6 +64,14 @@ pub struct IdxVar(pub u32, pub ExprVar);
 #[derive(Clone, Eq, PartialEq)]
 pub struct Atom(pub IdxVar);
 
+impl Atom {
+    pub fn get_index(&self) -> u32 {
+        match self {
+            Atom(IdxVar(index, _)) => *index,
+        }
+    }
+}
+
 #[derive(Clone, Eq, PartialEq)]
 pub struct MakeClosure {
     pub captured: Vec<IdxVar>,

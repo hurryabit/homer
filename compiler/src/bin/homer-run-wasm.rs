@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 use wasmtime::*;
 
@@ -27,7 +26,6 @@ fn main() -> Result<()> {
     let init = test_inst.get_func("init").unwrap();
     init.get0::<()>()?()?;
 
-    
     let run = test_inst.get_func("$main").unwrap();
     let run = run.get0::<()>()?;
     run()?;

@@ -13,11 +13,11 @@ pub mod ast;
 pub mod build;
 pub mod cek;
 pub mod checker;
+pub mod codegen_wasm;
 pub mod diagnostic;
 pub mod location;
 pub mod parser;
 pub mod syntax;
-pub mod codegen_wasm;
 mod util;
 
 lalrpop_mod!(

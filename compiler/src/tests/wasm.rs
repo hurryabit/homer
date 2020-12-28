@@ -1,9 +1,8 @@
- use crate::*;
+use crate::*;
 use std::sync::Arc;
 use wasmtime::*;
 
-fn with_wasm_result<R>(main: &str, input: &str, f: fn(i64) -> R) -> R
-{
+fn with_wasm_result<R>(main: &str, input: &str, f: fn(i64) -> R) -> R {
     let db = &mut build::CompilerDB::new();
     let uri = build::Uri::new("test.doh");
     db.set_input(uri, Arc::new(input.to_string()));
@@ -26,24 +25,26 @@ fn with_wasm_result<R>(main: &str, input: &str, f: fn(i64) -> R) -> R
 
     linker.func("host", "log_i32", |x: i32| println!("{}", x)).unwrap();
     linker.func("host", "abort", |x: i32| panic!("abort: {}", x)).unwrap();
-    linker.func("host", "log_str", |caller: Caller, ptr: u32, len: i32| {
-        let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
-        let str = unsafe {
-            let bytes = &memory.data_unchecked()[ptr as usize..][..len as usize];
-            match std::str::from_utf8(bytes) {
-                Ok(s) => s.to_string(),
-                Err(_) => panic!("not valid utf-8"),
-            }
-        };
-        println!("LOG: {}", str)
-    }).unwrap();
+    linker
+        .func("host", "log_str", |caller: Caller, ptr: u32, len: i32| {
+            let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
+            let str = unsafe {
+                let bytes = &memory.data_unchecked()[ptr as usize..][..len as usize];
+                match std::str::from_utf8(bytes) {
+                    Ok(s) => s.to_string(),
+                    Err(_) => panic!("not valid utf-8"),
+                }
+            };
+            println!("LOG: {}", str)
+        })
+        .unwrap();
 
     let test = wasmtime::Module::from_binary(&engine, &wasm_code[0..]).unwrap();
     let test_inst = linker.instantiate(&test).unwrap();
 
     let init = test_inst.get_func("init").unwrap();
     init.get0::<()>().unwrap()().unwrap();
-    
+
     let run = test_inst.get_func(format!("${}", main).as_str()).unwrap();
     let run = run.get0::<()>().unwrap();
     run().unwrap();
@@ -62,7 +63,7 @@ fn with_wasm_result<R>(main: &str, input: &str, f: fn(i64) -> R) -> R
 }
 
 fn wasm_value(main: &str, input: &str) -> i64 {
-    with_wasm_result(main, input, |result| result)    
+    with_wasm_result(main, input, |result| result)
 }
 
 #[test]
@@ -75,14 +76,23 @@ fn bench() {
 
 #[test]
 fn output_int() {
-    assert_eq!(wasm_value("f", r#"
+    assert_eq!(
+        wasm_value(
+            "f",
+            r#"
     fn f() -> Int { 42 }
-    "#), 42);
+    "#
+        ),
+        42
+    );
 }
 
 #[test]
 fn test_if() {
-    assert_eq!(wasm_value("f", r#"
+    assert_eq!(
+        wasm_value(
+            "f",
+            r#"
     fn f() -> Int { 
         if 10 > 20 { 
             1
@@ -90,12 +100,18 @@ fn test_if() {
             2
         }
     }
-    "#), 2);
+    "#
+        ),
+        2
+    );
 }
 
 #[test]
 fn test_false_true() {
-    assert_eq!(wasm_value("f", r#"
+    assert_eq!(
+        wasm_value(
+            "f",
+            r#"
     fn f() -> Int { 
         if false == true { 
             0
@@ -107,22 +123,34 @@ fn test_false_true() {
             }
         }
     }
-    "#), 1);
+    "#
+        ),
+        1
+    );
 }
 
 #[test]
 fn test_record() {
-    assert_eq!(wasm_value("f", r#"
+    assert_eq!(
+        wasm_value(
+            "f",
+            r#"
     fn f() -> Int { 
         let r = {a = 5, b = 17};
         r.a + r.b
     }
-    "#), 22);
+    "#
+        ),
+        22
+    );
 }
 
 #[test]
 fn test_variant() {
-    assert_eq!(wasm_value("f", r#"
+    assert_eq!(
+        wasm_value(
+            "f",
+            r#"
     fn f() -> Int { 
         let v1: [A | B(Int)] = B(23);
         let x = match v1 {
@@ -135,12 +163,18 @@ fn test_variant() {
             B(x) => x,
         };
         x + y
-    }"#), 23 + 1);
+    }"#
+        ),
+        23 + 1
+    );
 }
 
 #[test]
 fn test_closure() {
-    assert_eq!(wasm_value("f", r#"
+    assert_eq!(
+        wasm_value(
+            "f",
+            r#"
     fn f() -> Int {
         let x = 11;
         let y = 22;
@@ -148,7 +182,10 @@ fn test_closure() {
         let clo = fn (y: Int) { x + y };
         clo(z - y)
     }
-    "#), 11 + 33 - 22);
+    "#
+        ),
+        11 + 33 - 22
+    );
 }
 
 #[test]

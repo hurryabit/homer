@@ -2,12 +2,12 @@ use crate::*;
 use anf::*;
 use parity_wasm::builder;
 use parity_wasm::elements;
-use parity_wasm::elements::Instruction::*;
 use parity_wasm::elements::Deserialize;
+use parity_wasm::elements::Instruction::*;
 
 pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
     let mut runtime_bytes = &include_bytes!("../../../runtime/runtime.wasm")[..];
-    let mut runtime_module = 
+    let mut runtime_module =
         parity_wasm::elements::Module::deserialize(&mut runtime_bytes).unwrap();
 
     // Build the runtime functions map.
@@ -16,15 +16,13 @@ pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
     for export in runtime_module.export_section().unwrap().entries() {
         match export.internal() {
             elements::Internal::Function(idx) => {
-                runtime_funcs.insert(
-                    String::from(export.field()),
-                    *idx as u32);
+                runtime_funcs.insert(String::from(export.field()), *idx as u32);
             }
-            _ => ()
+            _ => (),
         }
     }
 
-    // The offset to calling any top-level function, e.g. it's the 
+    // The offset to calling any top-level function, e.g. it's the
     // number of imported and defined functions already in the module
     let call_offset = num_imports + runtime_funcs.len() as u32;
 
@@ -32,12 +30,12 @@ pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
     runtime_module.table_section_mut().unwrap().entries_mut().clear();
 
     // TODO: Clean out unnecessary items from runtime exports.
-   
+
     // Create a new builder that extends from the runtime module.
     let mut builder = builder::from_module(runtime_module);
 
-    let mut fungen = Fungen{
-        instrs: Vec::new(), 
+    let mut fungen = Fungen {
+        instrs: Vec::new(),
         runtime_funcs: runtime_funcs,
         closures: Vec::new(),
         proc_sig: builder.push_signature(builder::signature().build_sig()),
@@ -48,9 +46,7 @@ pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
     // Compile all top-level functions. Encountered anonymous functions are
     // pushed into context.closures.
     for decl in &module.func_decls {
-        let instrs = fungen.gen_fun(
-            &decl.body, 
-            decl.params.len());
+        let instrs = fungen.gen_fun(&decl.body, decl.params.len());
 
         let loc = builder.push_function(
             builder::function()
@@ -59,15 +55,17 @@ pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
                 .body()
                 .with_instructions(elements::Instructions::new(instrs))
                 .build()
-                .build());
+                .build(),
+        );
 
         builder.push_export(
             self::builder::export()
-            .field(format!("${}", decl.name).as_str()) 
-            // FIXME: ^ would be nicer to mangle the runtime functions instead!
-            .internal()
-            .func(loc.body + num_imports)
-            .build());
+                .field(format!("${}", decl.name).as_str())
+                // FIXME: ^ would be nicer to mangle the runtime functions instead!
+                .internal()
+                .func(loc.body + num_imports)
+                .build(),
+        );
     }
 
     // Now compile the lifted lambdas and create the function table (for indirect calls). We do this after the
@@ -75,23 +73,24 @@ pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
     // for direct calls.
     let mut table_entries = Vec::new();
     loop {
-        let closures = std::mem::replace(&mut fungen.closures, Vec::new());    
+        let closures = std::mem::replace(&mut fungen.closures, Vec::new());
         if closures.is_empty() {
-            break
+            break;
         }
 
         for (table_index, closure) in closures {
-            let instrs = fungen.gen_fun(
-                &closure.body, 
-                closure.params.len() + closure.captured.len());
+            let instrs =
+                fungen.gen_fun(&closure.body, closure.params.len() + closure.captured.len());
 
             let loc = builder.push_function(
                 builder::function()
-                    .signature().build()
+                    .signature()
+                    .build()
                     .body()
                     .with_instructions(elements::Instructions::new(instrs))
                     .build()
-                    .build());
+                    .build(),
+            );
 
             assert!(table_index as usize == table_entries.len());
             table_entries.push(loc.body + num_imports);
@@ -101,9 +100,10 @@ pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
     builder.push_table(
         builder::TableBuilder::new()
             .with_min(table_entries.len() as u32)
-            .with_element(0, table_entries).build()
+            .with_element(0, table_entries)
+            .build(),
     );
-    
+
     Ok(builder.build())
 }
 
@@ -117,7 +117,6 @@ struct Fungen<'a> {
 }
 
 impl<'a> Fungen<'a> {
-
     fn push_closure(&mut self, mk_clo: &'a MakeClosure) -> u32 {
         let table_index = self.table_index;
         self.table_index += 1;
@@ -128,7 +127,7 @@ impl<'a> Fungen<'a> {
     pub fn gen_fun(&mut self, expr: &'a Expr, nargs: usize) -> Vec<elements::Instruction> {
         self.gen_expr(expr, Some(nargs as i32));
         self.emit(End);
-    
+
         std::mem::replace(&mut self.instrs, Vec::new())
     }
 
@@ -138,12 +137,12 @@ impl<'a> Fungen<'a> {
 
     fn call_runtime(&mut self, fun: &str) {
         self.emit(Call(
-            *self.runtime_funcs.get(fun)
-                .expect(&format!("call_runtime: {} is not known!", fun))));
+            *self.runtime_funcs.get(fun).expect(&format!("call_runtime: {} is not known!", fun)),
+        ));
     }
 
     pub fn get_atom(&mut self, atom: &Atom) {
-        self.emit(I32Const(atom.0.0 as i32 - 1));
+        self.emit(I32Const(atom.get_index() as i32 - 1));
         self.call_runtime("load");
     }
 
@@ -154,7 +153,7 @@ impl<'a> Fungen<'a> {
         for binding in &expr.bindings[0..num_bindings - 1] {
             self.gen_binding(&binding, None);
         }
-        
+
         let num_to_pop = tail.unwrap_or(0) + num_bindings as i32 - 1;
         let last_binding = expr.bindings.last().unwrap();
         self.gen_binding(&last_binding, Some(num_to_pop));
@@ -162,10 +161,8 @@ impl<'a> Fungen<'a> {
 
     fn gen_binding(&mut self, binding: &'a Binding, tail: Option<i32>) {
         match &binding.bindee {
-            Bindee::Error(_) => 
-                self.call_runtime("error"),
-            Bindee::Atom(a) => 
-                self.get_atom(a),
+            Bindee::Error(_) => self.call_runtime("error"),
+            Bindee::Atom(a) => self.get_atom(a),
             Bindee::Num(n) => {
                 self.emit(I64Const(*n));
                 self.call_runtime("alloc_i64");
@@ -192,19 +189,23 @@ impl<'a> Fungen<'a> {
             }
             Bindee::AppClosure(clo, params) => {
                 self.gen_app_closure(clo, params, tail);
-                if tail.is_some() { return }
+                if tail.is_some() {
+                    return;
+                }
             }
 
-            Bindee::AppFunc(index, _name, args) => { 
+            Bindee::AppFunc(index, _name, args) => {
                 self.gen_app_func(*index, args, tail);
-                if tail.is_some() { return }
+                if tail.is_some() {
+                    return;
+                }
             }
 
             Bindee::BinOp(lhs, op, rhs) => {
                 // Push the operand indices to the WASM stack. The runtime functions will
                 // load them from the homer stack and push the result to homer stack.
-                self.emit(I32Const(lhs.0.0 as i32 - 1));
-                self.emit(I32Const(rhs.0.0 as i32 - 1));
+                self.emit(I32Const(lhs.get_index() as i32 - 1));
+                self.emit(I32Const(rhs.get_index() as i32 - 1));
                 match op {
                     OpCode::Add => self.call_runtime("add"),
                     OpCode::Sub => self.call_runtime("sub"),
@@ -228,34 +229,36 @@ impl<'a> Fungen<'a> {
                 self.emit(End);
 
                 // FIXME: Figure out a nicer way.
-                if tail.is_some() { return }
+                if tail.is_some() {
+                    return;
+                }
             }
             Bindee::Record(_, values) => {
-                 self.emit(I32Const(values.len() as i32));
-                 self.call_runtime("alloc_record");
+                self.emit(I32Const(values.len() as i32));
+                self.call_runtime("alloc_record");
 
-                 for (Atom(IdxVar(idx, _)), field) in values.iter().zip(0..) {
-                     self.emit(I32Const(field));
-                     self.emit(I32Const(*idx as i32));
-                     self.call_runtime("set_field");
-                 }
+                for (Atom(IdxVar(idx, _)), field) in values.iter().zip(0..) {
+                    self.emit(I32Const(field));
+                    self.emit(I32Const(*idx as i32));
+                    self.call_runtime("set_field");
+                }
             }
             Bindee::Project(record, index, _) => {
-                self.emit(I32Const(record.0.0 as i32 - 1));
+                self.emit(I32Const(record.get_index() as i32 - 1));
                 self.emit(I32Const(*index as i32));
                 self.call_runtime("get_field");
             }
-            
+
             Bindee::Variant(rank, _constr, payload) => {
                 self.emit(I32Const(*rank as i32));
                 if let Some(atom) = payload {
-                    self.emit(I32Const(atom.0.0 as i32 - 1));
+                    self.emit(I32Const(atom.get_index() as i32 - 1));
                     self.call_runtime("alloc_variant");
                 } else {
                     self.call_runtime("alloc_variant_0");
                 }
             }
-            
+
             Bindee::Match(scrut, branches) => {
                 // block $n
                 //   block $n-1
@@ -276,10 +279,10 @@ impl<'a> Fungen<'a> {
                 }
                 // Emit the innermost block in which we dispatch
                 self.emit(Block(elements::BlockType::NoResult));
-                self.emit(I32Const(scrut.0.0 as i32 - 1));
+                self.emit(I32Const(scrut.get_index() as i32 - 1));
                 self.call_runtime("get_rank");
-                let table_data = Box::new(elements::BrTableData{
-                    table: (0 .. (branches.len() as u32)).collect::<Vec<u32>>().into_boxed_slice(),
+                let table_data = Box::new(elements::BrTableData {
+                    table: (0..(branches.len() as u32)).collect::<Vec<u32>>().into_boxed_slice(),
                     default: branches.len() as u32, // FIXME should make it crash rather than nop
                 });
                 self.emit(BrTable(table_data));
@@ -288,7 +291,7 @@ impl<'a> Fungen<'a> {
                 for (branch, index) in branches.iter().zip(0..) {
                     let has_binder = branch.pattern.binder.is_some();
                     if has_binder {
-                        self.emit(I32Const(scrut.0.0 as i32 - 1));
+                        self.emit(I32Const(scrut.get_index() as i32 - 1));
                         self.call_runtime("load_payload");
                     }
                     self.gen_expr(&branch.rhs, tail);
@@ -305,8 +308,9 @@ impl<'a> Fungen<'a> {
                 }
 
                 // FIXME: Figure out a nicer way
-                if tail.is_some() { return }
-
+                if tail.is_some() {
+                    return;
+                }
             }
         }
         for num_to_pop in tail {
@@ -319,7 +323,7 @@ impl<'a> Fungen<'a> {
 
     fn gen_app_closure(&mut self, clo: &Atom, params: &Vec<Atom>, tail: Option<i32>) {
         // Push the closure stack offset to WASM stack.
-        self.emit(I32Const(clo.0.0 as i32 - 1));
+        self.emit(I32Const(clo.get_index() as i32 - 1));
         // Invoke PrepAppClosure to copy variables from the closure to top of stack
         // and retrieve the function index.
         self.call_runtime("prep_app_closure");
@@ -345,7 +349,7 @@ impl<'a> Fungen<'a> {
     fn gen_app_func(&mut self, index: u32, params: &Vec<Atom>, tail: Option<i32>) {
         for (Atom(IdxVar(idx, _)), off) in params.iter().zip(0..) {
             self.emit(I32Const(*idx as i32 - 1 + off));
-            self.call_runtime("load");                
+            self.call_runtime("load");
         }
         tail.map(|num_to_pop| self.call_shift(num_to_pop, params.len() as i32));
         // TODO: use ReturnCall. Need to fork parity-wasm to add it.
@@ -357,8 +361,7 @@ impl<'a> Fungen<'a> {
             assert!(params > 0);
             self.emit(I32Const(num_to_pop));
             self.emit(I32Const(params));
-            self.call_runtime("shift");    
+            self.call_runtime("shift");
         }
     }
-
 }
