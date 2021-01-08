@@ -30,6 +30,6 @@ fn enumerate(n: Int) -> List<Int> {
 }
 
 fn main() -> Int {
-    let xs = enumerate(1000);
+    let xs = enumerate(10);
     fold_left(xs, 0, fn (x, y) { x + y })
 }

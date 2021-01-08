@@ -16,6 +16,7 @@ pub struct Module {
 pub enum Decl {
     Type(TypeDecl),
     Func(FuncDecl),
+    Extern(ExternDecl),
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -32,6 +33,14 @@ pub struct FuncDecl {
     pub expr_params: Vec<(LExprVar, LType)>,
     pub return_type: LType,
     pub body: LExpr,
+}
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct ExternDecl {
+    pub name: LExprVar,
+    pub type_params: Vec<LTypeVar>,
+    pub expr_params: Vec<(LExprVar, LType)>,
+    pub return_type: LType,
 }
 
 #[derive(Clone, Eq, PartialEq)]

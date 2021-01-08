@@ -14,6 +14,7 @@ impl ast::Debug for Decl {
         match self {
             Self::Type(decl) => decl.write(writer),
             Self::Func(decl) => decl.write(writer),
+            Self::Extern(decl) => decl.write(writer),
         }
     }
 }
@@ -38,6 +39,18 @@ impl ast::Debug for FuncDecl {
             writer.children_pair("param", "type", expr_params)?;
             writer.child("result", return_type)?;
             writer.child("body", body)
+        })
+    }
+}
+
+impl ast::Debug for ExternDecl {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
+        let Self { name, type_params, expr_params, return_type } = self;
+        writer.node("EXTERNDECL", |writer| {
+            writer.child("name", name)?;
+            writer.children("type_param", type_params)?;
+            writer.children_pair("param", "type", expr_params)?;
+            writer.child("result", return_type)
         })
     }
 }

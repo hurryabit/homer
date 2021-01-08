@@ -25,9 +25,10 @@ test.wasm: runtime.o test.o
 	  --export=test_gc_closure \
   	  test.o runtime.o -o test.wasm
 
-.PHONY: test
-test: test.wasm
-	wasm-interp --run-all-exports test.wasm
+
+#.PHONY: test
+#test: test.wasm
+#	wasm-interp --run-all-exports test.wasm
 
 
 .PHONY: dump-macros

@@ -8,10 +8,12 @@
 
 // Data types
 typedef unsigned int u32;
-typedef __UINTPTR_TYPE__ ptr_t;
 typedef int i32;
 typedef long long i64;
+typedef unsigned long long u64;
 typedef unsigned char u8;
+typedef unsigned char bool;
+typedef u64 ptr_t;
 
 #define NULL ((void*)0)
 
@@ -19,11 +21,12 @@ typedef unsigned char u8;
 static const u32 WASM_PAGE_SIZE = 65536;
 static const u32 INITIAL_HEAP_SIZE = WASM_PAGE_SIZE;
 static const u32 INITIAL_STACK_SIZE = (WASM_PAGE_SIZE / sizeof(ptr_t));
+static const u32 MAX_HEAP_SIZE = WASM_PAGE_SIZE * 128;
 
 static u32 heap_size = INITIAL_HEAP_SIZE;
 static u8* from = NULL;
 static u8* to = NULL;
-static u8* hp = NULL;
+u8* hp = NULL;
 static u8* heap_limit = NULL;
 static const u32 heap_headroom = 128;
 
@@ -31,11 +34,19 @@ static u8* mem_start = NULL;
 static u8* mem_end = NULL;
 static u32 mem_size = 0;
 
+// Bitmap for keeping track of allocated blocks. Encompasses
+// both from and to spaces.
+// FIXME: We assume all blocks begin at 64-bit boundary, make
+// sure this holds!
+// FIXME: Make the bitmap growable.
+static u64 *bitmap = NULL;
+static u64 *bitmap_end = NULL;
+
 // Stack storage
 static u32 stack_size = INITIAL_STACK_SIZE;
 static ptr_t* stack_start = NULL;
 static ptr_t* stack_limit = NULL;
-static ptr_t* sp = NULL;
+ptr_t* sp = NULL;
 static const u32 stack_headroom = 32;
 static u32 max_stack = 0;
 
@@ -76,6 +87,9 @@ enum {
 };
 
 // Host functions.
+#define memcpy __builtin_memcpy
+#define memmove __builtin_memmove
+
 void log_i32(i32 x) __attribute__((__import_module__("host"), __import_name__("log_i32")));
 void log_str(ptr_t off, i32 len) __attribute__((__import_module__("host"), __import_name__("log_str")));
 void abort_with(i32 reason) __attribute__((__import_module__("host"), __import_name__("abort")));
@@ -84,8 +98,8 @@ void error() { abort_with(ABORT_ERROR); }
 static char log_buf[1024];
 
 #define logf(fmt, ...) do { \
-  int n = mini_snprintf(log_buf, sizeof(log_buf), fmt, __VA_ARGS__); \
-  log_str((ptr_t)log_buf, n); \
+  int __n__ = mini_snprintf(log_buf, sizeof(log_buf), fmt, __VA_ARGS__); \
+  log_str((ptr_t)log_buf, __n__); \
 } while(0)
 
 // Forward declarations.
@@ -109,7 +123,6 @@ struct variant {
   ptr_t payload;
 };
 
-// Record
 struct record {
   u8 nfields;
   ptr_t fields[0];
@@ -136,8 +149,9 @@ struct block {
 #define PTR(p) ((ptr_t)p)
 
 struct block* get_blk(ptr_t p, tag_t tag) {
-  struct block *blk = BLK(p);
+  struct block* blk = BLK(p);
   if (blk->tag != tag) {
+    logf("get_blk fail, expected block with tag %d, got %d, ptr = 0x%x", tag, blk->tag, p);
     abort_with(ABORT_EXPECTED_T + tag);
   }
   return blk;
@@ -153,9 +167,17 @@ void load(i32 off) {
   sp--;
 }
 
-void assert(i32 cond) {
-  if (!cond) abort_with(ABORT_ASSERT);
+ptr_t get(i32 off) {
+  return sp[off];
 }
+
+
+#define assert(cond) do { \
+  if (!(cond)) { \
+    logf("assertion failed at %s (at %s:%d)", __func__, __FILE__, __LINE__); \
+    abort_with(ABORT_ASSERT); \
+  } \
+} while(0)
 
 void assert_stackempty() {
   if (sp != stack_start) {
@@ -194,6 +216,17 @@ void assert_variant(struct block *blk) {
     abort_with(ABORT_EXPECTED_T + T_VARIANT0);
   }
 }
+// TODO: use WASM's 'memory.copy'?
+// Clang 8 compiles __builtin_memcpy as call to env.memcp
+// Clang 9 might do the right thing.
+// OTOH this is more portable.
+void *memcopy(void *dst, const void *src, u32 n) {
+  u8 *dst_ = (u8*)dst; u8 *src_ = (u8*)src;
+  while (n--) {
+    *dst_++ = *src_++;
+  }
+  return dst;
+}
 
 void needheap(u32 n) {
   if (hp + n + heap_headroom > heap_limit) {
@@ -202,6 +235,11 @@ void needheap(u32 n) {
   if (hp + n + heap_headroom > heap_limit) {
     grow();
   }
+
+  // FIXME check here to make sure heap allocations
+  // are 64-bit aligned for 'bitmap'.
+  logf("hp = %x", (u64)hp);
+  assert(((u32)hp & 0x7) == 0);
 }
 
 void check_stack() {
@@ -215,84 +253,73 @@ void check_stack() {
   }
 }
 
-// FIXME: Should probably have a naming convention that tells whether the function
-// pushes to homer stack or wasm stack.
-void alloc_i32(i32 x) {
-  needheap(BLK_HDR_SIZE);
-  struct block *blk = BLK(hp);
-  blk->tag = T_I32;
-  blk->size = BLK_HDR_SIZE;
-  blk->data.i32 = x;
-  hp += blk->size;
-  push(PTR(blk));
+bool bitmap_get(u32 bit) { 
+  u64 *w = bitmap + (bit >> 6);
+  if (w < bitmap || w >= bitmap_end)
+    return 0;
+  else
+    return (*w & (1LL << (bit & 0x3f))) != 0; 
 }
+void bitmap_unset(u32 bit) { bitmap[bit >> 6] &= ~(1LL << (bit & 0x3f)); }
+void bitmap_set(u32 bit) { bitmap[bit >> 6] |= 1LL << (bit & 0x3f); }
+bool is_allocated(ptr_t p) { return bitmap_get((p - (u32)mem_start) >> 3); }
+void set_allocated(ptr_t p) { bitmap_set((p - (u32)mem_start) >> 3); }
+void unset_allocated(ptr_t p) { bitmap_unset((p - (u32)mem_start) >> 3); }
 
-void alloc_i64(i64 x) {
-  needheap(BLK_HDR_SIZE);
-  struct block *blk = BLK(hp);
-  blk->tag = T_I64;
-  blk->size = BLK_HDR_SIZE;
-  blk->data.i64 = x;
-  hp += blk->size;
-  push(PTR(blk));
+struct block* _alloc(tag_t tag, u32 block_size) {
+  needheap(block_size);
+  assert((PTR(hp) & 0x7) == 0); // double-check alignment
+  struct block* blk = BLK(hp);
+  hp += block_size;
+  assert(!is_allocated(PTR(blk)));
+  set_allocated(PTR(blk));
+  blk->tag = tag;
+  blk->size = block_size;
+  return blk;
 }
 
 void alloc_variant_0(i32 rank) {
-  needheap(BLK_HDR_SIZE);
-  struct block *blk = BLK(hp);
-  blk->tag = T_VARIANT0;
-  blk->size = BLK_HDR_SIZE;
+  struct block* blk = _alloc(T_VARIANT0, BLK_HDR_SIZE);
   blk->data.variant.rank = rank;
-  hp += blk->size;
   push(PTR(blk));
 }
 
 void alloc_variant(i32 rank, i32 payload) {
-  needheap(BLK_HDR_SIZE);
-  struct block *blk = BLK(hp);
-  blk->tag = T_VARIANT1;
-  blk->size = BLK_HDR_SIZE;
+  struct block* blk = _alloc(T_VARIANT1, BLK_HDR_SIZE);
   blk->data.variant.rank = rank;
   blk->data.variant.payload = *(sp + payload);
-  hp += blk->size;
   push(PTR(blk));
 }
 
-void alloc_closure(u32 funcidx, u32 nvars) {
-  needheap(BLK_HDR_SIZE + sizeof(u32)*nvars);
-  struct block *blk = BLK(hp);
-  blk->tag = T_CLOSURE;
-  blk->size = BLK_HDR_SIZE + sizeof(u32)*nvars;
+void alloc_closure(u32 funcidx, u32 nvars) {  
+  struct block* blk = _alloc(T_CLOSURE, BLK_HDR_SIZE + sizeof(ptr_t)*nvars);
   blk->data.clo.funcidx = funcidx;
   blk->data.clo.nvars = nvars;
-  hp += blk->size;
+  logf("alloc_closure fn %d, nvars %d", funcidx, nvars);
   push(PTR(blk));
 }
 
 void set_var(u32 var, u32 off) {
-  struct block *blk = get_blk(*sp, T_CLOSURE);
+  struct block* blk = get_blk(*sp, T_CLOSURE);
   assert(var >= 0 && var < blk->data.clo.nvars);
+  logf("set_var(%d, %d) = %d", var, off, *(sp + off));
   blk->data.clo.vars[var] = *(sp + off);
 }
 
 void alloc_record(u32 nfields) {
-  needheap(BLK_HDR_SIZE + sizeof(u32)*nfields);
-  struct block *blk = BLK(hp);
-  blk->tag = T_RECORD;
-  blk->size = BLK_HDR_SIZE + sizeof(u32)*nfields;
+  struct block* blk = _alloc(T_RECORD, BLK_HDR_SIZE + sizeof(ptr_t)*nfields);
   blk->data.record.nfields = nfields;
-  hp += blk->size;
   push(PTR(blk));
 }
 
 void set_field(u32 field, u32 off) {
-  struct block *blk = get_blk(*sp, T_RECORD);
+  struct block* blk = get_blk(*sp, T_RECORD);
   assert(field >= 0 && field < blk->data.record.nfields);
   blk->data.record.fields[field] = *(sp + off);
 }
 
 void get_field(u32 record, u32 field) {
-  struct block *blk = get_blk(*(sp + record), T_RECORD);
+  struct block* blk = get_blk(*(sp + record), T_RECORD);
   assert(field >= 0 && field < blk->data.record.nfields);
   push(blk->data.record.fields[field]);
 }
@@ -300,7 +327,7 @@ void get_field(u32 record, u32 field) {
 // Prepare for closure application by copying the captured variables to top of stack and returning
 // the function index.
 u32 prep_app_closure(u32 off) {
-  struct block *blk = get_blk(*(sp + off), T_CLOSURE);
+  struct block* blk = get_blk(*(sp + off), T_CLOSURE);
   for (int i = 0; i < blk->data.clo.nvars; i++) {
     *--sp = blk->data.clo.vars[i];
   }
@@ -320,95 +347,20 @@ u32 get_funcidx() {
   return blk->data.clo.funcidx;
 }
 
-void add(i32 a, i32 b) {
-  struct block *blk_a = get_blk(*(sp + a), T_I64);
-  struct block *blk_b = get_blk(*(sp + b), T_I64);
-  alloc_i64(blk_a->data.i64 + blk_b->data.i64);
-}
-void sub(i32 a, i32 b) { 
-  struct block *blk_a = get_blk(*(sp + a), T_I64);
-  struct block *blk_b = get_blk(*(sp + b), T_I64);
-  alloc_i64(blk_a->data.i64 - blk_b->data.i64);
-}
-
-void div(i32 a, i32 b) { 
-  struct block *blk_a = get_blk(*(sp + a), T_I64);
-  struct block *blk_b = get_blk(*(sp + b), T_I64);
-  alloc_i64(blk_a->data.i64 / blk_b->data.i64);
-}
-
-void mul(i32 a, i32 b) { 
-  struct block *blk_a = get_blk(*(sp + a), T_I64);
-  struct block *blk_b = get_blk(*(sp + b), T_I64);
-  alloc_i64(blk_a->data.i64 * blk_b->data.i64);
-}
-
-void greater(i32 a, i32 b) { 
-  struct block *blk_a = get_blk(*(sp + a), T_I64);
-  struct block *blk_b = get_blk(*(sp + b), T_I64);
-  alloc_i32(blk_a->data.i64 > blk_b->data.i64);
-}
-
-void greater_eq(i32 a, i32 b) { 
-  struct block *blk_a = get_blk(*(sp + a), T_I64);
-  struct block *blk_b = get_blk(*(sp + b), T_I64);
-  alloc_i32(blk_a->data.i64 >= blk_b->data.i64);
-}
-
-void less(i32 a, i32 b) { 
-  struct block *blk_a = get_blk(*(sp + a), T_I64);
-  struct block *blk_b = get_blk(*(sp + b), T_I64);
-  alloc_i32(blk_a->data.i64 < blk_b->data.i64);
-}
-
-void less_eq(i32 a, i32 b) { 
-  struct block *blk_a = get_blk(*(sp + a), T_I64);
-  struct block *blk_b = get_blk(*(sp + b), T_I64);
-  alloc_i32(blk_a->data.i64 <= blk_b->data.i64);
-}
-
-void not_eq(i32 a, i32 b) {
-  struct block *blk_a = get_blk(*(sp + a), T_I64);
-  struct block *blk_b = get_blk(*(sp + b), T_I64);
-  alloc_i32(blk_a->data.i64 != blk_b->data.i64);
-}
-
-void equals(i32 a, i32 b) { 
-  struct block *blk_a = BLK(*(sp + a));
-  struct block *blk_b = BLK(*(sp + b));
-  // TODO structural equality.
-  if (blk_a->tag == T_I64 && blk_b->tag == T_I64) {
-    alloc_i32(blk_a->data.i64 == blk_b->data.i64);
-  } else if (blk_a->tag == T_I32 && blk_b->tag == T_I32) {
-    alloc_i32(blk_a->data.i32 == blk_b->data.i32);
-  } else {
-    alloc_i32(blk_a == blk_b);
-  }
- }
+void add(i32 a, i32 b) { push(sp[a] + sp[b]); }
+void sub(i32 a, i32 b) { push(sp[a] - sp[b]); }
+void div(i32 a, i32 b) { push(sp[a] / sp[b]); }
+void mul(i32 a, i32 b) { push(sp[a] * sp[b]); }
+void greater(i32 a, i32 b) { push(sp[a] > sp[b]); }
+void greater_eq(i32 a, i32 b) { push(sp[a] >= sp[b]); }
+void less(i32 a, i32 b) { push(sp[a] < sp[b]); }
+void less_eq(i32 a, i32 b) { push(sp[a] <= sp[b]); }
+void not_eq(i32 a, i32 b) { push(sp[a] != sp[b]); }
+void equals(i32 a, i32 b) { push(sp[a] == sp[b]); }
 
 void loadenv(u32 off, u32 idx) {
   struct block *blk = get_blk(*(sp + off), T_CLOSURE);
   push(blk->data.clo.vars[idx]);
-}
-
-i32 deref_i32() {
-  // TODO: Clean up. Hack to allow "if true" as booleans
-  // are 64-bit in order to use the 64-bit comparisons, but
-  // we need i32 for the WASM if statement.
-  struct block *blk = BLK(pop());
-  switch(blk->tag) {
-    case T_I32:
-      return blk->data.i32;
-    case T_I64:
-      return (i32)blk->data.i64;
-    default:
-      abort_with(ABORT_ASSERT_I32);
-      return -1;
-  }
-}
-
-i64 deref_i64() {
-  return get_blk(pop(), T_I64)->data.i64;
 }
 
 u32 get_rank(u32 off) {
@@ -417,16 +369,6 @@ u32 get_rank(u32 off) {
   return blk->data.variant.rank;
 }
 
-// TODO: use WASM's 'memory.copy'?
-// Clang 8 compiles __builtin_memcpy as call to env.memcpy. Clang 9 might do the right thing.
-// OTOH this is more portable.
-void *memcopy(void *dst, const void *src, u32 n) {
-  u8 *dst_ = (u8*)dst; u8 *src_ = (u8*)src;
-  while (n--) {
-    *dst_++ = *src_++;
-  }
-  return dst;
-}
 
 void load_payload(u32 off) {
   struct block *blk = BLK(*(sp + off));
@@ -437,6 +379,8 @@ void load_payload(u32 off) {
 // Return from a function by shifting out the frame and leaving
 // the return value on top.
 void ret(u32 n) {
+  logf("ret(%d)", n);
+
   ptr_t result = *sp;
   sp += n;
   *sp = result;
@@ -446,21 +390,38 @@ void ret(u32 n) {
 
 // Shift arguments over the current frame for tail-call optimization
 void shift(u32 frame_size, u32 nargs) {
+  logf("shift(%d, %d)", frame_size, nargs);
   // stack: <args> <bindings> ...
   for (int i = nargs - 1; i >= 0; i--) {
-    *(sp + frame_size + i) = *(sp + i);
+    sp[frame_size + i] = sp[i];
   }
   sp += frame_size;
   // stack: <args> ...
 }
 
+// Self tests
+void selftest() {
+  // TODO
+}
+
 // Initialize the runtime
 void init() {
+  // Allocate memory for the allocation bitmap.
+  {
+    u32 bitmap_size_bytes = MAX_HEAP_SIZE / 64;
+    u32 rounding = bitmap_size_bytes % WASM_PAGE_SIZE; // FIXME: get rid of this.
+    i32 orig_mem_size_pages = __builtin_wasm_memory_grow(0, (bitmap_size_bytes + rounding) / WASM_PAGE_SIZE);
+    bitmap = (u64*)(orig_mem_size_pages * WASM_PAGE_SIZE);
+    bitmap_end = bitmap + bitmap_size_bytes;
+  }
 
+  // Allocate heap and stack.
   mem_size = heap_size * 2 + stack_size * sizeof(ptr_t);
-  i32 orig_mem_size_pages = __builtin_wasm_memory_grow(0, mem_size / WASM_PAGE_SIZE);
-  assert(orig_mem_size_pages >= 0);
-  mem_start = (u8*) (orig_mem_size_pages * WASM_PAGE_SIZE);
+  {
+    i32 orig_mem_size_pages = __builtin_wasm_memory_grow(0, mem_size / WASM_PAGE_SIZE);
+    assert(orig_mem_size_pages >= 0);
+    mem_start = (u8*) (orig_mem_size_pages * WASM_PAGE_SIZE);
+  }
   mem_end = mem_start + mem_size;
   from = mem_start;
   to = mem_start + heap_size;
@@ -471,8 +432,12 @@ void init() {
   stack_limit = (ptr_t*) (mem_end - stack_size);
 
   logf("init allocated %lu bytes (%lu pages)", mem_size, mem_size / WASM_PAGE_SIZE);
-}
 
+  logf("mem_start = 0x%x, sp = 0x%0x, hp = 0x%x, bitmap = 0x%x",
+    (u32)mem_start, (u32)sp, (u32)hp, (u32)bitmap);
+
+  selftest();
+}
 
 // Grow the amount of allocated memory
 void grow() {
@@ -482,6 +447,12 @@ void grow() {
     garbage_collect();
   }
   assert(from < to);
+
+  if (mem_size * 2 > MAX_HEAP_SIZE) {
+    // FIXME: This check is here just because growing of "bitmap"
+    // has not been implemented.
+    abort_with(ABORT_OUT_OF_MEMORY);
+  }
 
   if (__builtin_wasm_memory_grow(0, mem_size / WASM_PAGE_SIZE) < 0) {
     abort_with(ABORT_OUT_OF_MEMORY);
@@ -508,6 +479,11 @@ void grow() {
 
 // Copy block from 'from' space to 'to' space and return the new block location.
 ptr_t copy_block(ptr_t p, u8 **to_end) {
+  if (!is_allocated(p)) {
+    // p wasn't a pointer, so return it as-is.
+    return p;
+  }
+
   struct block *blk = BLK(p);
 
   if (blk->tag == T_FWD) {
@@ -520,6 +496,7 @@ ptr_t copy_block(ptr_t p, u8 **to_end) {
 
     // Copy the block and set up forwarding.
     ptr_t newp = PTR(*to_end);
+    set_allocated(newp);
     memcopy(*to_end, blk, blk->size);
     *to_end += blk->size;
 
@@ -530,6 +507,8 @@ ptr_t copy_block(ptr_t p, u8 **to_end) {
 }
 
 void garbage_collect() {
+  logf("garbage_collect: enter", 0);
+
   u32 before = hp - from;
 
   // Copy the blocks reachable from stack to the 'to' space.
@@ -585,6 +564,13 @@ void garbage_collect() {
     top += blk->size;
   }
 
+  // Clear all allocations in the now unused 'from' space.
+  ptr_t p = (ptr_t)from;
+  while (p < (ptr_t)hp) {
+    unset_allocated(p);
+    p += BLK(p)->size;
+  }
+
   // Swap spaces.
   hp = to_end;
   {
@@ -602,3 +588,17 @@ void garbage_collect() {
   logf("max stack: %lu", max_stack);
 }
 
+
+// XXX testing "extern fn"
+/*
+// Host functions.
+void host_set_pixel(i32 x, i32 y, i32 c) __attribute__((__import_module__("host"), __import_name__("set_pixel")));
+
+void set_pixel() {
+    i32 c = (i32)get_blk(pop(), T_I64)->data.i64;
+    i32 y = (i32)get_blk(pop(), T_I64)->data.i64;
+    i32 x = (i32)get_blk(pop(), T_I64)->data.i64;
+    host_set_pixel(x, y, c);
+    alloc_i32(0);
+}
+*/

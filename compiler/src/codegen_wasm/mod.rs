@@ -5,26 +5,68 @@ use parity_wasm::elements;
 use parity_wasm::elements::Deserialize;
 use parity_wasm::elements::Instruction::*;
 
+
+struct RuntimeInfo {
+    funcs: im::HashMap<String, u32>,
+    globals: im::HashMap<String, u32>,
+
+    // Stack pointer memory location.
+    sp: u32,
+
+    // Heap pointer memory location.
+    hp: u32,
+}
+
+impl RuntimeInfo {
+    fn build(runtime_module: &elements::Module) -> RuntimeInfo {
+       let mut runtime_info = RuntimeInfo {
+           funcs: im::HashMap::new(),
+           globals: im::HashMap::new(),
+           sp: 0,
+           hp: 0,
+       };
+       for export in runtime_module.export_section().unwrap().entries() {
+           match export.internal() {
+               elements::Internal::Function(idx) => {
+                   runtime_info.funcs.insert(String::from(export.field()), *idx as u32);
+               }
+               elements::Internal::Global(idx) => {
+                   runtime_info.globals.insert(String::from(export.field()), *idx as u32);
+
+                   // FIXME: Figure out something less hacky. Probably better to define SP and HP
+                   // as globals here rather than in runtime.c.
+                   let g = 
+                    runtime_module.global_section().unwrap().entries().get(*idx as usize).unwrap();
+                   let x = match g.init_expr().code().first() {
+                       Some(I32Const(x)) => Some(*x),
+                       _ => None,                   
+                   };
+                   match export.field() {
+                       "sp" => runtime_info.sp = x.unwrap() as u32,
+                       "hp" => runtime_info.hp = x.unwrap() as u32,
+                       _ => (),
+                   };
+               }
+               elements::Internal::Table(_) => {}
+               elements::Internal::Memory(_) => {}
+           }
+       }
+       runtime_info
+    }
+}
+
+
 pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
     let mut runtime_bytes = &include_bytes!("../../../runtime/runtime.wasm")[..];
     let mut runtime_module =
         parity_wasm::elements::Module::deserialize(&mut runtime_bytes).unwrap();
 
-    // Build the runtime functions map.
-    let mut runtime_funcs: im::HashMap<String, u32> = im::HashMap::new();
     let num_imports = runtime_module.import_count(elements::ImportCountType::Function) as u32;
-    for export in runtime_module.export_section().unwrap().entries() {
-        match export.internal() {
-            elements::Internal::Function(idx) => {
-                runtime_funcs.insert(String::from(export.field()), *idx as u32);
-            }
-            _ => (),
-        }
-    }
+    let runtime_info = RuntimeInfo::build(&runtime_module); 
 
     // The offset to calling any top-level function, e.g. it's the
     // number of imported and defined functions already in the module
-    let call_offset = num_imports + runtime_funcs.len() as u32;
+    let call_offset = num_imports + runtime_info.funcs.len() as u32;
 
     // Clear the existing table. TODO: Add to the existing table instead.
     runtime_module.table_section_mut().unwrap().entries_mut().clear();
@@ -36,7 +78,7 @@ pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
 
     let mut fungen = Fungen {
         instrs: Vec::new(),
-        runtime_funcs: runtime_funcs,
+        runtime_info: &runtime_info,
         closures: Vec::new(),
         proc_sig: builder.push_signature(builder::signature().build_sig()),
         call_offset: call_offset,
@@ -109,7 +151,7 @@ pub fn gen_module(module: &anf::Module) -> Result<elements::Module, String> {
 
 struct Fungen<'a> {
     instrs: Vec<elements::Instruction>,
-    runtime_funcs: im::HashMap<String, u32>,
+    runtime_info: &'a RuntimeInfo,
     proc_sig: u32, // FIXME yuck
     call_offset: u32,
     table_index: u32,
@@ -135,13 +177,24 @@ impl<'a> Fungen<'a> {
         self.instrs.push(instr);
     }
 
+    // Load a value from Homer stack into the WASM stack
+    fn load(&mut self, off: u32) { 
+        self.emit(I32Const(0));
+        self.emit(I32Load(0, self.runtime_info.sp));
+        // TODO: Might make sense to put sp and hp to known locations in the heap to avoid
+        // the extra indirection here. Or likely better is to remove them from the runtime
+        // and declare them as globals here.
+        self.emit(I32Load(0, off << 3));
+    }
+
     fn call_runtime(&mut self, fun: &str) {
         self.emit(Call(
-            *self.runtime_funcs.get(fun).expect(&format!("call_runtime: {} is not known!", fun)),
+            *self.runtime_info.funcs.get(fun).expect(&format!("call_runtime: {} is not known!", fun)),
         ));
     }
 
     pub fn get_atom(&mut self, atom: &Atom) {
+        // FIXME: replace with I32Load + I32Store and update of SP global
         self.emit(I32Const(atom.get_index() as i32 - 1));
         self.call_runtime("load");
     }
@@ -165,11 +218,11 @@ impl<'a> Fungen<'a> {
             Bindee::Atom(a) => self.get_atom(a),
             Bindee::Num(n) => {
                 self.emit(I64Const(*n));
-                self.call_runtime("alloc_i64");
+                self.call_runtime("push");
             }
             Bindee::Bool(b) => {
                 self.emit(I64Const(if *b { 1 } else { 0 }));
-                self.call_runtime("alloc_i64");
+                self.call_runtime("push");
             }
             Bindee::MakeClosure(mk_clo) => {
                 // Defer the compilation of the lambda body, allocating its function
@@ -189,16 +242,26 @@ impl<'a> Fungen<'a> {
             }
             Bindee::AppClosure(clo, params) => {
                 self.gen_app_closure(clo, params, tail);
-                if tail.is_some() {
+                // FIXME properly implement TCO for closures:
+                // Need to know how many variables have been captured when shifting.
+                /*if tail.is_some() {
                     return;
-                }
+                }*/
             }
 
             Bindee::AppFunc(index, _name, args) => {
                 self.gen_app_func(*index, args, tail);
-                if tail.is_some() {
+                /*if tail.is_some() {
                     return;
+                }*/
+            }
+
+            Bindee::AppExtern(name, params) => {
+                for (Atom(IdxVar(idx, _)), off) in params.iter().zip(0..) {
+                    self.emit(I32Const(*idx as i32 - 1 + off));
+                    self.call_runtime("load");
                 }
+                self.call_runtime(name.as_str());
             }
 
             Bindee::BinOp(lhs, op, rhs) => {
@@ -219,9 +282,8 @@ impl<'a> Fungen<'a> {
                     OpCode::GreaterEq => self.call_runtime("greater_eq"),
                 }
             }
-            Bindee::If(cond, then, elze) => {
-                self.get_atom(cond);
-                self.call_runtime("deref_i32");
+            Bindee::If(cond, then, elze) => {              
+                self.load(cond.get_index() - 1);
                 self.emit(If(elements::BlockType::NoResult));
                 self.gen_expr(&then, tail);
                 self.emit(Else);
@@ -321,7 +383,7 @@ impl<'a> Fungen<'a> {
         }
     }
 
-    fn gen_app_closure(&mut self, clo: &Atom, params: &Vec<Atom>, tail: Option<i32>) {
+    fn gen_app_closure(&mut self, clo: &Atom, params: &Vec<Atom>, _tail: Option<i32>) {
         // Push the closure stack offset to WASM stack.
         self.emit(I32Const(clo.get_index() as i32 - 1));
         // Invoke PrepAppClosure to copy variables from the closure to top of stack
@@ -340,7 +402,7 @@ impl<'a> Fungen<'a> {
             self.call_runtime("push_param")
         }
 
-        tail.map(|num_to_pop| self.call_shift(num_to_pop, params.len() as i32));
+        //tail.map(|num_to_pop| self.call_shift(num_to_pop, params.len() as i32));
 
         // Invoke the function.
         self.emit(CallIndirect(self.proc_sig, 0 /* table */));
@@ -351,7 +413,7 @@ impl<'a> Fungen<'a> {
             self.emit(I32Const(*idx as i32 - 1 + off));
             self.call_runtime("load");
         }
-        tail.map(|num_to_pop| self.call_shift(num_to_pop, params.len() as i32));
+        //tail.map(|num_to_pop| self.call_shift(num_to_pop, params.len() as i32));
         // TODO: use ReturnCall. Need to fork parity-wasm to add it.
         self.emit(Call(index + self.call_offset));
     }

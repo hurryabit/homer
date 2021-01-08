@@ -13,6 +13,7 @@ pub Module: Module = {
 pub Decl: Decl = {
     TypeDecl => Decl::Type(<>),
     FuncDecl => Decl::Func(<>),
+    ExternDecl => Decl::Extern(<>),
 }
 
 TypeDecl: TypeDecl = {
@@ -23,6 +24,11 @@ TypeDecl: TypeDecl = {
 FuncDecl: FuncDecl = {
     "fn" <name: LExprVar> <type_params: TypeParams> "(" <expr_params: List0<Param<TypeAnn>, ",">> ")" "->" <return_type: LType> <body: LBlockExpr> =>
         FuncDecl { name, type_params, expr_params, return_type, body },
+}
+
+ExternDecl: ExternDecl = {
+    "extern" "fn" <name: LExprVar> <type_params: TypeParams> "(" <expr_params: List0<Param<TypeAnn>, ",">> ")" "->" <return_type: LType> =>
+        ExternDecl { name, type_params, expr_params, return_type },
 }
 
 TypeParams: Vec<LTypeVar> = {
@@ -239,6 +245,7 @@ Located<X>: Located<X> = {
 match {
     "type",
     "fn",
+    "extern",
     "let",
     "if",
     "else",

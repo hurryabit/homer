@@ -4,13 +4,14 @@ use std::fmt;
 use util::in_parens_if_some;
 
 use location::SourceSpan;
-pub use syntax::{ExprCon, ExprVar, LExprVar, OpCode};
+pub use syntax::{ExprCon, ExprVar, LExprVar, OpCode, ExternDecl};
 
 mod debruijn;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Module {
     pub func_decls: Vec<FuncDecl>,
+    pub extern_decls: Vec<ExternDecl>,
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -47,6 +48,7 @@ pub enum Bindee {
     MakeClosure(MakeClosure),
     AppClosure(Atom, Vec<Atom>),
     AppFunc(u32, ExprVar, Vec<Atom>),
+    AppExtern(ExprVar, Vec<Atom>),
     BinOp(Atom, OpCode, Atom),
     If(Atom, Box<Expr>, Box<Expr>),
     // NOTE(MH): Both vectors always have the same length. We split it here
@@ -100,7 +102,7 @@ impl syntax::Module {
             .map(|(index, decl)| (decl.name.locatee, index as u32))
             .collect();
         let func_decls = self.func_decls().map(|decl| decl.to_anf(&func_indices)).collect();
-        Module { func_decls }
+        Module { func_decls, extern_decls: self.extern_decls().map(|decl| decl.clone()).collect() }
     }
 }
 
@@ -165,8 +167,12 @@ impl Bindee {
                 let (args, fvss): (_, Vec<_>) =
                     args.iter().map(|arg| Atom::from_syntax(env, arg, bindings)).unzip();
                 let name = fun.locatee;
-                let index = env.func_indices.get(&name).unwrap();
-                (Self::AppFunc(*index, name, args), FreeVars::unions(fvss))
+                match env.func_indices.get(&name) {
+                    None =>
+                      (Self::AppExtern(name, args), FreeVars::unions(fvss)),
+                    Some(index) => 
+                      (Self::AppFunc(*index, name, args), FreeVars::unions(fvss)),
+                }
             }
             syntax::Expr::BinOp(lhs, op, rhs) => {
                 let (lhs, fvs1) = Atom::from_syntax(env, lhs, bindings);
@@ -333,8 +339,11 @@ derive_fmt_debug!(Module);
 
 impl ast::Debug for Module {
     fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
-        let Self { func_decls } = self;
-        writer.node("MODULE", |writer| writer.children("decl", func_decls))
+        let Self { func_decls, extern_decls } = self;
+        writer.node("MODULE", |writer| {
+            writer.children("decl", func_decls)?;
+            writer.children("extern", extern_decls)
+        })
     }
 }
 
@@ -378,6 +387,10 @@ impl ast::Debug for Bindee {
                 writer.child("fun", &(*name, *index))?;
                 writer.children("arg", args)
             }),
+            Self::AppExtern(name, args) => writer.node("APPEXT", |writer| {
+                writer.child("fun", name)?;
+                writer.children("arg", args)
+            }),            
             Self::BinOp(lhs, op, rhs) => writer.node("BINOP", |writer| {
                 writer.child("lhs", lhs)?;
                 writer.child("op", op)?;
@@ -476,7 +489,8 @@ impl fmt::Display for Bindee {
             Self::Bool(b) => write!(f, "{}", b),
             Self::MakeClosure(closure) => write!(f, "{}", closure),
             Self::AppClosure(clo, args) => write!(f, "{}({})", clo, ", ".join(args)),
-            Self::AppFunc(index, fun, args) => write!(f, "{}/{}({})", fun, index, ", ".join(args)),
+            Self::AppFunc(index, fun, args) =>  write!(f, "{}/{}({})", fun, index, ", ".join(args)),
+            Self::AppExtern(fun, args) =>  write!(f, "{}({})", fun, ", ".join(args)),
             Self::BinOp(lhs, op, rhs) => write!(f, "{} {} {}", lhs, op, rhs),
             Self::If(cond, _, _) => write!(f, "if {} {{ .. }} else {{ .. }}", cond),
             Self::Record(fields, values) => write!(
