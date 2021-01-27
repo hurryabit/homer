@@ -178,13 +178,17 @@ impl<'a> Fungen<'a> {
     }
 
     // Load a value from Homer stack into the WASM stack
-    fn load(&mut self, off: u32) { 
+    fn load(&mut self, off: u32) {
+      self.emit(I32Const(off as i32));
+      self.call_runtime("get32");
+
+        /*
         self.emit(I32Const(0));
         self.emit(I32Load(0, self.runtime_info.sp));
         // TODO: Might make sense to put sp and hp to known locations in the heap to avoid
         // the extra indirection here. Or likely better is to remove them from the runtime
         // and declare them as globals here.
-        self.emit(I32Load(0, off << 3));
+        self.emit(I32Load(0, off << 3));*/
     }
 
     fn call_runtime(&mut self, fun: &str) {
@@ -241,19 +245,19 @@ impl<'a> Fungen<'a> {
                 }
             }
             Bindee::AppClosure(clo, params) => {
-                self.gen_app_closure(clo, params, tail);
+                self.gen_app_closure(clo, params, None);
                 // FIXME properly implement TCO for closures:
                 // Need to know how many variables have been captured when shifting.
-                /*if tail.is_some() {
-                    return;
-                }*/
+                //if tail.is_some() {
+                //    return;
+                //}
             }
 
             Bindee::AppFunc(index, _name, args) => {
-                self.gen_app_func(*index, args, tail);
-                /*if tail.is_some() {
-                    return;
-                }*/
+                self.gen_app_func(*index, args, None);
+                //if tail.is_some() {
+                //    return;
+                //
             }
 
             Bindee::AppExtern(name, params) => {
@@ -282,7 +286,7 @@ impl<'a> Fungen<'a> {
                     OpCode::GreaterEq => self.call_runtime("greater_eq"),
                 }
             }
-            Bindee::If(cond, then, elze) => {              
+            Bindee::If(cond, then, elze) => {
                 self.load(cond.get_index() - 1);
                 self.emit(If(elements::BlockType::NoResult));
                 self.gen_expr(&then, tail);
@@ -383,7 +387,7 @@ impl<'a> Fungen<'a> {
         }
     }
 
-    fn gen_app_closure(&mut self, clo: &Atom, params: &Vec<Atom>, _tail: Option<i32>) {
+    fn gen_app_closure(&mut self, clo: &Atom, params: &Vec<Atom>, tail: Option<i32>) {
         // Push the closure stack offset to WASM stack.
         self.emit(I32Const(clo.get_index() as i32 - 1));
         // Invoke PrepAppClosure to copy variables from the closure to top of stack
@@ -419,11 +423,12 @@ impl<'a> Fungen<'a> {
     }
 
     fn call_shift(&mut self, num_to_pop: i32, params: i32) {
-        if num_to_pop > 0 {
+        panic!("TODO");
+        /*if num_to_pop > 0 {
             assert!(params > 0);
             self.emit(I32Const(num_to_pop));
             self.emit(I32Const(params));
             self.call_runtime("shift");
-        }
+        }*/
     }
 }

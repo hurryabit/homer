@@ -13,14 +13,14 @@ typedef long long i64;
 typedef unsigned long long u64;
 typedef unsigned char u8;
 typedef unsigned char bool;
-typedef u64 ptr_t;
+typedef i64 ptr_t;
 
 #define NULL ((void*)0)
 
 // Heap storage
 static const u32 WASM_PAGE_SIZE = 65536;
-static const u32 INITIAL_HEAP_SIZE = WASM_PAGE_SIZE;
-static const u32 INITIAL_STACK_SIZE = (WASM_PAGE_SIZE / sizeof(ptr_t));
+static const u32 INITIAL_HEAP_SIZE = 16 * WASM_PAGE_SIZE;
+static const u32 INITIAL_STACK_SIZE = 16 * WASM_PAGE_SIZE / sizeof(ptr_t);
 static const u32 MAX_HEAP_SIZE = WASM_PAGE_SIZE * 128;
 
 static u32 heap_size = INITIAL_HEAP_SIZE;
@@ -57,8 +57,6 @@ static struct closure* current_closure = (struct closure*)0;
 // Heap block tags
 typedef enum {
   T_MIN = 1,
-  T_I32 = T_MIN,
-  T_I64 = 2,
   T_CLOSURE = 3,
   T_VARIANT0 = 4,
   T_VARIANT1 = 5,
@@ -135,8 +133,6 @@ struct block {
 
   // FIXME(JM): Block size larger than strictly necessary, though this is more convenient.
   union {
-    i32 i32;
-    i64 i64;
     ptr_t fwd;
     struct closure clo;
     struct variant variant;
@@ -171,6 +167,11 @@ ptr_t get(i32 off) {
   return sp[off];
 }
 
+i32 get32(i32 off) {
+  logf("get32(%d) -> %d", off, sp[off]);
+  return (i32)sp[off];
+}
+
 
 #define assert(cond) do { \
   if (!(cond)) { \
@@ -195,13 +196,6 @@ void assert_heapempty() {
 void assert_i32(i32 x) {
   if (*sp != x) {
     abort_with(ABORT_ASSERT_I32);
-  }
-}
-
-void assert_boxed_i32(i32 x) {
-  struct block* blk = get_blk(*sp, T_I32);
-  if (blk->data.i32 != x) {
-    abort_with(ABORT_ASSERT_BOXED_I32);
   }
 }
 
@@ -238,7 +232,7 @@ void needheap(u32 n) {
 
   // FIXME check here to make sure heap allocations
   // are 64-bit aligned for 'bitmap'.
-  logf("hp = %x", (u64)hp);
+  //logf("hp = %x", (u64)hp);
   assert(((u32)hp & 0x7) == 0);
 }
 
@@ -267,6 +261,7 @@ void set_allocated(ptr_t p) { bitmap_set((p - (u32)mem_start) >> 3); }
 void unset_allocated(ptr_t p) { bitmap_unset((p - (u32)mem_start) >> 3); }
 
 struct block* _alloc(tag_t tag, u32 block_size) {
+  logf("_alloc tag=%d, block_size=%d", tag, block_size);
   needheap(block_size);
   assert((PTR(hp) & 0x7) == 0); // double-check alignment
   struct block* blk = BLK(hp);
@@ -291,11 +286,11 @@ void alloc_variant(i32 rank, i32 payload) {
   push(PTR(blk));
 }
 
-void alloc_closure(u32 funcidx, u32 nvars) {  
+void alloc_closure(u32 funcidx, u32 nvars) {
+  logf("alloc_closure fn %d, nvars %d", funcidx, nvars);
   struct block* blk = _alloc(T_CLOSURE, BLK_HDR_SIZE + sizeof(ptr_t)*nvars);
   blk->data.clo.funcidx = funcidx;
   blk->data.clo.nvars = nvars;
-  logf("alloc_closure fn %d, nvars %d", funcidx, nvars);
   push(PTR(blk));
 }
 
@@ -319,7 +314,7 @@ void set_field(u32 field, u32 off) {
 }
 
 void get_field(u32 record, u32 field) {
-  struct block* blk = get_blk(*(sp + record), T_RECORD);
+  struct block* blk = get_blk(sp[record], T_RECORD);
   assert(field >= 0 && field < blk->data.record.nfields);
   push(blk->data.record.fields[field]);
 }
@@ -327,8 +322,9 @@ void get_field(u32 record, u32 field) {
 // Prepare for closure application by copying the captured variables to top of stack and returning
 // the function index.
 u32 prep_app_closure(u32 off) {
-  struct block* blk = get_blk(*(sp + off), T_CLOSURE);
+  struct block* blk = get_blk(sp[off], T_CLOSURE);
   for (int i = 0; i < blk->data.clo.nvars; i++) {
+    logf("prep_app_closure: pushed %d", blk->data.clo.vars[i]);
     *--sp = blk->data.clo.vars[i];
   }
   current_closure = &blk->data.clo;
@@ -339,7 +335,9 @@ void push_param(u32 off) {
   // TODO: Remove the current_closure hack. We'd need to otherwise save and restore it. Not worth it
   // right now.
   if (!current_closure) { abort_with(ABORT_CURRENT_CLOSURE_UNSET); }
-  push(*(sp + off + current_closure->nvars /* captured variables */));
+  logf("push_param: pushed %d", 
+    sp[off + current_closure->nvars]);
+  push(sp[off + current_closure->nvars] /* captured variables */);
 }
 
 u32 get_funcidx() {
@@ -347,16 +345,18 @@ u32 get_funcidx() {
   return blk->data.clo.funcidx;
 }
 
+#define B(exp) ((exp) ? 1LL : 0LL)
+
 void add(i32 a, i32 b) { push(sp[a] + sp[b]); }
 void sub(i32 a, i32 b) { push(sp[a] - sp[b]); }
 void div(i32 a, i32 b) { push(sp[a] / sp[b]); }
 void mul(i32 a, i32 b) { push(sp[a] * sp[b]); }
-void greater(i32 a, i32 b) { push(sp[a] > sp[b]); }
-void greater_eq(i32 a, i32 b) { push(sp[a] >= sp[b]); }
-void less(i32 a, i32 b) { push(sp[a] < sp[b]); }
-void less_eq(i32 a, i32 b) { push(sp[a] <= sp[b]); }
-void not_eq(i32 a, i32 b) { push(sp[a] != sp[b]); }
-void equals(i32 a, i32 b) { push(sp[a] == sp[b]); }
+void greater(i32 a, i32 b) { push(B(sp[a] > sp[b])); }
+void greater_eq(i32 a, i32 b) { push(B(sp[a] >= sp[b]));  }
+void less(i32 a, i32 b) { push(B(sp[a] < sp[b])); }
+void less_eq(i32 a, i32 b) { push(B(sp[a] <= sp[b])); }
+void not_eq(i32 a, i32 b) { push(B(sp[a] != sp[b])); }
+void equals(i32 a, i32 b) { push(B(sp[a] == sp[b])); }
 
 void loadenv(u32 off, u32 idx) {
   struct block *blk = get_blk(*(sp + off), T_CLOSURE);
@@ -379,11 +379,16 @@ void load_payload(u32 off) {
 // Return from a function by shifting out the frame and leaving
 // the return value on top.
 void ret(u32 n) {
-  logf("ret(%d)", n);
-
   ptr_t result = *sp;
+
   sp += n;
   *sp = result;
+
+  logf("ret(%d), sp = %d, result = %d", n, sp, result);
+
+  assert(sp < stack_start && sp > stack_limit);
+
+  logf("ret: exit", 0);
 
   check_stack(); // TODO should be invoked when applying!
 }
@@ -441,6 +446,8 @@ void init() {
 
 // Grow the amount of allocated memory
 void grow() {
+  logf("grow: enter", 0);
+
   if (from > to) {
     // from-space is after the to-space which makes extending non-trivial.
     // run another garbage collection to swap the spaces.
@@ -508,6 +515,7 @@ ptr_t copy_block(ptr_t p, u8 **to_end) {
 
 void garbage_collect() {
   logf("garbage_collect: enter", 0);
+  //abort_with(ABORT_OUT_OF_MEMORY);
 
   u32 before = hp - from;
 
@@ -551,8 +559,6 @@ void garbage_collect() {
       }
 
       case T_VARIANT0:
-      case T_I32:
-      case T_I64:
         break;
 
       case T_FWD:

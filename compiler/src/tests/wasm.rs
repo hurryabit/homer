@@ -26,7 +26,7 @@ fn with_wasm_result<R>(main: &str, input: &str, f: fn(i64) -> R) -> R {
     linker.func("host", "log_i32", |x: i32| println!("{}", x)).unwrap();
     linker.func("host", "abort", |x: i32| panic!("abort: {}", x)).unwrap();
     linker
-        .func("host", "log_str", |caller: Caller, ptr: u32, len: i32| {
+        .func("host", "log_str", |caller: Caller, ptr: u64, len: i32| {
             let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
             let str = unsafe {
                 let bytes = &memory.data_unchecked()[ptr as usize..][..len as usize];
@@ -49,7 +49,7 @@ fn with_wasm_result<R>(main: &str, input: &str, f: fn(i64) -> R) -> R {
     let run = run.get0::<()>().unwrap();
     run().unwrap();
 
-    let deref = test_inst.get_func("deref_i64").unwrap().get0::<i64>().unwrap();
+    let deref = test_inst.get_func("pop").unwrap().get0::<i64>().unwrap();
     let result = deref().unwrap();
     println!("result: {}", result);
 
@@ -93,8 +93,8 @@ fn test_if() {
         wasm_value(
             "f",
             r#"
-    fn f() -> Int { 
-        if 10 > 20 { 
+    fn f() -> Int {
+        if 10 > 20 {
             1
         } else {
             2
@@ -104,6 +104,92 @@ fn test_if() {
         ),
         2
     );
+}
+
+#[test]
+fn test_cmp() {
+    assert_eq!(
+        wasm_value(
+            "f",
+            r#"
+    fn f() -> Int {
+        let x = 10;
+        let y = 0 - 5;
+        if x >= y {
+          if x < y {
+            0
+          } else {
+            if x == 10 {
+              if x != y {
+                if x <= 10 {
+                  1
+                } else {
+                  0
+                }
+              } else {
+                0
+              }
+            } else {
+              0
+            }
+        }
+      } else {
+        0
+      }
+    }
+    "#),
+      1
+    );
+}
+
+#[test]
+fn test_foo() {
+    assert_eq!(
+        wasm_value(
+            "f",
+            r#"
+
+    type Option<A> = [ None | Some(A) ]
+    type Pair<A, B> = {fst: A, snd: B}
+
+    fn foo(k: Int) -> Option<Pair<Int, Int>> {
+        if k >= 0 {
+            Some({fst = k-1, snd = k})
+        } else {
+            None
+        }
+    }
+
+    fn f() -> Int {
+      match foo(10) {
+        None => 1,
+        Some(p) =>
+          match foo(p.fst - 10) {
+            None => 0,
+            Some(x) => 2,
+          },
+      }
+    }
+    "#),
+      0
+    );
+}
+
+#[test]
+fn test_recursive() {
+    assert_eq!(
+        wasm_value(
+            "f",
+            r#"
+
+    fn f() -> Int {
+      0
+    }
+    "#),
+      0
+    );
+
+
 }
 
 #[test]
@@ -188,6 +274,31 @@ fn test_closure() {
     );
 }
 
+#[test]
+fn test_closure2() {
+    assert_eq!(
+        wasm_value(
+            "f",
+            r#"
+
+    fn t(x: Int, y: Int) -> Int {
+      x + x - y
+    }
+
+    fn f() -> Int {
+        let x = 1;
+        let y = 2;
+        let z = 3;
+        let clo = fn (y: Int) { x + z - y };
+        let clo2 = fn (f: (Int) -> Int, g: Int) { f(t(g - z - x, 1)) };
+        let h = 5;
+        clo2(clo, h)
+    }
+    "#
+        ),
+        1 + 3 - (2*(5 - 3 - 1) - 1)
+    );
+}
 #[test]
 fn tail_call_optimization() {
     let input = r#"
