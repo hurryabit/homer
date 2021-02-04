@@ -5,6 +5,7 @@ impl Module {
         self.decls.iter().filter_map(|decl| match decl {
             Decl::Type(type_decl) => Some(type_decl),
             Decl::Func(_) => None,
+            Decl::Extern(_) => None,
         })
     }
 
@@ -12,6 +13,7 @@ impl Module {
         self.decls.iter_mut().filter_map(|decl| match decl {
             Decl::Type(type_decl) => Some(type_decl),
             Decl::Func(_) => None,
+            Decl::Extern(_) => None,
         })
     }
 
@@ -19,6 +21,7 @@ impl Module {
         self.decls.iter().filter_map(|decl| match decl {
             Decl::Func(func) => Some(func),
             Decl::Type(_) => None,
+            Decl::Extern(_) => None,
         })
     }
 
@@ -26,6 +29,23 @@ impl Module {
         self.decls.iter_mut().filter_map(|decl| match decl {
             Decl::Func(func) => Some(func),
             Decl::Type(_) => None,
+            Decl::Extern(_) => None,
+        })
+    }
+
+    pub fn extern_decls(&self) -> impl Iterator<Item = &ExternDecl> {
+        self.decls.iter().filter_map(|decl| match decl {
+            Decl::Func(_) => None,
+            Decl::Type(_) => None,
+            Decl::Extern(extrn) => Some(extrn),
+        })
+    }
+
+    pub fn extern_decls_mut(&mut self) -> impl Iterator<Item = &mut ExternDecl> {
+        self.decls.iter_mut().filter_map(|decl| match decl {
+            Decl::Func(_) => None,
+            Decl::Type(_) => None,
+            Decl::Extern(extrn) => Some(extrn),
         })
     }
 }

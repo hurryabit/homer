@@ -13,6 +13,7 @@ pub mod ast;
 pub mod build;
 pub mod cek;
 pub mod checker;
+pub mod codegen_wasm;
 pub mod diagnostic;
 pub mod location;
 pub mod parser;
@@ -36,4 +37,5 @@ mod tests {
     mod cek;
     mod checker;
     mod parser;
+    mod wasm;
 }

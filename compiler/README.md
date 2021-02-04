@@ -309,3 +309,4 @@ The typing rules and the implementation of the type checker are bidirectional, a
   E |- branch [... | c(s) | ...] { c(x) => e }
     <= t
 ```
+

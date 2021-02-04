@@ -64,10 +64,16 @@ impl Module {
             type_decl.check(&env)?;
         }
         env.type_defs = Rc::new(self.type_defs());
-        let func_sigs = self
+        let mut func_sigs: collections::HashMap<ExprVar, Rc<FuncSig>> = self
             .func_decls_mut()
             .map(|decl| Ok((decl.name.locatee, Rc::new(decl.check_signature(&env)?))))
             .collect::<Result<_, _>>()?;
+        let extern_sigs = self
+            .extern_decls_mut()
+            .map(|decl| Ok((decl.name.locatee, Rc::new(decl.check_signature(&env)?))))
+            .collect::<Result<Vec<(ExprVar, Rc<FuncSig>)>, _>>()?;
+
+        func_sigs.extend(extern_sigs);
         env.func_sigs = Rc::new(func_sigs);
         for decl in self.func_decls_mut() {
             decl.check(&env)?;
@@ -131,6 +137,29 @@ impl FuncDecl {
             expr_params.iter().map(|(var, typ)| Ok((*var, RcType::from_lsyntax(typ)))),
             |env| body.check(env, &RcType::from_lsyntax(return_type)),
         )
+    }
+}
+
+impl ExternDecl {
+    // TODO: Copy-pasta of FuncDecl.check_signature.
+    fn check_signature(&mut self, env: &Env) -> Result<FuncSig, LError> {
+        let Self { name, type_params, expr_params, return_type } = self;
+        LTypeVar::check_unique(type_params.iter())?;
+        let env = &mut env.clone();
+        env.type_vars = type_params.iter().map(|param| param.locatee).collect();
+        for (_, typ) in expr_params.iter_mut() {
+            typ.check(env)?;
+        }
+        return_type.check(env)?;
+        Ok(FuncSig {
+            name: *name,
+            type_params: type_params.iter().map(|param| param.locatee).collect(),
+            params: expr_params
+                .iter()
+                .map(|(var, typ)| (var.locatee, RcType::from_lsyntax(typ)))
+                .collect(),
+            result: RcType::from_lsyntax(return_type),
+        })
     }
 }
 

@@ -56,6 +56,12 @@ impl Bindee {
                     arg.index(env);
                 }
             }
+            Self::AppExtern(_name, args) => {
+                for arg in args {
+                    arg.index(env);
+                }
+            }
+
             Self::BinOp(lhs, _op, rhs) => {
                 lhs.index(env);
                 rhs.index(env);
