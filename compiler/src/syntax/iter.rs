@@ -43,8 +43,8 @@ impl Type {
             match self {
                 Self::Error => {}
                 Self::Var(_) | Self::Int | Self::Bool => {}
-                Self::SynApp(syn, args) => {
-                    let _: &LTypeVar = syn; // We want this to break if change the type of `syn`.
+                Self::SynApp(name, args) | Self::ExtApp(name, args) => {
+                    let _: &LTypeVar = name; // We want this to break if change the type of `name`.
                     for arg in args {
                         yield_!(arg);
                     }
@@ -96,8 +96,8 @@ impl Expr {
                         yield_!(arg);
                     }
                 }
-                Self::AppFun(fun, _types, args) => {
-                    let _: &LExprVar = fun; // We want this to fail if we change the type of `fun`.
+                Self::AppFun(name, _types, args) | Self::AppExt(name, _types, args) => {
+                    let _: &LExprVar = name; // We want this to fail if we change the type of `name`.
                     for arg in args {
                         yield_!(arg);
                     }
@@ -147,8 +147,8 @@ impl Expr {
                 let _: &LExprVar = clo; // We want this to fail if we change the type of `clo`.
                 args.iter().for_each(f);
             }
-            Self::AppFun(fun, _types, args) => {
-                let _: &LExprVar = fun; // We want this to fail if we change the type of `fun`.
+            Self::AppFun(name, _types, args) | Self::AppExt(name, _types, args) => {
+                let _: &LExprVar = name; // We want this to fail if we change the type of `name`.
                 args.iter().for_each(f)
             }
             Self::BinOp(lhs, _opcode, rhs) => {
@@ -185,6 +185,7 @@ pub enum ExprRef {
     Var(LExprVar),
     Clo(LExprVar),
     Fun(LExprVar),
+    Ext(LExprVar),
 }
 
 impl Expr {
@@ -193,6 +194,7 @@ impl Expr {
             Expr::Var(var) => f(ExprRef::Var(*var)),
             Expr::AppClo(clo, _args) => f(ExprRef::Clo(*clo)),
             Expr::AppFun(fun, _types, _args) => f(ExprRef::Fun(*fun)),
+            Expr::AppExt(ext, _types, _args) => f(ExprRef::Ext(*ext)),
             Expr::Error
             | Expr::Num(_)
             | Expr::Bool(_)

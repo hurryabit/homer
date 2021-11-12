@@ -20,8 +20,9 @@ impl ast::Debug for Decl {
 
 impl ast::Debug for TypeDecl {
     fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
-        let Self { name, params, body } = self;
+        let Self { name, params, body, is_extern } = self;
         writer.node("TYPEDECL", |writer| {
+            writer.child_if_true("extern", *is_extern)?;
             writer.child("name", name)?;
             writer.children("type_param", params)?;
             writer.child("body", body)
@@ -31,8 +32,9 @@ impl ast::Debug for TypeDecl {
 
 impl ast::Debug for FuncDecl {
     fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
-        let Self { name, type_params, expr_params, return_type, body } = self;
+        let Self { name, type_params, expr_params, return_type, body, is_extern } = self;
         writer.node("FUNCDECL", |writer| {
+            writer.child_if_true("extern", *is_extern)?;
             writer.child("name", name)?;
             writer.children("type_param", type_params)?;
             writer.children_pair("param", "type", expr_params)?;
@@ -55,6 +57,10 @@ impl ast::Debug for Type {
             Self::Var(var) => writer.node("VAR", |writer| writer.child("var", var)),
             Self::SynApp(syn, args) => writer.node("APP", |writer| {
                 writer.child("syn", syn)?;
+                writer.children("type_arg", args)
+            }),
+            Self::ExtApp(syn, args) => writer.node("EXTAPP", |writer| {
+                writer.child("ext", syn)?;
                 writer.children("type_arg", args)
             }),
             Self::Int => writer.leaf("INT"),
@@ -143,6 +149,11 @@ impl ast::Debug for Expr {
                 writer.children("type_arg", types.as_ref().unwrap_or(&vec![]))?;
                 writer.children("arg", args)
             }),
+            Self::AppExt(ext, types, args) => writer.node("APPEXT", |writer| {
+                writer.child("ext", ext)?;
+                writer.children("type_arg", types.as_ref().unwrap_or(&vec![]))?;
+                writer.children("arg", args)
+            }),
             Self::BinOp(lhs, op, rhs) => writer.node("BINOP", |writer| {
                 writer.child("lhs", lhs)?;
                 writer.child("op", op)?;
@@ -225,6 +236,7 @@ impl fmt::Debug for ExprRef {
             Self::Var(var) => write!(f, "VAR {:?} @ {:?}", var.locatee.as_str(), var.span),
             Self::Clo(clo) => write!(f, "CLO {:?} @ {:?}", clo.locatee.as_str(), clo.span),
             Self::Fun(fun) => write!(f, "FUN {:?} @ {:?}", fun.locatee.as_str(), fun.span),
+            Self::Ext(ext) => write!(f, "EXT {:?} @ {:?}", ext.locatee.as_str(), ext.span),
         }
     }
 }

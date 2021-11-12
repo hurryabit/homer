@@ -36,6 +36,12 @@ impl Debug for String {
     }
 }
 
+impl Debug for str {
+    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+        write!(writer.writer, "{}", self)
+    }
+}
+
 impl Debug for u32 {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
         write!(writer.writer, "{}", self)
@@ -87,7 +93,7 @@ impl<'a> DebugWriter<'a> {
         Ok(())
     }
 
-    pub fn child<T: Debug>(&mut self, label: &str, item: &T) -> fmt::Result {
+    pub fn child<T: Debug + ?Sized>(&mut self, label: &str, item: &T) -> fmt::Result {
         self.writer.write_char('\n')?;
         self.indent()?;
         write!(self.writer, "{}: ", label)?;
@@ -97,6 +103,13 @@ impl<'a> DebugWriter<'a> {
     pub fn child_if_some<T: Debug>(&mut self, label: &str, opt_item: &Option<T>) -> fmt::Result {
         if let Some(item) = opt_item {
             self.child(label, item)?;
+        }
+        Ok(())
+    }
+
+    pub fn child_if_true(&mut self, label: &str, b: bool) -> fmt::Result {
+        if b {
+            self.child::<str>(label, "true")?;
         }
         Ok(())
     }

@@ -79,14 +79,10 @@ impl Module {
 
     fn type_defs(&self) -> collections::HashMap<TypeVar, TypeScheme> {
         self.type_decls()
-            .map(|TypeDecl { name, params, body }| {
-                (
-                    name.locatee,
-                    TypeScheme {
-                        params: params.iter().map(|param| param.locatee).collect(),
-                        body: RcType::from_lsyntax(body),
-                    },
-                )
+            .map(|TypeDecl { name, params, body, is_extern }| {
+                let params = params.iter().map(|param| param.locatee).collect();
+                let body = if *is_extern { None } else { Some(RcType::from_lsyntax(body)) };
+                (name.locatee, TypeScheme { params, body })
             })
             .collect()
     }
@@ -94,17 +90,20 @@ impl Module {
 
 impl TypeDecl {
     fn check(&mut self, env: &Env) -> Result<(), LError> {
-        let Self { name: _, params, body } = self;
+        let Self { name: _, params, body, is_extern } = self;
         LTypeVar::check_unique(params.iter())?;
-        let env = &mut env.clone();
-        env.type_vars = params.iter().map(|param| param.locatee).collect();
-        body.check(env)
+        if !*is_extern {
+            let env = &mut env.clone();
+            env.type_vars = params.iter().map(|param| param.locatee).collect();
+            body.check(env)?;
+        }
+        Ok(())
     }
 }
 
 impl FuncDecl {
     fn check_signature(&mut self, env: &Env) -> Result<FuncSig, LError> {
-        let Self { name, type_params, expr_params, return_type, body: _ } = self;
+        let Self { name, type_params, expr_params, return_type, body: _, is_extern } = self;
         LTypeVar::check_unique(type_params.iter())?;
         let env = &mut env.clone();
         env.type_vars = type_params.iter().map(|param| param.locatee).collect();
@@ -120,17 +119,21 @@ impl FuncDecl {
                 .map(|(var, typ)| (var.locatee, RcType::from_lsyntax(typ)))
                 .collect(),
             result: RcType::from_lsyntax(return_type),
+            is_extern: *is_extern,
         })
     }
 
     fn check(&mut self, env: &Env) -> Result<(), LError> {
-        let Self { name: _, type_params, expr_params, return_type, body } = self;
-        let env = &mut env.clone();
-        env.type_vars = type_params.iter().map(|param| param.locatee).collect();
-        env.intro_params(
-            expr_params.iter().map(|(var, typ)| Ok((*var, RcType::from_lsyntax(typ)))),
-            |env| body.check(env, &RcType::from_lsyntax(return_type)),
-        )
+        let Self { name: _, type_params, expr_params, return_type, body, is_extern } = self;
+        if !*is_extern {
+            let env = &mut env.clone();
+            env.type_vars = type_params.iter().map(|param| param.locatee).collect();
+            env.intro_params(
+                expr_params.iter().map(|(var, typ)| Ok((*var, RcType::from_lsyntax(typ)))),
+                |env| body.check(env, &RcType::from_lsyntax(return_type)),
+            )?;
+        }
+        Ok(())
     }
 }
 
@@ -153,7 +156,11 @@ impl syntax::Type {
                 } else if let Some(scheme) = env.type_defs.get(var) {
                     let arity = scheme.params.len();
                     if arity == 0 {
-                        *self = Self::SynApp(Located::new(*var, span), vec![]);
+                        *self = if scheme.body.is_some() {
+                            Self::SynApp(Located::new(*var, span), vec![])
+                        } else {
+                            Self::ExtApp(Located::new(*var, span), vec![])
+                        };
                         Ok(())
                     } else {
                         Err(Located::new(Error::UnexpectedGeneric(*var, arity), span))
@@ -180,8 +187,11 @@ impl syntax::Type {
                 } else if let Some(scheme) = env.type_defs.get(&var.locatee) {
                     let arity = scheme.params.len();
                     if arity == num_args {
-                        for arg in args {
+                        for arg in args.iter_mut() {
                             arg.check(env)?;
+                        }
+                        if scheme.body.is_none() {
+                            *self = Self::ExtApp(*var, std::mem::take(args));
                         }
                         Ok(())
                     } else {
@@ -213,7 +223,9 @@ impl syntax::Type {
                 }
                 Ok(())
             }
-            Self::Inferred(_) => panic!("IMPOSSIBLE: only introduced by type checker"),
+            Self::ExtApp(..) | Self::Inferred(_) => {
+                panic!("IMPOSSIBLE: only introduced by type checker")
+            }
         }
     }
 }
@@ -274,7 +286,7 @@ impl Expr {
                     _ => Err(Located::new(Error::BadLam(expected.clone(), params.len()), span)),
                 }
             }
-            Self::AppFun(fun, opt_types, args) => {
+            Self::AppFun(fun, opt_types, args) | Self::AppExt(fun, opt_types, args) => {
                 check_app_fun(env, span, fun, opt_types, args, |result| {
                     found_vs_expected(env, span, result, expected)
                 })
@@ -386,7 +398,7 @@ impl Expr {
                     )),
                 }
             }
-            Self::AppFun(fun, opt_types, args) => {
+            Self::AppFun(fun, opt_types, args) | Self::AppExt(fun, opt_types, args) => {
                 check_app_fun(env, span, fun, opt_types, args, Ok)
             }
             Self::BinOp(lhs, op, rhs) => match op {
@@ -469,14 +481,18 @@ impl Expr {
             Self::AppClo(clo, args) => {
                 if env.expr_vars.contains_key(&clo.locatee) {
                     Ok(())
-                } else if env.func_sigs.contains_key(&clo.locatee) {
-                    *self = Self::AppFun(*clo, None, std::mem::take(args));
+                } else if let Some(func_sig) = env.func_sigs.get(&clo.locatee) {
+                    if func_sig.is_extern {
+                        *self = Self::AppExt(*clo, None, std::mem::take(args));
+                    } else {
+                        *self = Self::AppFun(*clo, None, std::mem::take(args));
+                    }
                     Ok(())
                 } else {
                     Err(Located::new(Error::UnknownExprVar(clo.locatee, false), clo.span))
                 }
             }
-            Self::AppFun(fun, opt_types, _args) => {
+            Self::AppFun(fun, opt_types, args) => {
                 let mismatch = || {
                     Err(Located::new(Error::BadNonGenericCall { expr_var: fun.locatee }, fun.span))
                 };
@@ -486,6 +502,9 @@ impl Expr {
                     if func_sig.type_params.is_empty() && opt_types.is_some() {
                         mismatch()
                     } else {
+                        if func_sig.is_extern {
+                            *self = Self::AppExt(*fun, std::mem::take(opt_types), std::mem::take(args));
+                        }
                         Ok(())
                     }
                 } else {
@@ -496,6 +515,7 @@ impl Expr {
             | Self::Num(_)
             | Self::Bool(_)
             | Self::Lam(_, _)
+            | Self::AppExt(_, _, _)
             | Self::BinOp(_, _, _)
             | Self::Let(_, _, _, _)
             | Self::If(_, _, _)
