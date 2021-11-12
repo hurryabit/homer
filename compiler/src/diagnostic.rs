@@ -57,8 +57,8 @@ impl Severity {
     fn to_lsp(&self) -> lsp_types::DiagnosticSeverity {
         use lsp_types::DiagnosticSeverity;
         match self {
-            Severity::Warning => DiagnosticSeverity::Warning,
-            Severity::Error => DiagnosticSeverity::Error,
+            Severity::Warning => DiagnosticSeverity::WARNING,
+            Severity::Error => DiagnosticSeverity::ERROR,
         }
     }
 }
