@@ -37,7 +37,7 @@ where
     }
 }
 
-fn parse_error_to_diagnostic<'a>(error: ParseError<'a>, humanizer: &Humanizer) -> Diagnostic {
+fn parse_error_to_diagnostic(error: ParseError, humanizer: &Humanizer) -> Diagnostic {
     use lalrpop_util::ParseError;
     let error = error.map_location(|loc| humanizer.run(loc));
     let span = match error {

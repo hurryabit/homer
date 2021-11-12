@@ -285,8 +285,8 @@ impl Expr {
             }
             Self::If(cond, then, elze) => {
                 cond.check(env, &RcType::new(Type::Bool))?;
-                then.check(env, &expected)?;
-                elze.check(env, &expected)?;
+                then.check(env, expected)?;
+                elze.check(env, expected)?;
                 Ok(())
             }
             Self::Variant(constr, rank, payload) => match expected.weak_normalize_env(env).as_ref()

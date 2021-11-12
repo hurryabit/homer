@@ -87,7 +87,7 @@ impl<'a> Machine<'a> {
             Bindee::Record(_fields, values) => self.alloc_record(binder, values),
             Bindee::Project(record, index, _field) => self.step_proj(binder, record, *index),
             Bindee::Variant(rank, _constr, payload) => self.alloc_variant(binder, *rank, payload),
-            Bindee::BinOp(lhs, op, rhs) => self.step_binop(binder, &lhs, *op, &rhs),
+            Bindee::BinOp(lhs, op, rhs) => self.step_binop(binder, lhs, *op, rhs),
             Bindee::AppClosure(clo, args) => self.step_app_closure(ctrl, binder, clo, args),
             Bindee::AppFunc(index, _name, args) => self.step_app_func(ctrl, binder, *index, args),
             Bindee::If(cond, then, elze) => self.step_if(ctrl, binder, cond, then, elze),

@@ -29,7 +29,7 @@ where
         writeln!(output, "---").unwrap();
     }
     for diagnostic in diagnostics {
-        write!(output, "{}\n{}\n", "-".repeat(50), diagnostic.layout(&input)).unwrap();
+        write!(output, "{}\n{}\n", "-".repeat(50), diagnostic.layout(input)).unwrap();
     }
     output
 }
