@@ -14,7 +14,7 @@ fn build_output(input: &str) -> String {
     }
     db.with_diagnostics(uri, |diagnostics| {
         for diagnostic in diagnostics {
-            write!(output, "{}\n{}\n", "-".repeat(50), diagnostic.layout(&input)).unwrap();
+            write!(output, "{}\n{}\n", "-".repeat(50), diagnostic.layout(input)).unwrap();
         }
     });
     output

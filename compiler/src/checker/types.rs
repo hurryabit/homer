@@ -148,14 +148,14 @@ impl RcType {
                         && result1.equiv(result2, type_defs)
                 }
                 (Type::Record(fields1), Type::Record(fields2)) => {
-                    same_keys(&fields1, &fields2)
+                    same_keys(fields1, fields2)
                         && fields1
                             .iter()
                             .zip(fields2.iter())
                             .all(|((_, typ1), (_, typ2))| typ1.equiv(typ2, type_defs))
                 }
                 (Type::Variant(constrs1), Type::Variant(constrs2)) => {
-                    same_keys(&constrs1, &constrs2)
+                    same_keys(constrs1, constrs2)
                         && constrs1.iter().zip(constrs2.iter()).all(
                             |((_, opt_typ1), (_, opt_typ2))| match (opt_typ1, opt_typ2) {
                                 (None, None) => true,
