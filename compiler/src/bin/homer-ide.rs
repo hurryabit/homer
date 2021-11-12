@@ -14,7 +14,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error + Sync + Send>>;
 fn main() -> Result<()> {
     // Set up logging. Because `stdio_transport` gets a lock on stdout and stdin, we must have
     // our logging only write out to stderr.
-    flexi_logger::Logger::with_str("info").start()?;
+    flexi_logger::Logger::with(flexi_logger::LogSpecification::info()).start()?;
     info!("starting generic LSP server");
 
     // Create the transport. Includes the stdio (stdin and stdout) versions but this could
@@ -23,7 +23,7 @@ fn main() -> Result<()> {
 
     let text_document_sync = Some(TextDocumentSyncCapability::Options(TextDocumentSyncOptions {
         open_close: Some(true),
-        change: Some(TextDocumentSyncKind::Full),
+        change: Some(TextDocumentSyncKind::FULL),
         save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
             include_text: Some(true),
         })),
@@ -216,10 +216,10 @@ impl Server {
             let machine = cek::Machine::new(&module, syntax::ExprVar::new(&args.fun));
             let result = machine.run();
             let message = format!("{}() = {}", args.fun, result.value());
-            ShowMessageParams { typ: MessageType::Info, message }
+            ShowMessageParams { typ: MessageType::INFO, message }
         } else {
             ShowMessageParams {
-                typ: MessageType::Error,
+                typ: MessageType::ERROR,
                 message: String::from("The module cannot be compiled."),
             }
         };
