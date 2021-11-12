@@ -47,6 +47,7 @@ pub enum Bindee {
     MakeClosure(MakeClosure),
     AppClosure(Atom, Vec<Atom>),
     AppFunc(u32, ExprVar, Vec<Atom>),
+    AppExtern(ExprVar, Vec<Atom>),
     BinOp(Atom, OpCode, Atom),
     If(Atom, Box<Expr>, Box<Expr>),
     // NOTE(MH): Both vectors always have the same length. We split it here
@@ -91,14 +92,18 @@ impl syntax::Module {
             .enumerate()
             .map(|(index, decl)| (decl.name.locatee, index as u32))
             .collect();
-        let func_decls = self.func_decls().map(|decl| decl.to_anf(&func_indices)).collect();
+        let func_decls = self
+            .func_decls()
+            .filter_map(|decl| if decl.is_extern { None } else { Some(decl.to_anf(&func_indices)) })
+            .collect();
         Module { func_decls }
     }
 }
 
 impl syntax::FuncDecl {
     fn to_anf(&self, func_indices: &im::HashMap<ExprVar, u32>) -> FuncDecl {
-        let Self { name, type_params: _, expr_params, return_type: _, body } = self;
+        let Self { name, type_params: _, expr_params, return_type: _, body, is_extern } = self;
+        assert!(!is_extern);
         let name = name.locatee;
         let env = &mut Env::new(func_indices);
         let params: Vec<_> = expr_params.iter().map(|(param, _)| env.intro_binder(param)).collect();
@@ -159,6 +164,11 @@ impl Bindee {
                 let name = fun.locatee;
                 let index = env.func_indices.get(&name).unwrap();
                 (Self::AppFunc(*index, name, args), FreeVars::unions(fvss))
+            }
+            syntax::Expr::AppExt(ext, _types, args) => {
+                let (args, fvss): (_, Vec<_>) =
+                    args.iter().map(|arg| Atom::from_syntax(env, arg, bindings)).unzip();
+                (Self::AppExtern(ext.locatee, args), FreeVars::unions(fvss))
             }
             syntax::Expr::BinOp(lhs, op, rhs) => {
                 let (lhs, fvs1) = Atom::from_syntax(env, lhs, bindings);
@@ -370,6 +380,10 @@ impl ast::Debug for Bindee {
                 writer.child("fun", &(*name, *index))?;
                 writer.children("arg", args)
             }),
+            Self::AppExtern(name, args) => writer.node("APP", |writer| {
+                writer.child("ext", name)?;
+                writer.children("arg", args)
+            }),
             Self::BinOp(lhs, op, rhs) => writer.node("BINOP", |writer| {
                 writer.child("lhs", lhs)?;
                 writer.child("op", op)?;
@@ -469,6 +483,7 @@ impl fmt::Display for Bindee {
             Self::MakeClosure(closure) => write!(f, "{}", closure),
             Self::AppClosure(clo, args) => write!(f, "{}({})", clo, ", ".join(args)),
             Self::AppFunc(index, fun, args) => write!(f, "{}/{}({})", fun, index, ", ".join(args)),
+            Self::AppExtern(ext, args) => write!(f, "{}({})", ext, ", ".join(args)),
             Self::BinOp(lhs, op, rhs) => write!(f, "{} {} {}", lhs, op, rhs),
             Self::If(cond, _, _) => write!(f, "if {} {{ .. }} else {{ .. }}", cond),
             Self::Record(fields, values) => write!(

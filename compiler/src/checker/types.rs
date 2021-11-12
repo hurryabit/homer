@@ -15,6 +15,7 @@ pub enum Type<T = RcType> {
     Error,
     Var(TypeVar),
     SynApp(TypeVar, Vec<T>),
+    ExtApp(TypeVar, Vec<T>),
     Int,
     Bool,
     Fun(Vec<T>, T),
@@ -41,11 +42,12 @@ pub struct FuncSig {
     pub type_params: Vec<TypeVar>,
     pub params: Vec<(ExprVar, RcType)>,
     pub result: RcType,
+    pub is_extern: bool,
 }
 
 pub struct TypeScheme {
     pub params: Vec<TypeVar>,
-    pub body: RcType,
+    pub body: Option<RcType>,
 }
 
 type TypeDefs = std::collections::HashMap<TypeVar, TypeScheme>;
@@ -139,6 +141,10 @@ impl RcType {
                 (Type::Var(var1), Type::Var(var2)) => var1 == var2,
                 (Type::Int, Type::Int) => true,
                 (Type::Bool, Type::Bool) => true,
+                (Type::ExtApp(ext1, args1), Type::ExtApp(ext2, args2)) if ext1 == ext2 => {
+                    assert_eq!(args1.len(), args2.len());
+                    args1.iter().zip(args2.iter()).all(|(arg1, arg2)| arg1.equiv(arg2, type_defs))
+                }
                 (Type::Fun(params1, result1), Type::Fun(params2, result2)) => {
                     params1.len() == params2.len()
                         && params1
@@ -167,6 +173,7 @@ impl RcType {
                 (Type::Var(_), _)
                 | (Type::Int, _)
                 | (Type::Bool, _)
+                | (Type::ExtApp(..), _)
                 | (Type::Fun(_, _), _)
                 | (Type::Record(_), _)
                 | (Type::Variant(_), _) => false,
@@ -190,7 +197,7 @@ impl FuncSig {
     /// the number of given types matches the number of type paramters of the
     /// signature.
     pub fn instantiate(&self, types: &[RcType]) -> (Vec<RcType>, RcType) {
-        let Self { name: _, type_params, params, result } = self;
+        let Self { name: _, type_params, params, result, is_extern: _ } = self;
         assert_eq!(type_params.len(), types.len());
         let mapping = type_params.iter().zip(types.iter()).collect();
         let params = params.iter().map(|(_var, typ)| typ.subst(&mapping)).collect();
@@ -201,12 +208,13 @@ impl FuncSig {
 
 impl TypeScheme {
     /// Instantiate a type scheme with the given types. Assumes that the
-    /// number of parameters of the scheme and the number of given types match.
+    /// number of parameters of the scheme and the number of given types match
+    /// and that the body is a `Some`.
     pub fn instantiate(&self, types: &[RcType]) -> RcType {
         let Self { params, body } = self;
         assert_eq!(params.len(), types.len());
         let mapping = params.iter().zip(types.iter()).collect();
-        body.subst(&mapping)
+        body.as_ref().expect("TypeScheme::instantiate: body must be Some").subst(&mapping)
     }
 }
 
@@ -218,6 +226,10 @@ impl Type {
             SynType::SynApp(var, args) => {
                 let args = args.iter().map(RcType::from_lsyntax).collect();
                 Type::SynApp(var.locatee, args)
+            }
+            SynType::ExtApp(var, args) => {
+                let args = args.iter().map(RcType::from_lsyntax).collect();
+                Type::ExtApp(var.locatee, args)
             }
             SynType::Int => Type::Int,
             SynType::Bool => Type::Bool,
@@ -254,8 +266,8 @@ impl<T> Type<T> {
             match self {
                 Self::Error => {}
                 Self::Var(_) | Self::Int | Self::Bool => {}
-                Self::SynApp(syn, args) => {
-                    let _: &TypeVar = syn; // We want this to break if change the type of `syn`.
+                Self::SynApp(name, args) | Self::ExtApp(name, args) => {
+                    let _: &TypeVar = name; // We want this to break if change the type of `name`.
                     for arg in args {
                         yield_!(arg);
                     }
@@ -294,6 +306,10 @@ impl<T> Type<T> {
             Self::SynApp(var, args) => {
                 let args = args.iter().map(f).collect();
                 Type::SynApp(*var, args)
+            }
+            Self::ExtApp(var, args) => {
+                let args = args.iter().map(f).collect();
+                Type::ExtApp(*var, args)
             }
             Self::Int => Type::Int,
             Self::Bool => Type::Bool,
@@ -346,7 +362,7 @@ impl fmt::Display for Type {
         match self {
             Self::Error => write!(f, "???"),
             Self::Var(var) => write!(f, "{}", var),
-            Self::SynApp(syn, args) => {
+            Self::SynApp(syn, args) | Self::ExtApp(syn, args) => {
                 write!(f, "{}", syn)?;
                 if !args.is_empty() {
                     write!(f, "<{}>", ", ".join(args))?;
@@ -386,8 +402,9 @@ impl fmt::Display for UnificationVar {
 
 impl fmt::Display for FuncSig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { name, type_params, params, result } = self;
-        write!(f, "fn {}", name.locatee)?;
+        let Self { name, type_params, params, result, is_extern } = self;
+        let is_extern = if *is_extern { "extern " } else { "" };
+        write!(f, "{}fn {}", is_extern, name.locatee)?;
         if !type_params.is_empty() {
             write!(f, "<{}>", ", ".join(type_params))?;
         }
@@ -407,6 +424,10 @@ impl ast::Debug for Type {
             Self::Var(var) => var.write(writer),
             Self::SynApp(syn, args) => writer.node("APP", |writer| {
                 writer.child("syn", syn)?;
+                writer.children("type_arg", args)
+            }),
+            Self::ExtApp(syn, args) => writer.node("EXTAPP", |writer| {
+                writer.child("ext", syn)?;
                 writer.children("type_arg", args)
             }),
             Self::Int => writer.leaf("INT"),
@@ -450,15 +471,17 @@ impl ast::Debug for TypeScheme {
         let Self { params, body } = self;
         writer.node("TYPE_SCHEME", |writer| {
             writer.children("param", params)?;
-            writer.child("body", body)
+            writer.child_if_some("body", body)?;
+            writer.child_if_true("extern", body.is_none())
         })
     }
 }
 
 impl ast::Debug for FuncSig {
     fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
-        let Self { name, type_params, params, result } = self;
+        let Self { name, type_params, params, result, is_extern } = self;
         writer.node("FUNC_SIG", |writer| {
+            writer.child_if_true("extern", *is_extern)?;
             writer.child("name", name)?;
             writer.children("type_param", type_params)?;
             writer.children_pair("param_name", "param_type", params)?;

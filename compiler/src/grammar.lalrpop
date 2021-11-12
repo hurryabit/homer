@@ -17,12 +17,16 @@ pub Decl: Decl = {
 
 TypeDecl: TypeDecl = {
     "type" <name: LTypeVar> <params: TypeParams> "=" <body: LType> =>
-        TypeDecl { name, params, body },
+        TypeDecl { name, params, body, is_extern: false },
+    "extern" "type" <name: LTypeVar> <params: TypeParams> =>
+        TypeDecl { name, params, body: name.map(|_| Type::Error), is_extern: true },
 }
 
 FuncDecl: FuncDecl = {
     "fn" <name: LExprVar> <type_params: TypeParams> "(" <expr_params: List0<Param<TypeAnn>, ",">> ")" "->" <return_type: LType> <body: LBlockExpr> =>
-        FuncDecl { name, type_params, expr_params, return_type, body },
+        FuncDecl { name, type_params, expr_params, return_type, body, is_extern: false },
+    "extern" "fn" <name: LExprVar> <type_params: TypeParams> "(" <expr_params: List0<Param<TypeAnn>, ",">> ")" "->" <return_type: LType> =>
+        FuncDecl { name, type_params, expr_params, return_type, body: name.map(|_| Expr::Error), is_extern: false },
 }
 
 TypeParams: Vec<LTypeVar> = {
@@ -245,6 +249,7 @@ match {
     "match",
     "true",
     "false",
+    "extern",
     r"[A-Z]\w*" => ID_UPPER,
     r"[a-z]\w*" => ID_LOWER,
     r"[0-9]+" => NUMBER,
