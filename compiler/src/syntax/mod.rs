@@ -23,6 +23,7 @@ pub struct TypeDecl {
     pub name: LTypeVar,
     pub params: Vec<LTypeVar>,
     pub body: LType,
+    pub is_extern: bool,
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -32,6 +33,7 @@ pub struct FuncDecl {
     pub expr_params: Vec<(LExprVar, LType)>,
     pub return_type: LType,
     pub body: LExpr,
+    pub is_extern: bool,
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -39,6 +41,7 @@ pub enum Type {
     Error,
     Var(LTypeVar),
     SynApp(LTypeVar, Vec<LType>),
+    ExtApp(LTypeVar, Vec<LType>),
     Int,
     Bool,
     Fun(Vec<LType>, Box<LType>),
@@ -58,6 +61,7 @@ pub enum Expr {
     Lam(Vec<(LExprVar, Option<LType>)>, Box<LExpr>),
     AppClo(LExprVar, Vec<LExpr>),
     AppFun(LExprVar, Option<Vec<LType>>, Vec<LExpr>),
+    AppExt(LExprVar, Option<Vec<LType>>, Vec<LExpr>),
     BinOp(Box<LExpr>, OpCode, Box<LExpr>),
     Let(LExprVar, Option<LType>, Box<LExpr>, Box<LExpr>),
     If(Box<LExpr>, Box<LExpr>, Box<LExpr>),

@@ -372,7 +372,7 @@
                 {
                     "comment": "storage keywords",
                     "name": "storage.type.homer",
-                    "match": "\\b(let|type)\\b"
+                    "match": "\\b(extern|let|type)\\b"
                 },
                 {
                     "comment": "fn",

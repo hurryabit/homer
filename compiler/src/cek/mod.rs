@@ -90,6 +90,7 @@ impl<'a> Machine<'a> {
             Bindee::BinOp(lhs, op, rhs) => self.step_binop(binder, lhs, *op, rhs),
             Bindee::AppClosure(clo, args) => self.step_app_closure(ctrl, binder, clo, args),
             Bindee::AppFunc(index, _name, args) => self.step_app_func(ctrl, binder, *index, args),
+            Bindee::AppExtern(_name, _args) => unimplemented!("Call to extern function"),
             Bindee::If(cond, then, elze) => self.step_if(ctrl, binder, cond, then, elze),
             Bindee::Match(scrut, branches) => self.step_match(ctrl, binder, scrut, branches),
         }
