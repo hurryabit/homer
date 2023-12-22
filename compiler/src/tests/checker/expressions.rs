@@ -220,7 +220,7 @@ fn rule_lam_infer_duplicate_param() {
     "#), @r###"
       3 |         let f = fn (x: Int, x: Int) { x };
                                       ~
-    Duplicate paramter `x`.
+    Duplicate parameter `x`.
     "###);
 }
 
@@ -328,7 +328,7 @@ fn rule_lam_check_no_func() {
     "#), @r###"
       3 |         fn (x) { 0 }
                   ~~~~~~~~~~~~
-    Expected an expression of type `Int` but found a lambda with 1 parameter.
+    Expected an expression of type `Int` but found a lambda with 1 parameter(s).
     "###);
 }
 
@@ -341,7 +341,7 @@ fn rule_lam_check_duplicate_param_annotated() {
     "#), @r###"
       3 |         fn (x: Int, x: Int) { 0 }
                               ~
-    Duplicate paramter `x`.
+    Duplicate parameter `x`.
     "###);
 }
 
@@ -354,7 +354,7 @@ fn rule_lam_check_duplicate_param_not_annotated() {
     "#), @r###"
       3 |         fn (x, x) { 0 }
                          ~
-    Duplicate paramter `x`.
+    Duplicate parameter `x`.
     "###);
 }
 
@@ -367,7 +367,7 @@ fn rule_lam_check_too_many_params() {
     "#), @r###"
       3 |         fn (x) { 0 }
                   ~~~~~~~~~~~~
-    Expected an expression of type `() -> Int` but found a lambda with 1 parameter.
+    Expected an expression of type `() -> Int` but found a lambda with 1 parameter(s).
     "###);
 }
 
@@ -380,7 +380,7 @@ fn rule_lam_check_too_few_params() {
     "#), @r###"
       3 |         fn () { 0 }
                   ~~~~~~~~~~~
-    Expected an expression of type `(Int) -> Int` but found a lambda with 0 parameters.
+    Expected an expression of type `(Int) -> Int` but found a lambda with 0 parameter(s).
     "###);
 }
 
@@ -516,7 +516,7 @@ fn rule_mono_app_fun_check_too_many_args() {
     "#), @r###"
       4 |         mono_fun(1)
                   ~~~~~~~~~~~
-    `mono_fun` cannot be applied to 1 argument because it has has type `() -> Int`.
+    Cannot apply 1 argument(s) to `mono_fun` because it has has type `() -> Int`.
     "###);
 }
 
@@ -531,7 +531,7 @@ fn rule_mono_app_fun_infer_too_many_args() {
     "#), @r###"
       4 |         let x = mono_fun(1);
                           ~~~~~~~~~~~
-    `mono_fun` cannot be applied to 1 argument because it has has type `() -> Int`.
+    Cannot apply 1 argument(s) to `mono_fun` because it has has type `() -> Int`.
     "###);
 }
 
@@ -545,7 +545,7 @@ fn rule_mono_app_fun_check_too_few_args() {
     "#), @r###"
       4 |         mono_fun(1)
                   ~~~~~~~~~~~
-    `mono_fun` cannot be applied to 1 argument because it has has type `(Int, Int) -> Int`.
+    Cannot apply 1 argument(s) to `mono_fun` because it has has type `(Int, Int) -> Int`.
     "###);
 }
 
@@ -560,7 +560,7 @@ fn rule_mono_app_fun_infer_too_few_args() {
     "#), @r###"
       4 |         let x = mono_fun(1);
                           ~~~~~~~~~~~
-    `mono_fun` cannot be applied to 1 argument because it has has type `(Int, Int) -> Int`.
+    Cannot apply 1 argument(s) to `mono_fun` because it has has type `(Int, Int) -> Int`.
     "###);
 }
 
@@ -719,7 +719,7 @@ fn rule_poly_app_fun_check_too_many_types() {
     "#), @r###"
       4 |         poly_fun@<Int, Int>(1)
                   ~~~~~~~~
-    `poly_fun` is a generic function that expects 1 type argument but is applied to 2 type arguments.
+    `poly_fun` is a generic function that expects 1 type argument(s) but is applied to 2 type argument(s).
     "###);
 }
 
@@ -734,7 +734,7 @@ fn rule_poly_app_fun_infer_too_many_types() {
     "#), @r###"
       4 |         let x = poly_fun@<Int, Int>(1);
                           ~~~~~~~~
-    `poly_fun` is a generic function that expects 1 type argument but is applied to 2 type arguments.
+    `poly_fun` is a generic function that expects 1 type argument(s) but is applied to 2 type argument(s).
     "###);
 }
 
@@ -748,7 +748,7 @@ fn rule_poly_app_fun_check_too_few_types() {
     "#), @r###"
       4 |         poly_fun@<Int>(1)
                   ~~~~~~~~
-    `poly_fun` is a generic function that expects 2 type arguments but is applied to 1 type argument.
+    `poly_fun` is a generic function that expects 2 type argument(s) but is applied to 1 type argument(s).
     "###);
 }
 
@@ -763,7 +763,7 @@ fn rule_poly_app_fun_infer_too_few_types() {
     "#), @r###"
       4 |         let x = poly_fun@<Int>(1);
                           ~~~~~~~~
-    `poly_fun` is a generic function that expects 2 type arguments but is applied to 1 type argument.
+    `poly_fun` is a generic function that expects 2 type argument(s) but is applied to 1 type argument(s).
     "###);
 }
 
@@ -777,7 +777,7 @@ fn rule_poly_app_fun_check_zero_types() {
     "#), @r###"
       4 |         poly_fun@<>(1)
                   ~~~~~~~~
-    `poly_fun` is a generic function that expects 1 type argument but is applied to 0 type arguments.
+    `poly_fun` is a generic function that expects 1 type argument(s) but is applied to 0 type argument(s).
     "###);
 }
 
@@ -792,7 +792,7 @@ fn rule_poly_app_fun_infer_zero_types() {
     "#), @r###"
       4 |         let x = poly_fun@<>(1);
                           ~~~~~~~~
-    `poly_fun` is a generic function that expects 1 type argument but is applied to 0 type arguments.
+    `poly_fun` is a generic function that expects 1 type argument(s) but is applied to 0 type argument(s).
     "###);
 }
 
@@ -835,7 +835,7 @@ fn rule_poly_app_fun_check_too_many_args() {
     "#), @r###"
       4 |         poly_fun@<Int>(1, 2)
                   ~~~~~~~~~~~~~~~~~~~~
-    `poly_fun` cannot be applied to 2 arguments because it has has type `(Int) -> Int`.
+    Cannot apply 2 argument(s) to `poly_fun` because it has has type `(Int) -> Int`.
     "###);
 }
 
@@ -850,7 +850,7 @@ fn rule_poly_app_fun_infer_too_many_args() {
     "#), @r###"
       4 |         let x = poly_fun@<Int>(1, 2);
                           ~~~~~~~~~~~~~~~~~~~~
-    `poly_fun` cannot be applied to 2 arguments because it has has type `(Int) -> Int`.
+    Cannot apply 2 argument(s) to `poly_fun` because it has has type `(Int) -> Int`.
     "###);
 }
 
@@ -864,7 +864,7 @@ fn rule_poly_app_fun_check_too_few_args() {
     "#), @r###"
       4 |         poly_fun@<Int>(1)
                   ~~~~~~~~~~~~~~~~~
-    `poly_fun` cannot be applied to 1 argument because it has has type `(Int, Int) -> Int`.
+    Cannot apply 1 argument(s) to `poly_fun` because it has has type `(Int, Int) -> Int`.
     "###);
 }
 
@@ -878,7 +878,7 @@ fn rule_poly_app_fun_infer_too_few_args() {
     "#), @r###"
       4 |         poly_fun@<Int>(1)
                   ~~~~~~~~~~~~~~~~~
-    `poly_fun` cannot be applied to 1 argument because it has has type `(Int, Int) -> Int`.
+    Cannot apply 1 argument(s) to `poly_fun` because it has has type `(Int, Int) -> Int`.
     "###);
 }
 
@@ -1004,7 +1004,7 @@ fn rule_app_clo_no_fun() {
     "#), @r###"
       3 |         x()
                   ~~~
-    `x` cannot be applied to 0 arguments because it has has type `Int`.
+    Cannot apply 0 argument(s) to `x` because it has has type `Int`.
     "###);
 }
 
@@ -1018,7 +1018,7 @@ fn rule_app_clo_too_many_args() {
     "#), @r###"
       4 |         g(1)
                   ~~~~
-    `g` cannot be applied to 1 argument because it has has type `() -> Int`.
+    Cannot apply 1 argument(s) to `g` because it has has type `() -> Int`.
     "###);
 }
 
@@ -1032,7 +1032,7 @@ fn rule_app_clo_too_few_args() {
     "#), @r###"
       4 |         g()
                   ~~~
-    `g` cannot be applied to 0 arguments because it has has type `(Int) -> Int`.
+    Cannot apply 0 argument(s) to `g` because it has has type `(Int) -> Int`.
     "###);
 }
 

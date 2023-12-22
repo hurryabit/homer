@@ -2,36 +2,94 @@ use super::types::*;
 use super::Arity;
 use crate::location::{Located, SourceSpan};
 use crate::syntax;
-use std::fmt;
 use syntax::{ExprCon, ExprVar, TypeVar};
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
+    #[error("Undeclared type variable `{0}`.")]
     UnknownTypeVar(TypeVar),
+    #[error(
+        "Undeclared variable `{0}`.{}",
+        if *.1 {
+            format!(
+                " There is a function of the same name.\n\
+                If you want to use the function as a closure, you have to wrap it\n\
+                explicitly: `fn (...) {{ {}(...) }}`.",
+                .0
+            )
+        } else {
+            String::new()
+        }
+    )]
     UnknownExprVar(ExprVar, bool), // bool indicateds if there's a function of the same name.
+    #[error("Expected a type but found the generic type `{0}`.")]
     UnexpectedGeneric(TypeVar, Arity),
+    // TODO(MH): Make error message better for expected == 0.
+    #[error("{}", if *.expected == 0 {
+            format!("Type `{type_var}` is not a generic type but is applied to {found} type argument(s).")
+        } else {
+            format!("Generic type `{type_var}` expects {expected} type argument(s) \
+            but is applied to {found} type argument(s).")
+        }
+
+    )]
     GenericTypeArityMismatch { type_var: TypeVar, expected: Arity, found: Arity },
+    #[error(
+        "`{expr_var}` is a generic function that expects {expected} type argument(s) \
+        but is applied to {found} type argument(s)."
+    )]
     GenericFuncArityMismatch { expr_var: ExprVar, expected: Arity, found: Arity },
+    #[error("`{expr_var}` is not a generic function and must be called as `{expr_var}(...)`.")]
     BadNonGenericCall { expr_var: ExprVar },
+    #[error(
+        "Expected an expression of type `{expected}` but found an expression of type `{found}`."
+    )]
     TypeMismatch { expected: RcType, found: RcType },
+    #[error("Expected parameter `{param}` to have type `{expected}` but found a type annotation `{found}`.")]
     ParamTypeMismatch { param: ExprVar, expected: RcType, found: RcType },
+    #[error("Cannot infer the type of parameter `{0}`. A type annoation is needed.")]
     ParamNeedsType(ExprVar),
+    #[error("Duplicate type variable `{var}`.")]
     DuplicateTypeVar { var: TypeVar, original: SourceSpan },
+    #[error("Duplicate definition of type `{var}`.")]
     DuplicateTypeDecl { var: TypeVar, original: SourceSpan },
+    #[error("Duplicate parameter `{var}`.")]
     DuplicateParam { var: ExprVar, original: SourceSpan },
+    #[error("Duplicate definition of function `{var}`.")]
     DuplicateFuncDecl { var: ExprVar, original: SourceSpan },
+    #[error(
+        "Cannot apply {num_args} argument(s) to {} because it has has type `{func_type}`.",
+        if let Some(func) = func {
+            format!("`{}`", func)
+        } else {
+            String::from("expression")
+        }
+    )]
     BadApp { func: Option<ExprVar>, func_type: RcType, num_args: Arity },
+    #[error("Expression of type `{record_type}` do not contain a field named `{field}`.")]
     BadRecordProj { record_type: RcType, field: ExprVar },
+    #[error("Expected an expression of type `{0}` but found a lambda with {1} parameter(s).")]
     BadLam(RcType, Arity),
+    #[error("Constructor `{constr}` of variant type `{variant_type}` needs a payload.")]
     VariantExpectedPayload { variant_type: RcType, constr: ExprCon },
+    #[error("Constructor `{constr}` of variant type `{variant_type}` does not take a payload.")]
     VariantUnexpectedPayload { variant_type: RcType, constr: ExprCon },
+    #[error("`{1}` is not a possible constructor for variant type `{0}`.")]
     BadVariantConstr(RcType, ExprCon),
+    #[error("Expected an expression of type `{0}` but found variant constructor `{1}`.")]
     UnexpectedVariantType(RcType, ExprCon),
+    #[error("Cannot match on expressions of type `{0}`.")]
     BadMatch(RcType),
+    #[error("`{1}` is not a possible constructor for variant type `{0}`.")]
     BadBranch(RcType, ExprCon),
+    #[error("Match expressions must have at least one branch.")]
     EmptyMatch,
+    #[error("Constructor `{1}` is not covered in pattern match on type `{0}`.")]
     NonExhaustiveMatch(RcType, ExprCon),
+    #[error("Constructor `{1}` is covered repeatedly in pattern match.")]
     OverlappingMatch(RcType, ExprCon),
+    #[error("Cannot infer the type of the expression. Further type annotations are required.")]
     TypeAnnsNeeded,
 }
 
@@ -55,157 +113,5 @@ impl LError {
             (Some(_), None) => Error::VariantUnexpectedPayload { variant_type, constr },
         };
         Err(Located::new(error, span))
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fn plural(n: Arity) -> &'static str {
-            if n == 1 {
-                ""
-            } else {
-                "s"
-            }
-        }
-
-        match self {
-            Self::UnknownTypeVar(var) => write!(f, "Undeclared type variable `{}`.", var),
-            Self::UnknownExprVar(var, false) => write!(f, "Undeclared variable `{}`.", var),
-            Self::UnknownExprVar(var, true) => write!(
-                f,
-                "Undeclared variable `{var}`. There is a function of the same name.\n\
-                If you want to use the function as a closure, you have to wrap it\n\
-                explicitly: `fn (...) {{ {var}(...) }}`.",
-                var = var
-            ),
-            Self::UnexpectedGeneric(var, _arity) => {
-                write!(f, "Expected a type but found the generic type `{}`.", var)
-            }
-            Self::GenericTypeArityMismatch { type_var, expected: 0, found } => write!(
-                f,
-                "Type `{}` is not a generic type but is applied to {} type argument{}.",
-                type_var,
-                found,
-                plural(*found)
-            ),
-            Self::GenericTypeArityMismatch { type_var, expected, found } => write!(
-                f,
-                "Generic type `{}` expects {} type argument{} \
-                but is applied to {} type argument{}.",
-                type_var,
-                expected,
-                plural(*expected),
-                found,
-                plural(*found)
-            ),
-            Self::GenericFuncArityMismatch { expr_var, expected, found } => write!(
-                f,
-                "`{}` is a generic function that expects {} type argument{} \
-                but is applied to {} type argument{}.",
-                expr_var,
-                expected,
-                plural(*expected),
-                found,
-                plural(*found)
-            ),
-            Self::BadNonGenericCall { expr_var } => write!(
-                f,
-                "`{}` is not a generic function and must be called as `{}(...)`.",
-                expr_var, expr_var
-            ),
-            Self::TypeMismatch { expected, found } => write!(
-                f,
-                "Expected an expression of type `{}` but found an expression of type `{}`.",
-                expected, found,
-            ),
-            Self::ParamTypeMismatch { param, expected, found } => write!(
-                f,
-                "Expected parameter `{}` to have type `{}` but found a type annotation `{}`.",
-                param, expected, found,
-            ),
-            Self::ParamNeedsType(param) => write!(
-                f,
-                "Cannot infer the type of parameter `{}`. A type annoation is needed.",
-                param
-            ),
-            Self::DuplicateTypeVar { var, original: _ } => {
-                write!(f, "Duplicate type variable `{}`.", var)
-            }
-            Self::DuplicateTypeDecl { var, original: _ } => {
-                write!(f, "Duplicate definition of type `{}`.", var)
-            }
-            Self::DuplicateParam { var, original: _ } => write!(f, "Duplicate paramter `{}`.", var),
-            Self::DuplicateFuncDecl { var, original: _ } => {
-                write!(f, "Duplicate definition of function `{}`.", var)
-            }
-            Self::BadApp { func: Some(func), func_type, num_args } => write!(
-                f,
-                "`{}` cannot be applied to {} argument{} because it has has type `{}`.",
-                func,
-                num_args,
-                plural(*num_args),
-                func_type
-            ),
-            Self::BadApp { func: None, func_type, num_args } => write!(
-                f,
-                "Expressions of type `{}` cannot be applied to {} argument{}.",
-                func_type,
-                num_args,
-                plural(*num_args)
-            ),
-            Self::BadRecordProj { record_type, field } => write!(
-                f,
-                "Expression of type `{}` do not contain a field named `{}`.",
-                record_type, field
-            ),
-            Self::BadLam(expected, arity) => write!(
-                f,
-                "Expected an expression of type `{}` but found a lambda with {} parameter{}.",
-                expected,
-                arity,
-                plural(*arity)
-            ),
-            Self::VariantExpectedPayload { variant_type, constr } => write!(
-                f,
-                "Constructor `{}` of variant type `{}` needs a payload.",
-                constr, variant_type
-            ),
-            Self::VariantUnexpectedPayload { variant_type, constr } => write!(
-                f,
-                "Constructor `{}` of variant type `{}` does not take a payload.",
-                constr, variant_type
-            ),
-            Self::BadVariantConstr(expected, con) => write!(
-                f,
-                "`{}` is not a possible constructor for variant type `{}`.",
-                con, expected
-            ),
-            Self::UnexpectedVariantType(expected, con) => write!(
-                f,
-                "Expected an expression of type `{}` but found variant constructor `{}`.",
-                expected, con
-            ),
-            Self::EmptyMatch => write!(f, "Match expressions must have at least one branch."),
-            Self::BadMatch(scrut_type) => {
-                write!(f, "Cannot match on expressions of type `{}`.", scrut_type)
-            }
-            Self::BadBranch(scrut_type, con) => write!(
-                f,
-                "`{}` is not a possible constructor for variant type `{}`.",
-                con, scrut_type
-            ),
-            Self::NonExhaustiveMatch(scrut_type, constr) => write!(
-                f,
-                "Constructor `{}` is not covered in pattern match on type `{}`.",
-                constr, scrut_type
-            ),
-            Self::OverlappingMatch(_scrut_type, constr) => {
-                write!(f, "Constructor `{}` is covered repeatedly in pattern match.", constr)
-            }
-            Self::TypeAnnsNeeded => write!(
-                f,
-                "Cannot infer the type of the expression. Further type annotations are required."
-            ),
-        }
     }
 }

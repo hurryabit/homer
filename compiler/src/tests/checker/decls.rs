@@ -101,7 +101,7 @@ fn func_decl_duplicate_param() {
     "#), @r###"
       2 |     fn f(duplicate: Int, duplicate: Int) -> Int { 0 }
                                    ~~~~~~~~~
-    Duplicate paramter `duplicate`.
+    Duplicate parameter `duplicate`.
     "###);
 }
 

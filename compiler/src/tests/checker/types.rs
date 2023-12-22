@@ -57,7 +57,7 @@ fn rule_type_synapp_var() {
     "#), @r###"
       2 |     type T<F> = F<Int>
                           ~~~~~~
-    Type `F` is not a generic type but is applied to 1 type argument.
+    Type `F` is not a generic type but is applied to 1 type argument(s).
     "###);
 }
 
@@ -69,7 +69,7 @@ fn rule_type_synapp_args_on_mono() {
     "#), @r###"
       3 |     type T = F<Bool>
                        ~~~~~~~
-    Type `F` is not a generic type but is applied to 1 type argument.
+    Type `F` is not a generic type but is applied to 1 type argument(s).
     "###);
 }
 
@@ -93,7 +93,7 @@ fn rule_type_synapp_too_many_args() {
     "#), @r###"
       3 |     type T = F<Int, Bool>
                        ~~~~~~~~~~~~
-    Generic type `F` expects 1 type argument but is applied to 2 type arguments.
+    Generic type `F` expects 1 type argument(s) but is applied to 2 type argument(s).
     "###);
 }
 
@@ -105,7 +105,7 @@ fn rule_type_synapp_too_few_args() {
     "#), @r###"
       3 |     type T = F<Int>
                        ~~~~~~
-    Generic type `F` expects 2 type arguments but is applied to 1 type argument.
+    Generic type `F` expects 2 type argument(s) but is applied to 1 type argument(s).
     "###);
 }
 
