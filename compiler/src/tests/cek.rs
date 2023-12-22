@@ -1,5 +1,5 @@
 use crate::*;
-use std::sync::Arc;
+use std::rc::Rc;
 
 fn with_cek_result<R, F>(main: &str, input: &str, f: F) -> R
 where
@@ -7,7 +7,7 @@ where
 {
     let db = &mut build::CompilerDB::new();
     let uri = build::Uri::new("test.doh");
-    db.set_input(uri, Arc::new(input.to_string()));
+    db.set_input(uri, Rc::new(input.to_string()));
 
     assert_eq!(0, db.with_diagnostics(uri, |diagnostics| diagnostics.count()));
     let module = db.anf_module(uri).expect("module could not be compiled");

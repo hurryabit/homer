@@ -135,7 +135,7 @@ macro_rules! derive_fmt_debug {
     ($type_name:ident) => {
         impl std::fmt::Debug for $type_name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                crate::ast::DebugWriter::fmt(self, f)
+                $crate::ast::DebugWriter::fmt(self, f)
             }
         }
     };

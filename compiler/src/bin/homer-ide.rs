@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::sync::Arc;
+use std::rc::Rc;
 
 use log::info;
 use lsp_server::{Connection, Message, Response};
@@ -123,7 +123,7 @@ impl Server {
     fn validate_document(&mut self, lsp_uri: Url, input: String, print_module: bool) -> Result<()> {
         let uri = build::Uri::new(lsp_uri.as_str());
         info!("Received text for {:?}", uri);
-        self.db.set_input(uri, Arc::new(input));
+        self.db.set_input(uri, Rc::new(input));
 
         let diagnostics: Vec<_> = self.db.with_diagnostics(uri, |diagnostics| {
             diagnostics.map(homer_compiler::diagnostic::Diagnostic::to_lsp).collect()
@@ -225,7 +225,7 @@ impl Server {
         };
         let notification = lsp_server::Notification::new(
             ShowMessage::METHOD.to_owned(),
-            serde_json::to_value(&message_params)?,
+            serde_json::to_value(message_params)?,
         );
         if let Err(error) = self.connection.sender.send(Message::from(notification)) {
             info!("Failed to send message: {:?}", error);
@@ -288,6 +288,7 @@ impl Server {
         }
     }
 
+    #[allow(clippy::type_complexity)]
     fn dispatch_request<R: Request>(
         &self,
         request: lsp_server::Request,
