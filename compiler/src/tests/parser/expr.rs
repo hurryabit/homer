@@ -93,7 +93,7 @@ fn app_ty_err() {
       1 | f<A>(1)
              ~
     Unrecognized token `>` found at 1:4:1:5
-    Expected one of ")", "+", ",", "-", ";", "{" or "}"
+    Expected one of "+" or "-"
     "###);
 }
 
@@ -361,7 +361,7 @@ fn cmp_many_err() {
       1 | a == b == c
                  ~~
     Unrecognized token `==` found at 1:8:1:10
-    Expected one of ")", "+", ",", "-", ";", "{" or "}"
+    Expected one of "+" or "-"
     "###);
 }
 
@@ -444,12 +444,12 @@ fn lam1_poly() {
       1 | fn<A>(x: A) { x }
               ~
     Unrecognized token `>` found at 1:5:1:6
-    Expected one of ")", "+", ",", "-", ";", "{" or "}"
+    Expected one of "+" or "-"
     --------------------------------------------------
       1 | fn<A>(x: A) { x }
                  ~
     Unrecognized token `:` found at 1:8:1:9
-    Expected one of "!=", "(", ")", "*", "+", ",", "-", ".", "/", ";", "<", "<=", "==", ">", ">=", "@", "{" or "}"
+    Expected one of "!=", "(", ")", "*", "+", "-", ".", "/", "<", "<=", "==", ">", ">=" or "@"
     --------------------------------------------------
       1 | fn<A>(x: A) { x }
                       ~

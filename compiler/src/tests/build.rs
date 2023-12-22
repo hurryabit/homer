@@ -45,7 +45,7 @@ fn fatal_parse_error() {
       2 |     fn f(x: Int) -> Int { x
                                      ~
     Unrecognized EOF found at 2:28
-    Expected one of "!=", "(", ")", "*", "+", ",", "-", ".", "/", ":", ";", "<", "<=", "=", "==", ">", ">=", "@", "{" or "}"
+    Expected one of "!=", "(", "*", "+", "-", ".", "/", "<", "<=", "==", ">", ">=", "@" or "}"
     "###);
 }
 

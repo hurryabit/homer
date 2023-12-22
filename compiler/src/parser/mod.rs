@@ -41,7 +41,7 @@ fn parse_error_to_diagnostic(error: ParseError, humanizer: &Humanizer) -> Diagno
     use lalrpop_util::ParseError;
     let error = error.map_location(|loc| humanizer.run(loc));
     let span = match error {
-        ParseError::InvalidToken { location } | ParseError::UnrecognizedEOF { location, .. } => {
+        ParseError::InvalidToken { location } | ParseError::UnrecognizedEof { location, .. } => {
             SourceSpan::new(location, location)
         }
         ParseError::UnrecognizedToken { token: (start, _, end), .. }
