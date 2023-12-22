@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{diagnostic, location, syntax};
 use diagnostic::*;
 use error::{Error, LError};
 use location::{Located, SourceSpan};

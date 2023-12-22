@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{diagnostic, syntax};
 use diagnostic::Diagnostic;
 use syntax::Module;
 

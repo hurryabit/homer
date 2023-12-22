@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{anf, checker, diagnostic, syntax};
 use checker::SymbolInfo;
 use diagnostic::Diagnostic;
 use std::fmt;
