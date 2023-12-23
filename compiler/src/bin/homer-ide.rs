@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use log::info;
 use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
@@ -54,36 +53,45 @@ impl LanguageServer for Backend {
     }
 
     async fn initialized(&self, _: InitializedParams) {
-        self.client.log_message(MessageType::INFO, "server initialized!").await;
+        log::info!("server initialized");
     }
 
     async fn shutdown(&self) -> Result<()> {
+        log::info!("shutting down server");
         Ok(())
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let TextDocumentItem { uri, text, .. } = params.text_document;
+        log::info!("did_open {uri}");
         self.validate_document(uri, text, true).await
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         let uri = params.text_document.uri;
-        let text = params.content_changes.into_iter().last().unwrap().text;
-        self.validate_document(uri, text, true).await
+        log::info!("did_change {uri}");
+        if let Some(event) = params.content_changes.into_iter().last() {
+            self.validate_document(uri, event.text, true).await
+        } else {
+            log::warn!("did_change without event {uri}");
+        }
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
         let uri = params.text_document.uri;
+        log::info!("did_save {uri}");
         if let Some(text) = params.text {
             self.validate_document(uri, text, true).await
         } else {
-            info!("got save notification without text for {}", uri);
+            log::warn!("did_save without text {uri}");
         }
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
         let uri = params.text_document.uri;
-        self.client.publish_diagnostics(uri, vec![], None).await;
+        log::info!("did_close {uri}");
+        self.client.publish_diagnostics(uri.clone(), vec![], None).await;
+        log::info!("clear_diagnostics {uri}");
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
@@ -126,18 +134,23 @@ impl LanguageServer for Backend {
     async fn code_lens(&self, params: CodeLensParams) -> Result<Option<Vec<CodeLens>>> {
         let db = self.db.lock().await;
         let lsp_uri = params.text_document.uri;
-        info!("got code lens request for uri {:?}", lsp_uri);
+        log::info!("code_lens {lsp_uri}");
         let uri = build::Uri::new(lsp_uri.as_str());
         let lenses = if let Some(module) = db.checked_module(uri) {
             let mut lenses = Vec::new();
             for decl in module.func_decls() {
                 if decl.expr_params.is_empty() {
                     let range = decl.name.span.to_lsp();
-                    let arg = serde_json::to_value(RunFnParams {
+                    let arg = match serde_json::to_value(RunFnParams {
                         uri: uri.as_str().to_owned(),
                         fun: decl.name.locatee.as_str().to_owned(),
-                    })
-                    .unwrap();
+                    }) {
+                        Err(err) => {
+                            log::error!("serializing RunFnParams: {:?}", err);
+                            continue;
+                        }
+                        Ok(arg) => arg,
+                    };
                     let command = Some(Command {
                         title: String::from("▶︎ Run Function"),
                         command: String::from("run_fn"),
@@ -157,10 +170,12 @@ impl LanguageServer for Backend {
         &self,
         params: ExecuteCommandParams,
     ) -> Result<Option<serde_json::Value>> {
+        log::info!("execute_command {params:?}");
         let arguments = params.arguments;
         assert_eq!(arguments.len(), 1);
         let argument = arguments.into_iter().next().unwrap();
-        let args: RunFnParams = serde_json::from_value(argument).unwrap();
+        let args: RunFnParams = serde_json::from_value(argument)
+            .map_err(|err| tower_lsp::jsonrpc::Error::invalid_params(format!("{:?}", err)))?;
         let db = self.db.lock().await;
         if let Some(module) = db.anf_module(build::Uri::new(&args.uri)) {
             let machine = cek::Machine::new(&module, syntax::ExprVar::new(&args.fun));
@@ -178,18 +193,17 @@ impl Backend {
     async fn validate_document(&self, lsp_uri: Url, input: String, print_module: bool) {
         let mut db = self.db.lock().await;
         let uri = build::Uri::new(lsp_uri.as_str());
-        info!("Received text for {:?}", uri);
         db.set_input(uri, Arc::new(input));
 
         let diagnostics: Vec<_> = db.with_diagnostics(uri, |diagnostics| {
             diagnostics.map(homer_compiler::diagnostic::Diagnostic::to_lsp).collect()
         });
-        info!("Sending {} diagnostics", diagnostics.len());
+        log::info!("publish_diagnostics {} {lsp_uri}", diagnostics.len());
         self.client.publish_diagnostics(lsp_uri, diagnostics, None).await;
 
         if print_module {
             if let Some(module) = db.checked_module(uri) {
-                info!("{:?}", module);
+                log::debug!("{module:?}");
             }
         }
     }
@@ -216,8 +230,14 @@ impl Backend {
 
 #[tokio::main]
 async fn main() {
-    flexi_logger::Logger::with(flexi_logger::LogSpecification::info()).start().unwrap();
-    info!("starting server");
+    simple_logger::SimpleLogger::new()
+        .env()
+        .with_level(log::LevelFilter::Info)
+        .with_module_level("salsa", log::LevelFilter::Warn)
+        .with_timestamp_format(time::macros::format_description!("[hour]:[minute]:[second]"))
+        .init()
+        .unwrap();
+    log::info!("starting server");
 
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
@@ -227,5 +247,5 @@ async fn main() {
     let (service, socket) = LspService::new(|client| Backend { client, db });
     Server::new(stdin, stdout, socket).serve(service).await;
 
-    info!("shutting down server");
+    log::info!("server shut down");
 }

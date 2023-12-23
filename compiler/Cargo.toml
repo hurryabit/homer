@@ -13,7 +13,6 @@ license = "Apache 2.0"
 lalrpop = { version = "0.20", features = ["lexer"] }
 
 [dependencies]
-flexi_logger = "0.27"
 genawaiter = "0.99.1"
 im = "15.0.0"
 lalrpop-util = { version = "0.20", features = ["lexer"] }
@@ -29,6 +28,8 @@ join-lazy-fmt = "0.9"
 thiserror = "1.0"
 tower-lsp = "0.20"
 tokio = { version = "1.35", features = ["full"] }
+simple_logger = { version = "4.3", features = ["stderr"] }
+time = "0.3"
 
 [dev-dependencies]
 criterion = "0.5"
