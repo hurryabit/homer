@@ -239,17 +239,12 @@ impl Expr {
     fn check(&mut self, span: SourceSpan, env: &Env, expected: &RcType) -> Result<(), LError> {
         self.resolve(span, env)?;
         match self {
-            Self::Lam(params, body) => {
-                match expected.weak_normalize_env(env).as_ref() {
-                    Type::Fun(param_types, result) if params.len() == param_types.len() => {
-                        let env = &mut env.clone();
-                        env.intro_params(
-                            // TODO(MH): Replace `x` with a pattern once
-                            // https://github.com/rust-lang/rust/issues/68354
-                            // has been stabilized.
-                            params.iter_mut().zip(param_types.iter()).map(|mut x| {
-                                let (var, opt_type_ann) = &mut x.0;
-                                let expected = x.1;
+            Self::Lam(params, body) => match expected.weak_normalize_env(env).as_ref() {
+                Type::Fun(param_types, result) if params.len() == param_types.len() => {
+                    let env = &mut env.clone();
+                    env.intro_params(
+                        params.iter_mut().zip(param_types.iter()).map(
+                            |((var, opt_type_ann), expected)| {
                                 if let Some(type_ann) = opt_type_ann {
                                     type_ann.check(env)?;
                                     let found = RcType::from_lsyntax(type_ann);
@@ -268,13 +263,13 @@ impl Expr {
                                     *opt_type_ann = Some(expected.as_inferred(var));
                                     Ok((*var, expected.clone()))
                                 }
-                            }),
-                            |env| body.check(env, result),
-                        )
-                    }
-                    _ => Err(Located::new(Error::BadLam(expected.clone(), params.len()), span)),
+                            },
+                        ),
+                        |env| body.check(env, result),
+                    )
                 }
-            }
+                _ => Err(Located::new(Error::BadLam(expected.clone(), params.len()), span)),
+            },
             Self::AppFun(fun, opt_types, args) => {
                 check_app_fun(env, span, fun, opt_types, args, |result| {
                     found_vs_expected(env, span, result, expected)
