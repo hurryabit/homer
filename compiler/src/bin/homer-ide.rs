@@ -33,7 +33,7 @@ impl LanguageServer for Backend {
                 })),
                 ..TextDocumentSyncOptions::default()
             }));
-        let code_lens_provider = Some(CodeLensOptions { resolve_provider: Some(true) });
+        let code_lens_provider = Some(CodeLensOptions { resolve_provider: Some(false) });
         let execute_command_provider = Some(ExecuteCommandOptions {
             commands: vec![String::from("run_fn")],
             ..ExecuteCommandOptions::default()
