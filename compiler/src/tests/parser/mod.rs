@@ -34,13 +34,17 @@ where
     output
 }
 
-fn parse(input: &str) -> Module {
+fn parse_output(input: &str) -> Module {
     parse_output_impl(Module::parse_test, input)
+}
+
+fn parse_error(input: &'static str) -> String {
+    parse_error_impl(Module::parse_test, input)
 }
 
 #[test]
 fn module() {
-    insta::assert_debug_snapshot!(parse(r#"
+    insta::assert_debug_snapshot!(parse_output(r#"
     type Mono = Int
     fn mono(x: Int) -> Mono { x }
     type Poly<A> = A
@@ -77,5 +81,53 @@ fn module() {
                     var: A @ 5:30-5:31
             body: VAR @ 5:35-5:36
                 var: x @ 5:35-5:36
+    "###);
+}
+
+#[test]
+fn location_eol_lf() {
+    insta::assert_snapshot!(parse_error("\nx"), @r###"
+    ---
+    --------------------------------------------------
+      2 | x
+          ~
+    Unrecognized token `x` found at 2:1:2:2
+    Expected one of "fn" or "type"
+    "###);
+}
+
+// TODO(MH): This should have the same output as `location_eol_lf`.
+#[test]
+fn location_eol_crlf() {
+    insta::assert_snapshot!(parse_error("\r\nx"), @r###"
+    ---
+    --------------------------------------------------
+    2:2-3:1: Unrecognized token `x` found at 2:2:3:1
+    Expected one of "fn" or "type"
+    "###);
+}
+
+#[test]
+fn location_comment_ascii() {
+    insta::assert_snapshot!(parse_error("/* aeiou */ x"), @r###"
+    ---
+    --------------------------------------------------
+      1 | /* aeiou */ x
+                      ~
+    Unrecognized token `x` found at 1:13:1:14
+    Expected one of "fn" or "type"
+    "###);
+}
+
+// TODO(MH): This should have the same output as `location_comment_ascii`.
+#[test]
+fn location_comment_unlauts() {
+    insta::assert_snapshot!(parse_error("/* äëïöü */ x"), @r###"
+    ---
+    --------------------------------------------------
+      1 | /* äëïöü */ x
+                           ~
+    Unrecognized token `x` found at 1:18:1:19
+    Expected one of "fn" or "type"
     "###);
 }
