@@ -103,11 +103,12 @@ impl LError {
         constr: ExprCon,
         span: SourceSpan,
     ) -> Result<R, LError> {
-        // TODO(MH): Use `!` instead of `()` once the never type is stable.
+        // TODO(MH): Use `Result<!, LError>` instead of `for<R> Result<R, LError>` as the result
+        // type once the never type is stable.
         let variant_type = variant_type.clone();
         let error = match (opt_payload, opt_payload_type) {
             (None, None) | (Some(_), Some(_)) => {
-                panic!("IMPOSSIBLE: Error::variant_payload with None/None or Some/Some")
+                panic!("IMPOSSIBLE: Error::variant_payload with None/None or Some/Some");
             }
             (None, Some(_)) => Error::VariantExpectedPayload { variant_type, constr },
             (Some(_), None) => Error::VariantUnexpectedPayload { variant_type, constr },
