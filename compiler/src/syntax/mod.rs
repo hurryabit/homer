@@ -44,7 +44,7 @@ pub enum Type {
     Fun(Vec<LType>, Box<LType>),
     Record(Vec<(LExprVar, LType)>),
     Variant(Vec<(LExprCon, Option<LType>)>),
-    Inferred(checker::ArcType),
+    Inferred(checker::RcType),
 }
 
 pub type LType = Located<Type>;

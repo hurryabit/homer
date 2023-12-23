@@ -1,4 +1,4 @@
-use super::types::{ArcType, FuncSig};
+use super::types::{FuncSig, RcType};
 use crate::*;
 use location::SourceSpan;
 use std::sync::Arc;
@@ -6,8 +6,8 @@ use syntax::LExprVar;
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum SymbolInfo {
-    ExprBinder { var: LExprVar, typ: ArcType },
-    ExprVar { var: LExprVar, typ: ArcType, def: SourceSpan },
+    ExprBinder { var: LExprVar, typ: RcType },
+    ExprVar { var: LExprVar, typ: RcType, def: SourceSpan },
     FuncRef { var: LExprVar, def: Arc<FuncSig> },
 }
 

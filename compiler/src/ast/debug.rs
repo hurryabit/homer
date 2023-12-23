@@ -24,6 +24,12 @@ impl<T: Debug> Debug for std::sync::Arc<T> {
     }
 }
 
+impl<T: Debug> Debug for std::rc::Rc<T> {
+    fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
+        self.as_ref().write(writer)
+    }
+}
+
 impl<T: Debug> Debug for &T {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
         (*self).write(writer)
