@@ -30,6 +30,7 @@ tower-lsp = "0.20"
 tokio = { version = "1.35", features = ["full"] }
 simple_logger = { version = "4.3", features = ["stderr"] }
 time = "0.3"
+line-index = "0.1"
 
 [dev-dependencies]
 criterion = "0.5"

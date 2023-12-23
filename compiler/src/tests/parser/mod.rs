@@ -96,13 +96,14 @@ fn location_eol_lf() {
     "###);
 }
 
-// TODO(MH): This should have the same output as `location_eol_lf`.
 #[test]
 fn location_eol_crlf() {
     insta::assert_snapshot!(parse_error("\r\nx"), @r###"
     ---
     --------------------------------------------------
-    2:2-3:1: Unrecognized token `x` found at 2:2:3:1
+      2 | x
+          ~
+    Unrecognized token `x` found at 2:1:2:2
     Expected one of "fn" or "type"
     "###);
 }
@@ -119,15 +120,14 @@ fn location_comment_ascii() {
     "###);
 }
 
-// TODO(MH): This should have the same output as `location_comment_ascii`.
 #[test]
 fn location_comment_unlauts() {
     insta::assert_snapshot!(parse_error("/* äëïöü */ x"), @r###"
     ---
     --------------------------------------------------
       1 | /* äëïöü */ x
-                           ~
-    Unrecognized token `x` found at 1:18:1:19
+                      ~
+    Unrecognized token `x` found at 1:13:1:14
     Expected one of "fn" or "type"
     "###);
 }
