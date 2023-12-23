@@ -7,6 +7,7 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use homer_compiler::{build, cek, checker, location, syntax};
 
+use build::Compiler;
 use checker::SymbolInfo;
 
 // #[derive(Debug)]
@@ -136,7 +137,7 @@ impl LanguageServer for Backend {
         let lsp_uri = params.text_document.uri;
         log::info!("code_lens {lsp_uri}");
         let uri = build::Uri::new(lsp_uri.as_str());
-        let lenses = if let Some(module) = db.checked_module(uri) {
+        let lenses = if let Some(module) = db.checked_module(uri).0 {
             let mut lenses = Vec::new();
             for decl in module.func_decls() {
                 if decl.expr_params.is_empty() {
@@ -202,7 +203,7 @@ impl Backend {
         self.client.publish_diagnostics(lsp_uri, diagnostics, None).await;
 
         if print_module {
-            if let Some(module) = db.checked_module(uri) {
+            if let Some(module) = db.checked_module(uri).0 {
                 log::debug!("{module:?}");
             }
         }
@@ -214,7 +215,7 @@ impl Backend {
     ) -> Option<SymbolInfo> {
         let db = self.db.lock().await;
         let uri = build::Uri::new(position_params.text_document.uri.as_str());
-        let symbols = db.symbols(uri);
+        let symbols = db.checked_module(uri).1;
 
         let loc = location::SourceLocation::from_lsp(position_params.position);
         // FIXME(MH): We should do a binary search here.

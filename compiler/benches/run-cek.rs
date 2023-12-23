@@ -1,3 +1,4 @@
+use build::Compiler;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use homer_compiler::*;
 use std::sync::Arc;

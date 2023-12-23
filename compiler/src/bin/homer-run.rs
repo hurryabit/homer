@@ -1,3 +1,4 @@
+use build::Compiler;
 use homer_compiler::{build, cek, syntax};
 use std::sync::Arc;
 

@@ -27,7 +27,7 @@ impl fmt::Debug for Uri {
 type CheckedModuleOutcome = (Option<Arc<Module>>, Arc<Vec<SymbolInfo>>, Arc<Vec<Diagnostic>>);
 
 #[salsa::query_group(CompilerStorage)]
-trait Compiler: salsa::Database {
+pub trait Compiler: salsa::Database {
     #[salsa::input]
     fn input(&self, uri: Uri) -> Arc<String>;
 
@@ -72,22 +72,6 @@ impl CompilerDB {
         // NOTE(MH): We force the initialization of the interner to avoid races.
         crate::INTERNER.len();
         Self { storage: salsa::Storage::default() }
-    }
-
-    pub fn set_input(&mut self, uri: Uri, input: Arc<String>) {
-        (self as &mut dyn Compiler).set_input(uri, input);
-    }
-
-    pub fn checked_module(&self, uri: Uri) -> Option<Arc<Module>> {
-        (self as &dyn Compiler).checked_module(uri).0
-    }
-
-    pub fn symbols(&self, uri: Uri) -> Arc<Vec<SymbolInfo>> {
-        (self as &dyn Compiler).checked_module(uri).1
-    }
-
-    pub fn anf_module(&self, uri: Uri) -> Option<Arc<anf::Module>> {
-        (self as &dyn Compiler).anf_module(uri)
     }
 
     pub fn with_diagnostics<R, F>(&self, uri: Uri, f: F) -> R

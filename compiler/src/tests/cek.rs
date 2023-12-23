@@ -1,4 +1,5 @@
 use crate::*;
+use build::Compiler;
 use std::sync::Arc;
 
 fn with_cek_result<R, F>(main: &str, input: &str, f: F) -> R
