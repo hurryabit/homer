@@ -1,7 +1,6 @@
 use join_lazy_fmt::*;
-use std::cell::Cell;
 use std::fmt;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use crate::location::Located;
 use crate::util::in_parens_if_some;
@@ -11,7 +10,7 @@ use syntax::{ExprCon, ExprVar, LExprVar, TypeVar};
 pub use syntax::Type as SynType;
 
 #[derive(Eq, PartialEq)]
-pub enum Type<T = RcType> {
+pub enum Type<T = ArcType> {
     Error,
     Var(TypeVar),
     SynApp(TypeVar, Vec<T>),
@@ -24,35 +23,35 @@ pub enum Type<T = RcType> {
 }
 
 #[derive(Clone, Eq, PartialEq)]
-pub struct RcType(Rc<Type>);
+pub struct ArcType(Arc<Type>);
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum UnificationVar {
     Free(u32),
-    Link(RcType),
+    Link(ArcType),
 }
 
 #[derive(Clone)]
-pub struct UnificationCell(Rc<Cell<UnificationVar>>);
+pub struct UnificationCell(Arc<Mutex<UnificationVar>>);
 
 #[derive(Eq, PartialEq)]
 pub struct FuncSig {
     pub name: LExprVar,
     pub type_params: Vec<TypeVar>,
-    pub params: Vec<(ExprVar, RcType)>,
-    pub result: RcType,
+    pub params: Vec<(ExprVar, ArcType)>,
+    pub result: ArcType,
 }
 
 pub struct TypeScheme {
     pub params: Vec<TypeVar>,
-    pub body: RcType,
+    pub body: ArcType,
 }
 
 type TypeDefs = std::collections::HashMap<TypeVar, TypeScheme>;
 
-impl RcType {
+impl ArcType {
     pub fn new(typ: Type) -> Self {
-        Self(Rc::new(typ))
+        Self(Arc::new(typ))
     }
 
     pub fn as_inferred(&self, var: &LExprVar) -> Located<SynType> {
@@ -67,7 +66,7 @@ impl RcType {
         Self::new(Type::from_syntax(syntax))
     }
 
-    pub fn subst(&self, mapping: &std::collections::HashMap<&TypeVar, &RcType>) -> RcType {
+    pub fn subst(&self, mapping: &std::collections::HashMap<&TypeVar, &ArcType>) -> ArcType {
         match &**self {
             Type::Var(var) => {
                 let &typ = mapping
@@ -97,7 +96,7 @@ impl RcType {
         typ
     }
 
-    pub fn equiv(&self, expected: &RcType, type_defs: &TypeDefs) -> bool {
+    pub fn equiv(&self, expected: &ArcType, type_defs: &TypeDefs) -> bool {
         match (self.as_ref(), expected.as_ref()) {
             (Type::SynApp(var1, args1), Type::SynApp(var2, args2)) if var1 == var2 => {
                 assert_eq!(args1.len(), args2.len());
@@ -189,7 +188,7 @@ impl FuncSig {
     /// Instantiate a generic function signature with the given types. Assumes
     /// the number of given types matches the number of type paramters of the
     /// signature.
-    pub fn instantiate(&self, types: &[RcType]) -> (Vec<RcType>, RcType) {
+    pub fn instantiate(&self, types: &[ArcType]) -> (Vec<ArcType>, ArcType) {
         let Self { name: _, type_params, params, result } = self;
         assert_eq!(type_params.len(), types.len());
         let mapping = type_params.iter().zip(types.iter()).collect();
@@ -202,7 +201,7 @@ impl FuncSig {
 impl TypeScheme {
     /// Instantiate a type scheme with the given types. Assumes that the
     /// number of parameters of the scheme and the number of given types match.
-    pub fn instantiate(&self, types: &[RcType]) -> RcType {
+    pub fn instantiate(&self, types: &[ArcType]) -> ArcType {
         let Self { params, body } = self;
         assert_eq!(params.len(), types.len());
         let mapping = params.iter().zip(types.iter()).collect();
@@ -216,20 +215,20 @@ impl Type {
             SynType::Error => Type::Error,
             SynType::Var(var) => Type::Var(var.locatee),
             SynType::SynApp(var, args) => {
-                let args = args.iter().map(RcType::from_lsyntax).collect();
+                let args = args.iter().map(ArcType::from_lsyntax).collect();
                 Type::SynApp(var.locatee, args)
             }
             SynType::Int => Type::Int,
             SynType::Bool => Type::Bool,
             SynType::Fun(params, result) => {
-                let params = params.iter().map(RcType::from_lsyntax).collect();
-                let result = RcType::from_lsyntax(result);
+                let params = params.iter().map(ArcType::from_lsyntax).collect();
+                let result = ArcType::from_lsyntax(result);
                 Type::Fun(params, result)
             }
             SynType::Record(fields) => {
                 let fields = fields
                     .iter()
-                    .map(|(name, typ)| (name.locatee, RcType::from_lsyntax(typ)))
+                    .map(|(name, typ)| (name.locatee, ArcType::from_lsyntax(typ)))
                     .collect();
                 Type::Record(fields)
             }
@@ -237,7 +236,7 @@ impl Type {
                 let constrs = constrs
                     .iter()
                     .map(|(name, opt_typ)| {
-                        (name.locatee, opt_typ.as_ref().map(RcType::from_lsyntax))
+                        (name.locatee, opt_typ.as_ref().map(ArcType::from_lsyntax))
                     })
                     .collect();
                 Type::Variant(constrs)
@@ -318,14 +317,14 @@ impl<T> Type<T> {
     }
 }
 
-impl std::ops::Deref for RcType {
+impl std::ops::Deref for ArcType {
     type Target = Type;
     fn deref(&self) -> &Self::Target {
         self.0.deref()
     }
 }
 
-impl AsRef<Type> for RcType {
+impl AsRef<Type> for ArcType {
     fn as_ref(&self) -> &Type {
         self.0.as_ref()
     }
@@ -335,7 +334,7 @@ pub fn same_keys<'a, K: Eq, V>(vec1: &'a [(K, V)], vec2: &'a [(K, V)]) -> bool {
     vec1.len() == vec2.len() && vec1.iter().zip(vec2.iter()).all(|((k1, _), (k2, _))| k1 == k2)
 }
 
-impl fmt::Display for RcType {
+impl fmt::Display for ArcType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.as_ref().fmt(f)
     }
@@ -430,7 +429,7 @@ impl ast::Debug for Type {
     }
 }
 
-impl ast::Debug for RcType {
+impl ast::Debug for ArcType {
     fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         self.as_ref().write(writer)
     }
@@ -468,38 +467,35 @@ impl ast::Debug for FuncSig {
 }
 
 derive_fmt_debug!(Type);
-derive_fmt_debug!(RcType);
+derive_fmt_debug!(ArcType);
 derive_fmt_debug!(TypeScheme);
 derive_fmt_debug!(FuncSig);
 
 impl UnificationCell {
     pub fn new_free(name: u32) -> Self {
-        UnificationCell(Rc::new(Cell::new(UnificationVar::Free(name))))
+        UnificationCell(Arc::new(Mutex::new(UnificationVar::Free(name))))
     }
 
     fn get(&self) -> UnificationVar {
-        let inner = self.0.replace(UnificationVar::Free(0));
-        let result = inner.clone();
-        self.0.set(inner);
-        result
+        self.0.lock().unwrap().clone()
     }
 
-    fn set_link(&self, typ: RcType) {
-        let inner = self.0.replace(UnificationVar::Link(typ));
-        assert!(matches!(inner, UnificationVar::Free(_)));
+    fn set_link(&self, typ: ArcType) {
+        let mut lock = self.0.lock().unwrap();
+        assert!(matches!(*lock, UnificationVar::Free(_)));
+        *lock = UnificationVar::Link(typ);
     }
 
-    fn try_set_link(&self, typ: RcType) -> bool {
-        let inner = self.0.replace(UnificationVar::Free(0));
-        match inner {
+    fn try_set_link(&self, typ: ArcType) -> bool {
+        let mut lock = self.0.lock().unwrap();
+        match *lock {
             UnificationVar::Link(_) => {
                 panic!("UnificationCell::try_set_link called on UnificationVar::Link")
             }
             UnificationVar::Free(var) => {
-                self.0.set(inner);
                 let result = typ.occurs_check(var);
                 if result {
-                    self.0.set(UnificationVar::Link(typ));
+                    *lock = UnificationVar::Link(typ);
                 } else {
                     eprintln!("Occurs check failed on {}", typ);
                 }

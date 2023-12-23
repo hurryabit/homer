@@ -1,4 +1,5 @@
 use crate::location::*;
+use tower_lsp::lsp_types;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Severity {

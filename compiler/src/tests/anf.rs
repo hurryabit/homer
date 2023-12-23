@@ -1,10 +1,10 @@
 use crate::build::*;
-use std::rc::Rc;
+use std::sync::Arc;
 
 fn anf_output(input: &str) -> String {
     let db = &mut CompilerDB::new();
     let uri = Uri::new("foo.homer");
-    db.set_input(uri, Rc::new(input.to_owned()));
+    db.set_input(uri, Arc::new(input.to_owned()));
     assert!(db.with_diagnostics(uri, |diagnostics| diagnostics.next().is_none()));
     format!("{:#?}", db.anf_module(uri).unwrap())
 }

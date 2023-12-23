@@ -1,11 +1,11 @@
 use crate::build::*;
-use std::rc::Rc;
+use std::sync::Arc;
 
 fn build_output(input: &str) -> String {
     use std::fmt::Write;
     let db = &mut CompilerDB::new();
     let uri = Uri::new("foo.homer");
-    db.set_input(uri, Rc::new(input.to_owned()));
+    db.set_input(uri, Arc::new(input.to_owned()));
 
     let mut output = String::new();
     match db.anf_module(uri) {

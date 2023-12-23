@@ -18,7 +18,7 @@ impl<T: Debug> Debug for Box<T> {
     }
 }
 
-impl<T: Debug> Debug for std::rc::Rc<T> {
+impl<T: Debug> Debug for std::sync::Arc<T> {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
         self.as_ref().write(writer)
     }

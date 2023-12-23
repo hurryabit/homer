@@ -45,9 +45,9 @@ pub enum Error {
     #[error(
         "Expected an expression of type `{expected}` but found an expression of type `{found}`."
     )]
-    TypeMismatch { expected: RcType, found: RcType },
+    TypeMismatch { expected: ArcType, found: ArcType },
     #[error("Expected parameter `{param}` to have type `{expected}` but found a type annotation `{found}`.")]
-    ParamTypeMismatch { param: ExprVar, expected: RcType, found: RcType },
+    ParamTypeMismatch { param: ExprVar, expected: ArcType, found: ArcType },
     #[error("Cannot infer the type of parameter `{0}`. A type annoation is needed.")]
     ParamNeedsType(ExprVar),
     #[error("Duplicate type variable `{var}`.")]
@@ -66,29 +66,29 @@ pub enum Error {
             String::from("expression")
         }
     )]
-    BadApp { func: Option<ExprVar>, func_type: RcType, num_args: Arity },
+    BadApp { func: Option<ExprVar>, func_type: ArcType, num_args: Arity },
     #[error("Expression of type `{record_type}` do not contain a field named `{field}`.")]
-    BadRecordProj { record_type: RcType, field: ExprVar },
+    BadRecordProj { record_type: ArcType, field: ExprVar },
     #[error("Expected an expression of type `{0}` but found a lambda with {1} parameter(s).")]
-    BadLam(RcType, Arity),
+    BadLam(ArcType, Arity),
     #[error("Constructor `{constr}` of variant type `{variant_type}` needs a payload.")]
-    VariantExpectedPayload { variant_type: RcType, constr: ExprCon },
+    VariantExpectedPayload { variant_type: ArcType, constr: ExprCon },
     #[error("Constructor `{constr}` of variant type `{variant_type}` does not take a payload.")]
-    VariantUnexpectedPayload { variant_type: RcType, constr: ExprCon },
+    VariantUnexpectedPayload { variant_type: ArcType, constr: ExprCon },
     #[error("`{1}` is not a possible constructor for variant type `{0}`.")]
-    BadVariantConstr(RcType, ExprCon),
+    BadVariantConstr(ArcType, ExprCon),
     #[error("Expected an expression of type `{0}` but found variant constructor `{1}`.")]
-    UnexpectedVariantType(RcType, ExprCon),
+    UnexpectedVariantType(ArcType, ExprCon),
     #[error("Cannot match on expressions of type `{0}`.")]
-    BadMatch(RcType),
+    BadMatch(ArcType),
     #[error("`{1}` is not a possible constructor for variant type `{0}`.")]
-    BadBranch(RcType, ExprCon),
+    BadBranch(ArcType, ExprCon),
     #[error("Match expressions must have at least one branch.")]
     EmptyMatch,
     #[error("Constructor `{1}` is not covered in pattern match on type `{0}`.")]
-    NonExhaustiveMatch(RcType, ExprCon),
+    NonExhaustiveMatch(ArcType, ExprCon),
     #[error("Constructor `{1}` is covered repeatedly in pattern match.")]
-    OverlappingMatch(RcType, ExprCon),
+    OverlappingMatch(ArcType, ExprCon),
     #[error("Cannot infer the type of the expression. Further type annotations are required.")]
     TypeAnnsNeeded,
 }
@@ -98,8 +98,8 @@ pub type LError = Located<Error>;
 impl LError {
     pub fn variant_payload<T, R>(
         opt_payload: &Option<T>,
-        opt_payload_type: &Option<RcType>,
-        variant_type: &RcType,
+        opt_payload_type: &Option<ArcType>,
+        variant_type: &ArcType,
         constr: ExprCon,
         span: SourceSpan,
     ) -> Result<R, LError> {

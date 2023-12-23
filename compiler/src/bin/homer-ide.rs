@@ -1,173 +1,117 @@
-use std::error::Error;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use log::info;
-use lsp_server::{Connection, Message, Response};
-use lsp_types::{notification::*, request::*, *};
+use tokio::sync::Mutex;
+use tower_lsp::jsonrpc::Result;
+use tower_lsp::lsp_types::*;
+use tower_lsp::{Client, LanguageServer, LspService, Server};
 
-use homer_compiler::*;
+use homer_compiler::{build, cek, checker, location, syntax};
 
-use checker::info::SymbolInfo;
+use checker::SymbolInfo;
 
-type Result<T> = std::result::Result<T, Box<dyn Error + Sync + Send>>;
-
-fn main() -> Result<()> {
-    // Set up logging. Because `stdio_transport` gets a lock on stdout and stdin, we must have
-    // our logging only write out to stderr.
-    flexi_logger::Logger::with(flexi_logger::LogSpecification::info()).start()?;
-    info!("starting generic LSP server");
-
-    // Create the transport. Includes the stdio (stdin and stdout) versions but this could
-    // also be implemented to use sockets or HTTP.
-    let (connection, io_threads) = Connection::stdio();
-
-    let text_document_sync = Some(TextDocumentSyncCapability::Options(TextDocumentSyncOptions {
-        open_close: Some(true),
-        change: Some(TextDocumentSyncKind::FULL),
-        save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
-            include_text: Some(true),
-        })),
-        ..TextDocumentSyncOptions::default()
-    }));
-    let code_lens_provider = Some(CodeLensOptions { resolve_provider: Some(true) });
-    let execute_command_provider = Some(ExecuteCommandOptions {
-        commands: vec![String::from("run_fn")],
-        ..ExecuteCommandOptions::default()
-    });
-    let hover_provider = Some(HoverProviderCapability::Simple(true));
-    let definition_provider = Some(OneOf::Left(true));
-    let server_capabilities = ServerCapabilities {
-        text_document_sync,
-        code_lens_provider,
-        execute_command_provider,
-        hover_provider,
-        definition_provider,
-        ..ServerCapabilities::default()
-    };
-    let initialize_params_json =
-        connection.initialize(serde_json::to_value(server_capabilities)?)?;
-    let _initialize_params: InitializeParams = serde_json::from_value(initialize_params_json)?;
-    let db = build::CompilerDB::new();
-    let mut server = Server::new(connection, db);
-    server.run()?;
-    io_threads.join()?;
-
-    // Shut down gracefully.
-    info!("shutting down server");
-    Ok(())
+// #[derive(Debug)]
+struct Backend {
+    client: Client,
+    db: Mutex<build::CompilerDB>,
 }
 
-struct Server {
-    connection: Connection,
-    db: build::CompilerDB,
+#[derive(serde::Deserialize, serde::Serialize)]
+struct RunFnParams {
+    uri: String,
+    fun: String,
 }
 
-impl Server {
-    fn new(connection: Connection, db: build::CompilerDB) -> Self {
-        Self { connection, db }
+#[tower_lsp::async_trait]
+impl LanguageServer for Backend {
+    async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
+        let text_document_sync =
+            Some(TextDocumentSyncCapability::Options(TextDocumentSyncOptions {
+                open_close: Some(true),
+                change: Some(TextDocumentSyncKind::FULL),
+                save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
+                    include_text: Some(true),
+                })),
+                ..TextDocumentSyncOptions::default()
+            }));
+        let code_lens_provider = Some(CodeLensOptions { resolve_provider: Some(true) });
+        let execute_command_provider = Some(ExecuteCommandOptions {
+            commands: vec![String::from("run_fn")],
+            ..ExecuteCommandOptions::default()
+        });
+        let hover_provider = Some(HoverProviderCapability::Simple(true));
+        let definition_provider = Some(OneOf::Left(true));
+        let server_capabilities = ServerCapabilities {
+            text_document_sync,
+            code_lens_provider,
+            execute_command_provider,
+            hover_provider,
+            definition_provider,
+            ..ServerCapabilities::default()
+        };
+
+        Ok(InitializeResult { capabilities: server_capabilities, ..Default::default() })
     }
 
-    fn run(&mut self) -> Result<()> {
-        // NOTE(MH): This is a hack to allow us to borrow `self` mutably
-        // hereafter.
-        let receiver =
-            std::mem::replace(&mut self.connection.receiver, crossbeam::channel::never());
-        for msg in &receiver {
-            info!("Received message: {:?}", msg);
-            match msg {
-                Message::Request(request) => {
-                    if self.connection.handle_shutdown(&request)? {
-                        return Ok(());
-                    }
-                    self.handle_request(request)?;
-                }
-                Message::Response(_response) => info!("Received unhandled response"),
-                Message::Notification(notification) => self.handle_notification(notification)?,
-            }
-        }
+    async fn initialized(&self, _: InitializedParams) {
+        self.client.log_message(MessageType::INFO, "server initialized!").await;
+    }
+
+    async fn shutdown(&self) -> Result<()> {
         Ok(())
     }
 
-    fn did_open(&mut self, params: DidOpenTextDocumentParams) -> Result<()> {
+    async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let TextDocumentItem { uri, text, .. } = params.text_document;
-        self.validate_document(uri, text, true)
+        self.validate_document(uri, text, true).await
     }
 
-    fn did_change(&mut self, params: DidChangeTextDocumentParams) -> Result<()> {
+    async fn did_change(&self, params: DidChangeTextDocumentParams) {
         let uri = params.text_document.uri;
         let text = params.content_changes.into_iter().last().unwrap().text;
-        self.validate_document(uri, text, true)
+        self.validate_document(uri, text, true).await
     }
 
-    fn did_save(&mut self, params: DidSaveTextDocumentParams) -> Result<()> {
+    async fn did_save(&self, params: DidSaveTextDocumentParams) {
         let uri = params.text_document.uri;
         if let Some(text) = params.text {
-            self.validate_document(uri, text, true)
+            self.validate_document(uri, text, true).await
         } else {
             info!("got save notification without text for {}", uri);
-            Ok(())
         }
     }
 
-    fn did_close(&mut self, params: DidCloseTextDocumentParams) -> Result<()> {
+    async fn did_close(&self, params: DidCloseTextDocumentParams) {
         let uri = params.text_document.uri;
-        let params = PublishDiagnosticsParams { uri, diagnostics: vec![], version: None };
-        let notification = lsp_server::Notification::new(
-            PublishDiagnostics::METHOD.to_owned(),
-            serde_json::to_value(params)?,
-        );
-        self.connection.sender.send(Message::from(notification))?;
-        Ok(())
+        self.client.publish_diagnostics(uri, vec![], None).await;
     }
 
-    fn validate_document(&mut self, lsp_uri: Url, input: String, print_module: bool) -> Result<()> {
-        let uri = build::Uri::new(lsp_uri.as_str());
-        info!("Received text for {:?}", uri);
-        self.db.set_input(uri, Rc::new(input));
-
-        let diagnostics: Vec<_> = self.db.with_diagnostics(uri, |diagnostics| {
-            diagnostics.map(homer_compiler::diagnostic::Diagnostic::to_lsp).collect()
-        });
-        info!("Sending {} diagnostics", diagnostics.len());
-        let params = PublishDiagnosticsParams { uri: lsp_uri, diagnostics, version: None };
-        let notification = lsp_server::Notification::new(
-            PublishDiagnostics::METHOD.to_owned(),
-            serde_json::to_value(params)?,
-        );
-        self.connection.sender.send(Message::from(notification))?;
-
-        if print_module {
-            if let Some(module) = self.db.checked_module(uri) {
-                info!("{:?}", module);
-            }
-        }
-        Ok(())
-    }
-
-    fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
-        let response = self.find_symbol(&params.text_document_position_params).map(|symbol| {
-            let info = match &symbol {
-                SymbolInfo::ExprBinder { typ, .. } | SymbolInfo::ExprVar { typ, .. } => {
-                    format!("{}", typ)
-                }
-                SymbolInfo::FuncRef { def, .. } => format!("{}", def),
-            };
-            let range = Some(symbol.span().to_lsp());
-            let contents = HoverContents::Markup(MarkupContent {
-                kind: MarkupKind::Markdown,
-                value: format!("```homer\n{}\n```", info),
+    async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
+        let response =
+            self.find_symbol(&params.text_document_position_params).await.map(|symbol| {
+                let info = match &symbol {
+                    SymbolInfo::ExprBinder { typ, .. } | SymbolInfo::ExprVar { typ, .. } => {
+                        format!("{}", typ)
+                    }
+                    SymbolInfo::FuncRef { def, .. } => format!("{}", def),
+                };
+                let range = Some(symbol.span().to_lsp());
+                let contents = HoverContents::Markup(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: format!("```homer\n{}\n```", info),
+                });
+                Hover { contents, range }
             });
-            Hover { contents, range }
-        });
         Ok(response)
     }
 
-    fn goto_definition(
+    async fn goto_definition(
         &self,
         params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
         let response = self
             .find_symbol(&params.text_document_position_params)
+            .await
             .as_ref()
             .and_then(SymbolInfo::definition_span)
             .map(|span| {
@@ -179,11 +123,12 @@ impl Server {
         Ok(response)
     }
 
-    fn code_lenses(&self, params: CodeLensParams) -> Result<Option<Vec<CodeLens>>> {
+    async fn code_lens(&self, params: CodeLensParams) -> Result<Option<Vec<CodeLens>>> {
+        let db = self.db.lock().await;
         let lsp_uri = params.text_document.uri;
         info!("got code lens request for uri {:?}", lsp_uri);
         let uri = build::Uri::new(lsp_uri.as_str());
-        let lenses = if let Some(module) = self.db.checked_module(uri) {
+        let lenses = if let Some(module) = db.checked_module(uri) {
             let mut lenses = Vec::new();
             for decl in module.func_decls() {
                 if decl.expr_params.is_empty() {
@@ -191,7 +136,8 @@ impl Server {
                     let arg = serde_json::to_value(RunFnParams {
                         uri: uri.as_str().to_owned(),
                         fun: decl.name.locatee.as_str().to_owned(),
-                    })?;
+                    })
+                    .unwrap();
                     let command = Some(Command {
                         title: String::from("▶︎ Run Function"),
                         command: String::from("run_fn"),
@@ -207,35 +153,54 @@ impl Server {
         Ok(lenses)
     }
 
-    fn execute_command(&self, params: ExecuteCommandParams) -> Result<Option<serde_json::Value>> {
+    async fn execute_command(
+        &self,
+        params: ExecuteCommandParams,
+    ) -> Result<Option<serde_json::Value>> {
         let arguments = params.arguments;
         assert_eq!(arguments.len(), 1);
         let argument = arguments.into_iter().next().unwrap();
-        let args: RunFnParams = serde_json::from_value(argument)?;
-        let message_params = if let Some(module) = self.db.anf_module(build::Uri::new(&args.uri)) {
+        let args: RunFnParams = serde_json::from_value(argument).unwrap();
+        let db = self.db.lock().await;
+        if let Some(module) = db.anf_module(build::Uri::new(&args.uri)) {
             let machine = cek::Machine::new(&module, syntax::ExprVar::new(&args.fun));
             let result = machine.run();
             let message = format!("{}() = {}", args.fun, result.value());
-            ShowMessageParams { typ: MessageType::INFO, message }
+            self.client.show_message(MessageType::INFO, message).await;
         } else {
-            ShowMessageParams {
-                typ: MessageType::ERROR,
-                message: String::from("The module cannot be compiled."),
-            }
+            self.client.show_message(MessageType::ERROR, "The module cannot be compiled.").await;
         };
-        let notification = lsp_server::Notification::new(
-            ShowMessage::METHOD.to_owned(),
-            serde_json::to_value(message_params)?,
-        );
-        if let Err(error) = self.connection.sender.send(Message::from(notification)) {
-            info!("Failed to send message: {:?}", error);
-        }
         Ok(None)
     }
+}
 
-    fn find_symbol(&self, position_params: &TextDocumentPositionParams) -> Option<SymbolInfo> {
+impl Backend {
+    async fn validate_document(&self, lsp_uri: Url, input: String, print_module: bool) {
+        let mut db = self.db.lock().await;
+        let uri = build::Uri::new(lsp_uri.as_str());
+        info!("Received text for {:?}", uri);
+        db.set_input(uri, Arc::new(input));
+
+        let diagnostics: Vec<_> = db.with_diagnostics(uri, |diagnostics| {
+            diagnostics.map(homer_compiler::diagnostic::Diagnostic::to_lsp).collect()
+        });
+        info!("Sending {} diagnostics", diagnostics.len());
+        self.client.publish_diagnostics(lsp_uri, diagnostics, None).await;
+
+        if print_module {
+            if let Some(module) = db.checked_module(uri) {
+                info!("{:?}", module);
+            }
+        }
+    }
+
+    async fn find_symbol(
+        &self,
+        position_params: &TextDocumentPositionParams,
+    ) -> Option<SymbolInfo> {
+        let db = self.db.lock().await;
         let uri = build::Uri::new(position_params.text_document.uri.as_str());
-        let symbols = self.db.symbols(uri);
+        let symbols = db.symbols(uri);
 
         let loc = location::SourceLocation::from_lsp(position_params.position);
         // FIXME(MH): We should do a binary search here.
@@ -247,73 +212,20 @@ impl Server {
             }
         })
     }
-
-    fn handle_request(&self, request: lsp_server::Request) -> Result<()> {
-        match request.method.as_ref() {
-            HoverRequest::METHOD => self.dispatch_request::<HoverRequest>(request, &Self::hover),
-            GotoDefinition::METHOD => {
-                self.dispatch_request::<GotoDefinition>(request, &Self::goto_definition)
-            }
-            CodeLensRequest::METHOD => {
-                self.dispatch_request::<CodeLensRequest>(request, &Self::code_lenses)
-            }
-            ExecuteCommand::METHOD => {
-                self.dispatch_request::<ExecuteCommand>(request, &Self::execute_command)
-            }
-            other => {
-                info!("Received unhandled request: {:?}", other);
-                Ok(())
-            }
-        }
-    }
-
-    fn handle_notification(&mut self, notification: lsp_server::Notification) -> Result<()> {
-        match notification.method.as_ref() {
-            DidOpenTextDocument::METHOD => {
-                self.dispatch_notification::<DidOpenTextDocument>(notification, &Self::did_open)
-            }
-            DidChangeTextDocument::METHOD => {
-                self.dispatch_notification::<DidChangeTextDocument>(notification, &Self::did_change)
-            }
-            DidSaveTextDocument::METHOD => {
-                self.dispatch_notification::<DidSaveTextDocument>(notification, &Self::did_save)
-            }
-            DidCloseTextDocument::METHOD => {
-                self.dispatch_notification::<DidCloseTextDocument>(notification, &Self::did_close)
-            }
-            other => {
-                info!("Received unhandled notification: {:?}", other);
-                Ok(())
-            }
-        }
-    }
-
-    #[allow(clippy::type_complexity)]
-    fn dispatch_request<R: Request>(
-        &self,
-        request: lsp_server::Request,
-        f: &dyn Fn(&Self, R::Params) -> Result<R::Result>,
-    ) -> Result<()> {
-        let (id, params) = request.extract(R::METHOD).unwrap();
-        let result = f(self, params)?;
-        let result = serde_json::to_value(result)?;
-        let response = Response::new_ok(id, result);
-        self.connection.sender.send(Message::from(response))?;
-        Ok(())
-    }
-
-    fn dispatch_notification<N: Notification>(
-        &mut self,
-        notification: lsp_server::Notification,
-        f: &dyn Fn(&mut Self, N::Params) -> Result<()>,
-    ) -> Result<()> {
-        let params = notification.extract(N::METHOD).unwrap();
-        f(self, params)
-    }
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
-struct RunFnParams {
-    uri: String,
-    fun: String,
+#[tokio::main]
+async fn main() {
+    flexi_logger::Logger::with(flexi_logger::LogSpecification::info()).start().unwrap();
+    info!("starting server");
+
+    let stdin = tokio::io::stdin();
+    let stdout = tokio::io::stdout();
+
+    let db = Mutex::new(build::CompilerDB::new());
+
+    let (service, socket) = LspService::new(|client| Backend { client, db });
+    Server::new(stdin, stdout, socket).serve(service).await;
+
+    info!("shutting down server");
 }

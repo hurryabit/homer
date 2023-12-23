@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use homer_compiler::*;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::time::Duration;
 
 const ADDRESS_VAR: &str = "HOMER_BENCH";
@@ -24,8 +24,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let db = &mut build::CompilerDB::new();
     let uri = build::Uri::new("bench.doh");
-    let input = Rc::new(std::fs::read_to_string(std::path::Path::new(path)).unwrap());
-    db.set_input(uri, Rc::clone(&input));
+    let input = Arc::new(std::fs::read_to_string(std::path::Path::new(path)).unwrap());
+    db.set_input(uri, Arc::clone(&input));
     let mut success = true;
     db.with_diagnostics(uri, |diagnostics| {
         for diagnostic in diagnostics {

@@ -2,10 +2,9 @@ use crate::{diagnostic, location, syntax};
 use diagnostic::*;
 use error::{Error, LError};
 use location::{Located, SourceSpan};
-use std::cell::Cell;
 use std::collections;
 use std::hash::Hash;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use syntax::*;
 use types::*;
 
@@ -16,17 +15,17 @@ mod types;
 type Arity = usize;
 
 pub use info::SymbolInfo;
-pub use types::{RcType, SynType, Type};
+pub use types::{ArcType, SynType, Type};
 
 #[derive(Clone)]
 struct Env {
-    builtin_types: Rc<collections::HashMap<TypeVar, Box<dyn Fn() -> syntax::Type>>>,
-    type_defs: Rc<collections::HashMap<TypeVar, TypeScheme>>,
-    func_sigs: Rc<collections::HashMap<ExprVar, Rc<FuncSig>>>,
+    builtin_types: Arc<collections::HashMap<TypeVar, Box<dyn Fn() -> syntax::Type>>>,
+    type_defs: Arc<collections::HashMap<TypeVar, TypeScheme>>,
+    func_sigs: Arc<collections::HashMap<ExprVar, Arc<FuncSig>>>,
     type_vars: im::HashSet<TypeVar>,
-    expr_vars: im::HashMap<ExprVar, (SourceSpan, RcType)>,
-    symbols: Rc<Cell<Vec<SymbolInfo>>>,
-    unification_var_counter: Rc<Cell<u32>>,
+    expr_vars: im::HashMap<ExprVar, (SourceSpan, ArcType)>,
+    symbols: Arc<Mutex<Vec<SymbolInfo>>>,
+    unification_var_counter: Arc<Mutex<u32>>,
 }
 
 impl Module {
@@ -59,20 +58,20 @@ impl Module {
             ));
         }
         let mut env = Env::new();
-        env.type_defs = Rc::new(self.type_defs());
+        env.type_defs = Arc::new(self.type_defs());
         for type_decl in self.type_decls_mut() {
             type_decl.check(&env)?;
         }
-        env.type_defs = Rc::new(self.type_defs());
+        env.type_defs = Arc::new(self.type_defs());
         let func_sigs = self
             .func_decls_mut()
-            .map(|decl| Ok((decl.name.locatee, Rc::new(decl.check_signature(&env)?))))
+            .map(|decl| Ok((decl.name.locatee, Arc::new(decl.check_signature(&env)?))))
             .collect::<Result<_, _>>()?;
-        env.func_sigs = Rc::new(func_sigs);
+        env.func_sigs = Arc::new(func_sigs);
         for decl in self.func_decls_mut() {
             decl.check(&env)?;
         }
-        let mut symbols = env.symbols.take();
+        let mut symbols: Vec<SymbolInfo> = std::mem::take(env.symbols.lock().unwrap().as_mut());
         symbols.sort_by_key(|symbol| symbol.span().start);
         Ok(symbols)
     }
@@ -84,7 +83,7 @@ impl Module {
                     name.locatee,
                     TypeScheme {
                         params: params.iter().map(|param| param.locatee).collect(),
-                        body: RcType::from_lsyntax(body),
+                        body: ArcType::from_lsyntax(body),
                     },
                 )
             })
@@ -117,9 +116,9 @@ impl FuncDecl {
             type_params: type_params.iter().map(|param| param.locatee).collect(),
             params: expr_params
                 .iter()
-                .map(|(var, typ)| (var.locatee, RcType::from_lsyntax(typ)))
+                .map(|(var, typ)| (var.locatee, ArcType::from_lsyntax(typ)))
                 .collect(),
-            result: RcType::from_lsyntax(return_type),
+            result: ArcType::from_lsyntax(return_type),
         })
     }
 
@@ -128,8 +127,8 @@ impl FuncDecl {
         let env = &mut env.clone();
         env.type_vars = type_params.iter().map(|param| param.locatee).collect();
         env.intro_params(
-            expr_params.iter().map(|(var, typ)| Ok((*var, RcType::from_lsyntax(typ)))),
-            |env| body.check(env, &RcType::from_lsyntax(return_type)),
+            expr_params.iter().map(|(var, typ)| Ok((*var, ArcType::from_lsyntax(typ)))),
+            |env| body.check(env, &ArcType::from_lsyntax(return_type)),
         )
     }
 }
@@ -218,24 +217,24 @@ impl syntax::Type {
     }
 }
 
-impl RcType {
+impl ArcType {
     fn weak_normalize_env(&self, env: &Env) -> Self {
         self.weak_normalize(&env.type_defs)
     }
 }
 
 impl LExpr {
-    fn check(&mut self, env: &Env, expected: &RcType) -> Result<(), LError> {
+    fn check(&mut self, env: &Env, expected: &ArcType) -> Result<(), LError> {
         self.locatee.check(self.span, env, expected)
     }
 
-    fn infer(&mut self, env: &Env) -> Result<RcType, LError> {
+    fn infer(&mut self, env: &Env) -> Result<ArcType, LError> {
         self.locatee.infer(self.span, env)
     }
 }
 
 impl Expr {
-    fn check(&mut self, span: SourceSpan, env: &Env, expected: &RcType) -> Result<(), LError> {
+    fn check(&mut self, span: SourceSpan, env: &Env, expected: &ArcType) -> Result<(), LError> {
         self.resolve(span, env)?;
         match self {
             Self::Lam(params, body) => {
@@ -251,7 +250,7 @@ impl Expr {
                                 let expected = x.1;
                                 if let Some(type_ann) = opt_type_ann {
                                     type_ann.check(env)?;
-                                    let found = RcType::from_lsyntax(type_ann);
+                                    let found = ArcType::from_lsyntax(type_ann);
                                     if !found.equiv(expected, &env.type_defs) {
                                         return Err(Located::new(
                                             Error::ParamTypeMismatch {
@@ -284,7 +283,7 @@ impl Expr {
                 env.intro_binder(binder, binder_typ, |env| tail.check(env, expected))
             }
             Self::If(cond, then, elze) => {
-                cond.check(env, &RcType::new(Type::Bool))?;
+                cond.check(env, &ArcType::new(Type::Bool))?;
                 then.check(env, expected)?;
                 elze.check(env, expected)?;
                 Ok(())
@@ -334,28 +333,28 @@ impl Expr {
         }
     }
 
-    fn infer(&mut self, span: SourceSpan, env: &Env) -> Result<RcType, LError> {
+    fn infer(&mut self, span: SourceSpan, env: &Env) -> Result<ArcType, LError> {
         self.resolve(span, env)?;
         self.infer_resolved(span, env)
     }
 
-    fn infer_resolved(&mut self, span: SourceSpan, env: &Env) -> Result<RcType, LError> {
+    fn infer_resolved(&mut self, span: SourceSpan, env: &Env) -> Result<ArcType, LError> {
         match self {
-            Self::Error => Ok(RcType::new(Type::Error)),
+            Self::Error => Ok(ArcType::new(Type::Error)),
             Self::Var(var) => {
                 let (def, typ) = env.expr_vars.get(&var.locatee).unwrap();
                 env.add_symbol(SymbolInfo::ExprVar { var: *var, typ: typ.clone(), def: *def });
                 Ok(typ.clone())
             }
-            Self::Num(_) => Ok(RcType::new(Type::Int)),
-            Self::Bool(_) => Ok(RcType::new(Type::Bool)),
+            Self::Num(_) => Ok(ArcType::new(Type::Int)),
+            Self::Bool(_) => Ok(ArcType::new(Type::Bool)),
             Self::Lam(params, body) => {
                 let mut param_types = Vec::with_capacity(params.len());
                 let result = env.intro_params(
                     params.iter_mut().map(|(var, opt_typ)| {
                         if let Some(typ) = opt_typ {
                             typ.check(env)?;
-                            let typ = RcType::from_lsyntax(typ);
+                            let typ = ArcType::from_lsyntax(typ);
                             param_types.push(typ.clone());
                             Ok((*var, typ))
                         } else {
@@ -364,7 +363,7 @@ impl Expr {
                     }),
                     |env| body.infer(env),
                 )?;
-                Ok(RcType::new(Type::Fun(param_types, result)))
+                Ok(ArcType::new(Type::Fun(param_types, result)))
             }
             Self::AppClo(clo, args) => {
                 let (def, clo_type) = env.expr_vars.get(&clo.locatee).unwrap();
@@ -391,7 +390,7 @@ impl Expr {
             }
             Self::BinOp(lhs, op, rhs) => match op {
                 OpCode::Add | OpCode::Sub | OpCode::Mul | OpCode::Div => {
-                    let int = RcType::new(Type::Int);
+                    let int = ArcType::new(Type::Int);
                     lhs.check(env, &int)?;
                     rhs.check(env, &int)?;
                     Ok(int)
@@ -404,7 +403,7 @@ impl Expr {
                 | OpCode::GreaterEq => {
                     let typ = lhs.infer(env)?;
                     rhs.check(env, &typ)?;
-                    Ok(RcType::new(Type::Bool))
+                    Ok(ArcType::new(Type::Bool))
                 }
             },
             Self::Let(binder, opt_type_ann, bindee, tail) => {
@@ -412,7 +411,7 @@ impl Expr {
                 env.intro_binder(binder, binder_typ, |env| tail.infer(env))
             }
             Self::If(cond, then, elze) => {
-                cond.check(env, &RcType::new(Type::Bool))?;
+                cond.check(env, &ArcType::new(Type::Bool))?;
                 let typ = then.infer(env)?;
                 elze.check(env, &typ)?;
                 Ok(typ)
@@ -422,7 +421,7 @@ impl Expr {
                     .iter_mut()
                     .map(|(name, expr)| Ok((name.locatee, expr.infer(env)?)))
                     .collect::<Result<_, _>>()?;
-                Ok(RcType::new(Type::Record(fields)))
+                Ok(ArcType::new(Type::Record(fields)))
             }
             Self::Proj(record, field, index) => {
                 let record_type = record.infer(env)?;
@@ -519,17 +518,17 @@ impl Env {
             Box::new(|| syntax::Type::Bool) as Box<dyn Fn() -> syntax::Type>,
         );
         Self {
-            builtin_types: Rc::new(builtin_types),
-            type_defs: Rc::new(collections::HashMap::new()),
-            func_sigs: Rc::new(collections::HashMap::new()),
+            builtin_types: Arc::new(builtin_types),
+            type_defs: Arc::new(collections::HashMap::new()),
+            func_sigs: Arc::new(collections::HashMap::new()),
             type_vars: im::HashSet::new(),
             expr_vars: im::HashMap::new(),
-            symbols: Rc::new(Cell::new(Vec::new())),
-            unification_var_counter: Rc::new(Cell::new(1)),
+            symbols: Arc::new(Mutex::new(Vec::new())),
+            unification_var_counter: Arc::new(Mutex::new(1)),
         }
     }
 
-    fn intro_binder<F, R>(&self, var: &LExprVar, typ: RcType, f: F) -> Result<R, LError>
+    fn intro_binder<F, R>(&self, var: &LExprVar, typ: ArcType, f: F) -> Result<R, LError>
     where
         F: FnOnce(&Self) -> Result<R, LError>,
     {
@@ -541,7 +540,7 @@ impl Env {
 
     fn intro_params<I, F, R>(&self, params: I, f: F) -> Result<R, LError>
     where
-        I: IntoIterator<Item = Result<(LExprVar, RcType), LError>>,
+        I: IntoIterator<Item = Result<(LExprVar, ArcType), LError>>,
         F: FnOnce(&Self) -> Result<R, LError>,
     {
         let mut seen = collections::HashMap::new();
@@ -562,7 +561,11 @@ impl Env {
         f(&env)
     }
 
-    fn intro_opt_binder<F, R>(&self, binder: Option<(&LExprVar, RcType)>, f: F) -> Result<R, LError>
+    fn intro_opt_binder<F, R>(
+        &self,
+        binder: Option<(&LExprVar, ArcType)>,
+        f: F,
+    ) -> Result<R, LError>
     where
         F: FnOnce(&Self) -> Result<R, LError>,
     {
@@ -573,15 +576,14 @@ impl Env {
     }
 
     fn add_symbol(&self, info: SymbolInfo) {
-        let mut symbols = self.symbols.take();
-        symbols.push(info);
-        self.symbols.set(symbols);
+        self.symbols.lock().unwrap().push(info);
     }
 
-    fn fresh_unification_type(&self) -> RcType {
-        let name = self.unification_var_counter.get();
-        self.unification_var_counter.set(name + 1);
-        RcType::new(Type::UnificationVar(UnificationCell::new_free(name)))
+    fn fresh_unification_type(&self) -> ArcType {
+        let mut lock = self.unification_var_counter.lock().unwrap();
+        let name = *lock;
+        *lock += 1;
+        ArcType::new(Type::UnificationVar(UnificationCell::new_free(name)))
     }
 }
 
@@ -601,8 +603,8 @@ impl LTypeVar {
 fn found_vs_expected(
     env: &Env,
     span: SourceSpan,
-    found: RcType,
-    expected: &RcType,
+    found: ArcType,
+    expected: &ArcType,
 ) -> Result<(), LError> {
     if found.equiv(expected, &env.type_defs) {
         Ok(())
@@ -616,10 +618,10 @@ fn check_let_bindee(
     binder: &LExprVar,
     opt_type_ann: &mut Option<syntax::LType>,
     bindee: &mut LExpr,
-) -> Result<RcType, LError> {
+) -> Result<ArcType, LError> {
     if let Some(type_ann) = opt_type_ann {
         type_ann.check(env)?;
-        let typ = RcType::from_lsyntax(type_ann);
+        let typ = ArcType::from_lsyntax(type_ann);
         bindee.check(env, &typ)?;
         Ok(typ)
     } else {
@@ -629,7 +631,7 @@ fn check_let_bindee(
     }
 }
 
-fn check_app_fun<R, F: FnOnce(RcType) -> Result<R, LError>>(
+fn check_app_fun<R, F: FnOnce(ArcType) -> Result<R, LError>>(
     env: &Env,
     span: SourceSpan,
     fun: &LExprVar,
@@ -648,12 +650,12 @@ fn check_app_fun<R, F: FnOnce(RcType) -> Result<R, LError>>(
     if matches!(opt_types, Some(types) if types.is_empty()) {
         assert!(!func_sig.params.is_empty());
     }
-    env.add_symbol(SymbolInfo::FuncRef { var: *fun, def: Rc::clone(func_sig) });
+    env.add_symbol(SymbolInfo::FuncRef { var: *fun, def: Arc::clone(func_sig) });
     let num_type_params = func_sig.type_params.len();
     let num_types = opt_types.as_ref().map_or(num_type_params, |types| types.len());
     if num_types == num_type_params {
         let types: Vec<_> = match opt_types {
-            Some(types) => types.iter().map(RcType::from_lsyntax).collect(),
+            Some(types) => types.iter().map(ArcType::from_lsyntax).collect(),
             None => {
                 let (types, syntax_types) = (0..num_types)
                     .map(|_| {
@@ -679,7 +681,7 @@ fn check_app_fun<R, F: FnOnce(RcType) -> Result<R, LError>>(
             Err(Located::new(
                 Error::BadApp {
                     func: Some(fun.locatee),
-                    func_type: RcType::new(Type::Fun(params, result)),
+                    func_type: ArcType::new(Type::Fun(params, result)),
                     num_args: args.len(),
                 },
                 span,
@@ -697,7 +699,7 @@ fn check_app_fun<R, F: FnOnce(RcType) -> Result<R, LError>>(
     }
 }
 
-type TypedBranch<'a> = (Option<(&'a LExprVar, RcType)>, &'a mut LExpr);
+type TypedBranch<'a> = (Option<(&'a LExprVar, ArcType)>, &'a mut LExpr);
 
 fn check_match_patterns<'a>(
     env: &Env,

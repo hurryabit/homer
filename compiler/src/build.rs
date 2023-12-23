@@ -2,7 +2,7 @@ use crate::{anf, checker, diagnostic, syntax};
 use checker::SymbolInfo;
 use diagnostic::Diagnostic;
 use std::fmt;
-use std::rc::Rc;
+use std::sync::Arc;
 use syntax::Module;
 
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
@@ -24,24 +24,24 @@ impl fmt::Debug for Uri {
     }
 }
 
-type CheckedModuleOutcome = (Option<Rc<Module>>, Rc<Vec<SymbolInfo>>, Rc<Vec<Diagnostic>>);
+type CheckedModuleOutcome = (Option<Arc<Module>>, Arc<Vec<SymbolInfo>>, Arc<Vec<Diagnostic>>);
 
 #[salsa::query_group(CompilerStorage)]
 trait Compiler: salsa::Database {
     #[salsa::input]
-    fn input(&self, uri: Uri) -> Rc<String>;
+    fn input(&self, uri: Uri) -> Arc<String>;
 
-    fn parsed_module(&self, uri: Uri) -> (Option<Rc<Module>>, Rc<Vec<Diagnostic>>);
+    fn parsed_module(&self, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>);
 
     fn checked_module(&self, uri: Uri) -> CheckedModuleOutcome;
 
-    fn anf_module(&self, uri: Uri) -> Option<Rc<anf::Module>>;
+    fn anf_module(&self, uri: Uri) -> Option<Arc<anf::Module>>;
 }
 
-fn parsed_module(db: &dyn Compiler, uri: Uri) -> (Option<Rc<Module>>, Rc<Vec<Diagnostic>>) {
+fn parsed_module(db: &dyn Compiler, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>) {
     let input = db.input(uri);
     let (opt_parsed_module, diagnostics) = Module::parse(&input);
-    (opt_parsed_module.map(Rc::new), Rc::new(diagnostics))
+    (opt_parsed_module.map(Arc::new), Arc::new(diagnostics))
 }
 
 fn checked_module(db: &dyn Compiler, uri: Uri) -> CheckedModuleOutcome {
@@ -52,11 +52,11 @@ fn checked_module(db: &dyn Compiler, uri: Uri) -> CheckedModuleOutcome {
             Ok((checked_module, symbols)) => (Some(checked_module), symbols, vec![]),
         },
     };
-    (opt_checked_module.map(Rc::new), Rc::new(symbols), Rc::new(diagnostics))
+    (opt_checked_module.map(Arc::new), Arc::new(symbols), Arc::new(diagnostics))
 }
 
-fn anf_module(db: &dyn Compiler, uri: Uri) -> Option<Rc<anf::Module>> {
-    db.checked_module(uri).0.map(|checked_module| Rc::new(checked_module.to_anf()))
+fn anf_module(db: &dyn Compiler, uri: Uri) -> Option<Arc<anf::Module>> {
+    db.checked_module(uri).0.map(|checked_module| Arc::new(checked_module.to_anf()))
 }
 
 #[salsa::database(CompilerStorage)]
@@ -74,19 +74,19 @@ impl CompilerDB {
         Self { storage: salsa::Storage::default() }
     }
 
-    pub fn set_input(&mut self, uri: Uri, input: Rc<String>) {
+    pub fn set_input(&mut self, uri: Uri, input: Arc<String>) {
         (self as &mut dyn Compiler).set_input(uri, input);
     }
 
-    pub fn checked_module(&self, uri: Uri) -> Option<Rc<Module>> {
+    pub fn checked_module(&self, uri: Uri) -> Option<Arc<Module>> {
         (self as &dyn Compiler).checked_module(uri).0
     }
 
-    pub fn symbols(&self, uri: Uri) -> Rc<Vec<SymbolInfo>> {
+    pub fn symbols(&self, uri: Uri) -> Arc<Vec<SymbolInfo>> {
         (self as &dyn Compiler).checked_module(uri).1
     }
 
-    pub fn anf_module(&self, uri: Uri) -> Option<Rc<anf::Module>> {
+    pub fn anf_module(&self, uri: Uri) -> Option<Arc<anf::Module>> {
         (self as &dyn Compiler).anf_module(uri)
     }
 

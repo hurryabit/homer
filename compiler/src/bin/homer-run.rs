@@ -1,5 +1,5 @@
 use homer_compiler::{build, cek, syntax};
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[allow(clippy::iter_nth_zero)]
 fn run() -> std::io::Result<bool> {
@@ -10,8 +10,8 @@ fn run() -> std::io::Result<bool> {
     };
     let db = &mut build::CompilerDB::new();
     let uri = build::Uri::new(&path);
-    let input = Rc::new(std::fs::read_to_string(path)?);
-    db.set_input(uri, Rc::clone(&input));
+    let input = Arc::new(std::fs::read_to_string(path)?);
+    db.set_input(uri, Arc::clone(&input));
 
     let mut success = true;
     db.with_diagnostics(uri, |diagnostics| {
