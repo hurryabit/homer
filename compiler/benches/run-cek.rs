@@ -1,5 +1,5 @@
 use build::Compiler;
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use homer_compiler::*;
 use std::sync::Arc;
 use std::time::Duration;

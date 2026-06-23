@@ -459,7 +459,7 @@ impl Expr {
                     Ok(())
                 } else {
                     let is_func = env.func_sigs.contains_key(var);
-                    Err(Located::new(Error::UnknownExprVar(*var, is_func), span))
+                    Err(Located::new(Error::UnknownExprVar { expr_var: *var, is_func }, span))
                 }
             }
             Self::AppClo(clo, args) => {
@@ -469,7 +469,10 @@ impl Expr {
                     *self = Self::AppFun(*clo, None, std::mem::take(args));
                     Ok(())
                 } else {
-                    Err(Located::new(Error::UnknownExprVar(clo.locatee, false), clo.span))
+                    Err(Located::new(
+                        Error::UnknownExprVar { expr_var: clo.locatee, is_func: false },
+                        clo.span,
+                    ))
                 }
             }
             Self::AppFun(fun, opt_types, _args) => {
@@ -485,7 +488,10 @@ impl Expr {
                         Ok(())
                     }
                 } else {
-                    Err(Located::new(Error::UnknownExprVar(fun.locatee, false), fun.span))
+                    Err(Located::new(
+                        Error::UnknownExprVar { expr_var: fun.locatee, is_func: false },
+                        fun.span,
+                    ))
                 }
             }
             Self::Error

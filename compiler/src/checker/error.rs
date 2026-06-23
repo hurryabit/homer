@@ -1,5 +1,5 @@
-use super::types::*;
 use super::Arity;
+use super::types::*;
 use crate::location::{Located, SourceSpan};
 use crate::syntax;
 use syntax::{ExprCon, ExprVar, TypeVar};
@@ -10,19 +10,19 @@ pub enum Error {
     #[error("Undeclared type variable `{0}`.")]
     UnknownTypeVar(TypeVar),
     #[error(
-        "Undeclared variable `{0}`.{}",
-        if *.1 {
+        "Undeclared variable `{expr_var}`.{}",
+        if *.is_func {
             format!(
                 " There is a function of the same name.\n\
                 If you want to use the function as a closure, you have to wrap it\n\
                 explicitly: `fn (...) {{ {}(...) }}`.",
-                .0
+                .expr_var
             )
         } else {
             String::new()
         }
     )]
-    UnknownExprVar(ExprVar, bool), // bool indicateds if there's a function of the same name.
+    UnknownExprVar { expr_var: ExprVar, is_func: bool },
     #[error("Expected a type but found the generic type `{0}`.")]
     UnexpectedGeneric(TypeVar, Arity),
     // TODO(MH): Make error message better for expected == 0.
@@ -46,7 +46,9 @@ pub enum Error {
         "Expected an expression of type `{expected}` but found an expression of type `{found}`."
     )]
     TypeMismatch { expected: RcType, found: RcType },
-    #[error("Expected parameter `{param}` to have type `{expected}` but found a type annotation `{found}`.")]
+    #[error(
+        "Expected parameter `{param}` to have type `{expected}` but found a type annotation `{found}`."
+    )]
     ParamTypeMismatch { param: ExprVar, expected: RcType, found: RcType },
     #[error("Cannot infer the type of parameter `{0}`. A type annoation is needed.")]
     ParamNeedsType(ExprVar),
