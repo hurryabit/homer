@@ -1,17 +1,19 @@
 use build::Compiler;
+use clap::Parser;
 use homer_compiler::{build, cek, syntax};
 use std::sync::Arc;
 
-#[allow(clippy::iter_nth_zero)]
-fn run() -> std::io::Result<bool> {
-    let path = if let Some(path) = std::env::args().nth(1) {
-        path
-    } else {
-        panic!("usage: {} <filename>", std::env::args().nth(0).unwrap())
-    };
+#[derive(Parser)]
+struct Args {
+    file: String,
+    #[arg(long)]
+    check_only: bool,
+}
+
+fn run(args: Args) -> std::io::Result<bool> {
     let db = &mut build::CompilerDB::new();
-    let uri = build::Uri::new(&path);
-    let input = Arc::new(std::fs::read_to_string(path)?);
+    let uri = build::Uri::new(&args.file);
+    let input = Arc::new(std::fs::read_to_string(&args.file)?);
     db.set_input(uri, Arc::clone(&input));
 
     let mut success = true;
@@ -22,16 +24,24 @@ fn run() -> std::io::Result<bool> {
         }
     });
 
-    if let Some(module) = db.anf_module(uri) {
-        let machine = cek::Machine::new(&module, syntax::ExprVar::new("main"));
-        let result = machine.run();
-        println!("Result: {}", result.value());
+    if !args.check_only
+        && let Some(module) = db.anf_module(uri)
+    {
+        let main = syntax::ExprVar::new("main");
+        if module.func_decls.iter().any(|decl| decl.name == main) {
+            let machine = cek::Machine::new(&module, main);
+            let result = machine.run();
+            println!("Result: {}", result.value());
+        } else {
+            println!("No function `main` to run.");
+        }
     }
     Ok(success)
 }
 
 fn main() {
-    match run() {
+    let args = Args::parse();
+    match run(args) {
         Ok(true) => {}
         Ok(false) => {
             eprintln!("\nThere were errors.");
