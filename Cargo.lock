@@ -620,7 +620,6 @@ dependencies = [
  "lalrpop",
  "lalrpop-util",
  "lasso",
- "lazy_static",
  "line-index",
  "log",
  "salsa",

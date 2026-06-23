@@ -16,7 +16,6 @@ lalrpop = { version = "0.23", features = ["lexer"] }
 genawaiter = "0.99.1"
 im = "15.0.0"
 lalrpop-util = { version = "0.23", features = ["lexer"] }
-lazy_static = "1.4.0"
 log = "0.4.14"
 lasso = { version = "0.7", features = ["multi-threaded"] }
 salsa = "0.16.1"

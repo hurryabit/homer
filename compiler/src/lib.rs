@@ -1,9 +1,9 @@
+use std::sync::LazyLock;
+
 #[macro_use]
 extern crate im;
 #[macro_use]
 extern crate lalrpop_util;
-#[macro_use]
-extern crate lazy_static;
 #[macro_use]
 extern crate static_assertions;
 
@@ -25,9 +25,7 @@ lalrpop_mod!(
     grammar
 );
 
-lazy_static! {
-    static ref INTERNER: lasso::ThreadedRodeo = lasso::ThreadedRodeo::new();
-}
+static INTERNER: LazyLock<lasso::ThreadedRodeo> = LazyLock::new(lasso::ThreadedRodeo::new);
 
 #[cfg(test)]
 mod tests {
