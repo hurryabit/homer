@@ -202,10 +202,8 @@ impl Backend {
         log::info!("publish_diagnostics {} {lsp_uri}", diagnostics.len());
         self.client.publish_diagnostics(lsp_uri, diagnostics, None).await;
 
-        if print_module {
-            if let Some(module) = db.checked_module(uri).0 {
-                log::debug!("{module:?}");
-            }
+        if print_module && let Some(module) = db.checked_module(uri).0 {
+            log::debug!("{module:?}");
         }
     }
 
@@ -220,11 +218,7 @@ impl Backend {
         let loc = location::SourceLocation::from_lsp(position_params.position);
         // FIXME(MH): We should do a binary search here.
         symbols.iter().find_map(|symbol| {
-            if symbol.span().contains(loc) {
-                Some(symbol.clone())
-            } else {
-                None
-            }
+            if symbol.span().contains(loc) { Some(symbol.clone()) } else { None }
         })
     }
 }

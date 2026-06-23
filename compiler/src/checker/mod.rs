@@ -630,7 +630,7 @@ fn check_app_fun<R, F: FnOnce(RcType) -> Result<R, LError>>(
     span: SourceSpan,
     fun: &LExprVar,
     opt_types: &mut Option<Vec<LType>>,
-    args: &mut Vec<LExpr>,
+    args: &mut [LExpr],
     check_or_pass: F,
 ) -> Result<R, LError> {
     if let Some(types) = opt_types {

@@ -34,8 +34,9 @@ pub struct FuncDecl {
     pub body: LExpr,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Default, Eq, PartialEq)]
 pub enum Type {
+    #[default]
     Error,
     Var(LTypeVar),
     SynApp(LTypeVar, Vec<LType>),
@@ -49,8 +50,9 @@ pub enum Type {
 
 pub type LType = Located<Type>;
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Default, Eq, PartialEq)]
 pub enum Expr {
+    #[default]
     Error,
     Var(LExprVar),
     Num(i64),
@@ -106,18 +108,6 @@ pub type LExprVar = Located<ExprVar>;
 
 ident_type!(ExprCon);
 pub type LExprCon = Located<ExprCon>;
-
-impl Default for Type {
-    fn default() -> Self {
-        Self::Error
-    }
-}
-
-impl Default for Expr {
-    fn default() -> Self {
-        Self::Error
-    }
-}
 
 derive_fmt_debug!(Module);
 derive_fmt_debug!(Decl);

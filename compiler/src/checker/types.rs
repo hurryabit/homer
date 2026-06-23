@@ -248,8 +248,8 @@ impl Type {
 
 impl<T> Type<T> {
     pub fn children(&self) -> impl Iterator<Item = &T> {
-        use genawaiter::{rc::gen, yield_};
-        gen!({
+        use genawaiter::{rc::r#gen, yield_};
+        r#gen!({
             match self {
                 Self::Error => {}
                 Self::Var(_) | Self::Int | Self::Bool => {}
