@@ -56,8 +56,7 @@ impl<T> Located<T> {
 
 impl fmt::Display for SourceLocation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // NOTE(MH): Internally, positions are zero-based. The user gets to see
-        // them one-based though.
+        // Internally, positions are 0-based but the user gets to see them 1-based.
         write!(f, "{}:{}", self.line + 1, self.column + 1)
     }
 }

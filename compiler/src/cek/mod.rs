@@ -11,7 +11,7 @@ struct Ctrl<'a> {
     stack_level: usize,
 }
 
-// NOTE(MH): We never push continuations with empty bindings.
+// We never push continuations with empty bindings.
 #[derive(Clone)]
 struct Kont<'a> {
     binder: ExprVar,

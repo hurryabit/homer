@@ -22,11 +22,9 @@ pub struct FuncDecl {
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Expr {
-    // NOTE(MH): This vector is never empty. The vector
-    // `[(x_1, e_1), ..., (x_n, e_n)]` represents the expression
-    // `let x_1 = e_1; ...; let x_{n-1} = e_{n-1}; e_n`. `x_n` is always
-    // "$result" and is only there to make the presentation uniform for
-    // for the sake of easier interpretation.
+    // This vector is never empty. `[(x_1, e_1), ..., (x_n, e_n)]` represents the expression
+    // `let x_1 = e_1; ...; let x_{n-1} = e_{n-1}; e_n`. `x_n` is always "$result" and is only there
+    // to make the presentation uniform for for the sake of easier interpretation.
     pub bindings: Vec<Binding>,
 }
 
@@ -49,9 +47,8 @@ pub enum Bindee {
     AppFunc(u32, ExprVar, Vec<Atom>),
     BinOp(Atom, OpCode, Atom),
     If(Atom, Box<Expr>, Box<Expr>),
-    // NOTE(MH): Both vectors always have the same length. We split it here
-    // because we want to be able to borrow the first half without borrowing the
-    // other half.
+    // Both vectors always have the same length. We don't use a vector of pairs  because we want to
+    // be able to borrow the first half without borrowing the other half.
     Record(Vec<ExprVar>, Vec<Atom>),
     Project(Atom, u32, ExprVar),
     Variant(u32, ExprCon, Option<Atom>),

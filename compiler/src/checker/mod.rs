@@ -64,6 +64,7 @@ impl Module {
         for type_decl in self.type_decls_mut() {
             type_decl.check(&env)?;
         }
+        // We reset `type_def` since the check above also updates the type with name information.
         env.type_defs = Rc::new(self.type_defs());
         let func_sigs = self
             .func_decls_mut()
@@ -249,16 +250,17 @@ impl Expr {
                                     type_ann.check(env)?;
                                     let found = RcType::from_lsyntax(type_ann);
                                     if !found.equiv(expected, &env.type_defs) {
-                                        return Err(Located::new(
+                                        Err(Located::new(
                                             Error::ParamTypeMismatch {
                                                 param: var.locatee,
                                                 found,
                                                 expected: expected.clone(),
                                             },
                                             type_ann.span,
-                                        ));
+                                        ))
+                                    } else {
+                                        Ok((*var, found))
                                     }
-                                    Ok((*var, found))
                                 } else {
                                     *opt_type_ann = Some(expected.as_inferred(var));
                                     Ok((*var, expected.clone()))
@@ -322,8 +324,10 @@ impl Expr {
             | Self::Bool(_)
             | Self::AppClo(_, _)
             | Self::BinOp(_, _, _)
+            // TODO(MH): Pushing the expected type into the fields gives better inference.
             | Self::Record(_)
             | Self::Proj(_, _, _) => {
+                // This is subsumption.
                 let found = self.infer_resolved(span, env)?;
                 found_vs_expected(env, span, found, expected)
             }
@@ -645,8 +649,7 @@ fn check_app_fun<R, F: FnOnce(RcType) -> Result<R, LError>>(
         }
     }
     let func_sig = env.func_sigs.get(&fun.locatee).unwrap();
-    // NOTE(MH): The name resolution only passes `f@<>(...)` on when `f` is a
-    // polymorphic function.
+    // Name resolution only passes `f@<>(...)` on when `f` is a polymorphic function.
     if matches!(opt_types, Some(types) if types.is_empty()) {
         assert!(!func_sig.params.is_empty());
     }
@@ -669,9 +672,8 @@ fn check_app_fun<R, F: FnOnce(RcType) -> Result<R, LError>>(
         };
         let (params, result) = func_sig.instantiate(&types);
         if args.len() == params.len() {
-            // NOTE(MH): In check mode, we get better inference if we first
-            // unify the expected type with the result type before we check the
-            // arguments.
+            // In check mode, we get better inference if we first unify the expected type with the
+            // result type before we check the arguments.
             let result = check_or_pass(result);
             for (arg, typ) in args.iter_mut().zip(params.iter()) {
                 arg.check(env, typ)?;

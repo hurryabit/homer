@@ -64,7 +64,7 @@ pub BlockExpr: Expr = {
     "{" <Statements> "}"
 }
 
-// NOTE(MH): We want to take the location inside the curlies.
+// We want to take the location inside the curlies.
 LBlockExpr: LExpr = {
     "{" <LStatements> "}"
 }
@@ -112,9 +112,8 @@ AtomExpr: Expr = {
     Num => Expr::Num(<>),
     Bool => Expr::Bool(<>),
     <LExprVar> "(" <List0<LExpr, ",">> ")" => Expr::AppClo(<>),
-    // NOTE(MH): Ideally, we would not have the "@" symbol before the angle
-    // brackets, but that would make the expression `f(g<a, b>(c))` ambiguous
-    // to parse. With `f(g@<a, b>(c))` there's no ambiguity.
+    // Ideally, we would not have the "@" symbol before the angle brackets, but that would make the
+    // expression `f(g<a, b>(c))` ambiguous to parse. With `f(g@<a, b>(c))` there's no ambiguity.
     <fun: LExprVar> "@" "<" <types: List0<LType, ",">> ">" "(" <args: List0<LExpr, ",">> ")" => Expr::AppFun(fun, Some(types), args),
     "{" <List0<RecordAssign, ",">> "}" => Expr::Record(<>),
     <record: Box<LAtomExpr>> "." <field: LExprVar> => Expr::Proj(record, field, None),
