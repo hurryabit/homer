@@ -15,6 +15,7 @@ pub mod cek;
 pub mod checker;
 pub mod diagnostic;
 pub mod location;
+mod lsp;
 pub mod parser;
 pub mod syntax;
 mod util;
@@ -24,6 +25,8 @@ lalrpop_mod!(
     #[allow(dead_code)]
     grammar
 );
+
+pub use lsp::LanguageServer;
 
 static INTERNER: LazyLock<lasso::ThreadedRodeo> = LazyLock::new(lasso::ThreadedRodeo::new);
 

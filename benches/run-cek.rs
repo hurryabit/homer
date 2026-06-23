@@ -1,8 +1,10 @@
-use build::Compiler;
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use homer_compiler::*;
 use std::sync::Arc;
 use std::time::Duration;
+
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+
+use homer::build::Compiler;
+use homer::{build, cek};
 
 const ADDRESS_VAR: &str = "HOMER_BENCH";
 
@@ -10,7 +12,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     use std::env::VarError;
     let address = match std::env::var(ADDRESS_VAR) {
         Ok(val) => val,
-        Err(VarError::NotPresent) => String::from("../examples/bench.doh:main"),
+        Err(VarError::NotPresent) => String::from("examples/bench.doh:main"),
         Err(VarError::NotUnicode(_)) => {
             panic!("Environment variable {} contains non-unicode characters.", ADDRESS_VAR)
         }
@@ -20,7 +22,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         panic!("scenario address needs to be of the form 'path/to/homer-file.doh:function_name'");
     }
     let path = address_parts[0];
-    let file = path.split('/').last().unwrap();
+    let file = path.split('/').next_back().unwrap();
     let main = address_parts[1];
 
     let db = &mut build::CompilerDB::new();
@@ -38,7 +40,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         panic!("Loading the benchmark function failed.");
     }
     let module = db.anf_module(uri).unwrap();
-    let machine = cek::Machine::new(&module, homer_compiler::syntax::ExprVar::new(main));
+    let machine = cek::Machine::new(&module, homer::syntax::ExprVar::new(main));
 
     c.bench_with_input(
         BenchmarkId::new("run-cek", format!("{}:{}", file, main)),

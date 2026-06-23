@@ -1,7 +1,4 @@
-# Compiler
-
-This directory contains the compiler for the _Homer_ language. Currently, it only provides a parser and a bidirectional type checker.
-
+# Background
 
 ## Typing rules
 

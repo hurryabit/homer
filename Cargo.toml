@@ -1,5 +1,44 @@
-[workspace]
-members = [
-    "compiler",
-]
-resolver = "2"
+[package]
+name = "homer"
+version = "0.1.0"
+authors = ["Martin Huschenbett <martin.huschenbett@posteo.me>"]
+edition = "2024"
+publish = false
+description = "The very boring programming language Homer."
+homepage = "https://github.com/hurryabit/homer#readme"
+repository = "https://github.com/hurryabit/homer.git"
+license = "Apache 2.0"
+
+[build-dependencies]
+lalrpop = { version = "0.23", features = ["lexer"] }
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+genawaiter = "0.99.1"
+im = "15.0.0"
+lalrpop-util = { version = "0.23", features = ["lexer"] }
+log = "0.4.14"
+lasso = { version = "0.7", features = ["multi-threaded"] }
+salsa = "0.16.1"
+serde = "1.0"
+serde_json = "1.0"
+static_assertions = "1.1.0"
+join-lazy-fmt = "0.9"
+thiserror = "2.0"
+tower-lsp = "0.20"
+tokio = { version = "1.35", features = ["full"] }
+simple_logger = { version = "5.2", features = ["stderr"] }
+time = "0.3"
+line-index = "0.1"
+anyhow = "1.0.102"
+
+[dev-dependencies]
+criterion = "0.5"
+insta = "1.8.0"
+
+[[bench]]
+name = "run-cek"
+harness = false
+
+[features]
+cek-no-inlining = []

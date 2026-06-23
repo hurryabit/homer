@@ -23,7 +23,7 @@ fn cek_value(main: &str, input: &str) -> String {
 
 #[test]
 fn bench() {
-    let input = std::fs::read_to_string(std::path::Path::new("../examples/bench.doh")).unwrap();
+    let input = std::fs::read_to_string(std::path::Path::new("examples/bench.doh")).unwrap();
     with_cek_result("main", &input, |result| {
         assert_eq!(format!("{}", result.value()), "500500");
         assert_eq!(result.stack_capacity(), 8192);

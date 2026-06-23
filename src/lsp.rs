@@ -3,17 +3,54 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
-use tower_lsp::{Client, LanguageServer, LspService, Server};
 
-use homer_compiler::{build, cek, checker, location, syntax};
+use crate::{build, cek, checker, diagnostic, location, syntax};
 
 use build::Compiler;
 use checker::SymbolInfo;
 
 // #[derive(Debug)]
-struct Backend {
-    client: Client,
+pub struct LanguageServer {
+    client: tower_lsp::Client,
     db: Mutex<build::CompilerDB>,
+}
+
+impl LanguageServer {
+    pub fn new(client: tower_lsp::Client) -> Self {
+        let db = Mutex::new(build::CompilerDB::new());
+        Self { client, db }
+    }
+
+    async fn validate_document(&self, lsp_uri: Url, input: String, print_module: bool) {
+        let mut db = self.db.lock().await;
+        let uri = build::Uri::new(lsp_uri.as_str());
+        db.set_input(uri, Arc::new(input));
+
+        let diagnostics: Vec<_> = db.with_diagnostics(uri, |diagnostics| {
+            diagnostics.map(diagnostic::Diagnostic::to_lsp).collect()
+        });
+        log::info!("publish_diagnostics {} {lsp_uri}", diagnostics.len());
+        self.client.publish_diagnostics(lsp_uri, diagnostics, None).await;
+
+        if print_module && let Some(module) = db.checked_module(uri).0 {
+            log::debug!("{module:?}");
+        }
+    }
+
+    async fn find_symbol(
+        &self,
+        position_params: &TextDocumentPositionParams,
+    ) -> Option<SymbolInfo> {
+        let db = self.db.lock().await;
+        let uri = build::Uri::new(position_params.text_document.uri.as_str());
+        let symbols = db.checked_module(uri).1;
+
+        let loc = location::SourceLocation::from_lsp(position_params.position);
+        // FIXME(MH): We should do a binary search here.
+        symbols.iter().find_map(|symbol| {
+            if symbol.span().contains(loc) { Some(symbol.clone()) } else { None }
+        })
+    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -23,7 +60,7 @@ struct RunFnParams {
 }
 
 #[tower_lsp::async_trait]
-impl LanguageServer for Backend {
+impl tower_lsp::LanguageServer for LanguageServer {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
         let text_document_sync =
             Some(TextDocumentSyncCapability::Options(TextDocumentSyncOptions {
@@ -188,59 +225,4 @@ impl LanguageServer for Backend {
         };
         Ok(None)
     }
-}
-
-impl Backend {
-    async fn validate_document(&self, lsp_uri: Url, input: String, print_module: bool) {
-        let mut db = self.db.lock().await;
-        let uri = build::Uri::new(lsp_uri.as_str());
-        db.set_input(uri, Arc::new(input));
-
-        let diagnostics: Vec<_> = db.with_diagnostics(uri, |diagnostics| {
-            diagnostics.map(homer_compiler::diagnostic::Diagnostic::to_lsp).collect()
-        });
-        log::info!("publish_diagnostics {} {lsp_uri}", diagnostics.len());
-        self.client.publish_diagnostics(lsp_uri, diagnostics, None).await;
-
-        if print_module && let Some(module) = db.checked_module(uri).0 {
-            log::debug!("{module:?}");
-        }
-    }
-
-    async fn find_symbol(
-        &self,
-        position_params: &TextDocumentPositionParams,
-    ) -> Option<SymbolInfo> {
-        let db = self.db.lock().await;
-        let uri = build::Uri::new(position_params.text_document.uri.as_str());
-        let symbols = db.checked_module(uri).1;
-
-        let loc = location::SourceLocation::from_lsp(position_params.position);
-        // FIXME(MH): We should do a binary search here.
-        symbols.iter().find_map(|symbol| {
-            if symbol.span().contains(loc) { Some(symbol.clone()) } else { None }
-        })
-    }
-}
-
-#[tokio::main]
-async fn main() {
-    simple_logger::SimpleLogger::new()
-        .env()
-        .with_level(log::LevelFilter::Info)
-        .with_module_level("salsa", log::LevelFilter::Warn)
-        .with_timestamp_format(time::macros::format_description!("[hour]:[minute]:[second]"))
-        .init()
-        .unwrap();
-    log::info!("starting server");
-
-    let stdin = tokio::io::stdin();
-    let stdout = tokio::io::stdout();
-
-    let db = Mutex::new(build::CompilerDB::new());
-
-    let (service, socket) = LspService::new(|client| Backend { client, db });
-    Server::new(stdin, stdout, socket).serve(service).await;
-
-    log::info!("server shut down");
 }
