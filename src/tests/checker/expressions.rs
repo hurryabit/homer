@@ -476,34 +476,28 @@ fn rule_mono_app_fun_infer_ok() {
 }
 
 #[test]
-#[ignore = "unification based type inference can handle this now"]
 fn rule_mono_app_fun_check_on_poly_fun() {
-    insta::assert_snapshot!(check_error(r#"
-    fn poly_fun<A>(x: A) -> A { x }
-    fn f() -> Int {
-        poly_fun(1)
-    }
-    "#), @r###"
-      4 |         poly_fun(1)
-                  ~~~~~~~~
-    `poly_fun` is a generic function that expects 1 type argument but is applied to 0 type arguments.
-    "###);
+    check_success(
+        r#"
+        fn poly_fun<A>(x: A) -> A { x }
+        fn f() -> Int {
+            poly_fun(1)
+        }
+        "#,
+    );
 }
 
 #[test]
-#[ignore = "unification based type inference can handle this now"]
 fn rule_mono_app_fun_infer_on_poly_fun() {
-    insta::assert_snapshot!(check_error(r#"
-    fn poly_fun<A>(x: A) -> A { x }
-    fn f() -> Int {
-        let x = poly_fun(1);
-        x
-    }
-    "#), @r###"
-      4 |         let x = poly_fun(1);
-                          ~~~~~~~~
-    `poly_fun` is a generic function that expects 1 type argument but is applied to 0 type arguments.
-    "###);
+    check_success(
+        r#"
+        fn poly_fun<A>(x: A) -> A { x }
+        fn f() -> Int {
+            let x = poly_fun(1);
+            x
+        }
+        "#,
+    );
 }
 
 #[test]

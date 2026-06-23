@@ -32,6 +32,9 @@ The typing rules and the implementation of the type checker are bidirectional, a
   fn f<A1, ..., Am>(x1: s1, ..., xn: sn) -> t { e }
 ```
 
+**TODO**: Add requirement that (recursive) types must be contractive and not polymorphically recursive.
+
+
 
 ### Well-formed types: `E |- t`
 
@@ -71,7 +74,7 @@ The typing rules and the implementation of the type checker are bidirectional, a
 
 
   n >= 0
-  a1, ..., an mutually distinct (TODO)
+  a1, ..., an mutually distinct
   E |- t1
   ...
   E |- tn
@@ -80,7 +83,7 @@ The typing rules and the implementation of the type checker are bidirectional, a
 
 
   n >= 1 (TODO)
-  c1, ..., cn mutually distinct (TODO)
+  c1, ..., cn mutually distinct
   p1 = c1  \/  p1 = c1(t1)  /\  E |- t1
   ...
   pn = cn  \/  pn = cn(tn)  /\  E |- tn

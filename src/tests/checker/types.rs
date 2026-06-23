@@ -267,28 +267,27 @@ fn rule_type_record_illformed_2() {
   "###);
 }
 
-// TODO(MH): The checks for the two tests below are not yet implemented.
-// #[test]
-// fn rule_type_record_repeat_1_2() {
-//   insta::assert_snapshot!(check_error(r#"
-//   type T = {x: Int, x: Int}
-//   "#), @r###"
-//     2 |     type T = (Int) -> F
-//                               ~
-//   Expected a type but found the generic type `F`.
-//   "###);
-// }
+#[test]
+fn rule_type_record_repeat_1_2() {
+    insta::assert_snapshot!(check_error(r#"
+    type T = {x: Int, x: Int}
+    "#), @r###"
+      2 |     type T = {x: Int, x: Int}
+                                ~
+    Duplicate record field `x`.
+    "###);
+}
 
-// #[test]
-// fn rule_type_record_repeat_1_3() {
-//   insta::assert_snapshot!(check_error(r#"
-//   type T = {x: Int, x: Int}
-//   "#), @r###"
-//     2 |     type T = (Int) -> F
-//                               ~
-//   Expected a type but found the generic type `F`.
-//   "###);
-// }
+#[test]
+fn rule_type_record_repeat_2_4() {
+    insta::assert_snapshot!(check_error(r#"
+    type T = {x: Int, y: Int, z: Int, y: Int}
+    "#), @r###"
+      2 |     type T = {x: Int, y: Int, z: Int, y: Int}
+                                                ~
+    Duplicate record field `y`.
+    "###);
+}
 
 #[test]
 fn rule_variant_with() {
@@ -343,18 +342,6 @@ fn rule_variant_without_without() {
         "#,
     );
 }
-
-// TODO(MH): The check is not yet implemented.
-// #[test]
-// fn rule_type_variant_empty() {
-//   insta::assert_snapshot!(check_error(r#"
-//   type T = []
-//   "#), @r###"
-//     2 |   type T = {x: Int, f: F}
-//                                ~
-//   Expected a type but found the generic type `F`.
-//   "###);
-// }
 
 #[test]
 fn rule_type_variant_illformed_with_1() {
@@ -413,5 +400,27 @@ fn rule_type_variant_illformed_with_with_2() {
       3 |     type T = [A(Bool) | B(F)]
                                     ~
     Expected a type but found the generic type `F`.
+    "###);
+}
+
+#[test]
+fn rule_type_variant_repeat_1_2() {
+    insta::assert_snapshot!(check_error(r#"
+    type T = [A | A]
+    "#), @r###"
+      2 |     type T = [A | A]
+                            ~
+    Duplicate variant constructor `A`.
+    "###);
+}
+
+#[test]
+fn rule_type_variant_repeat_2_4() {
+    insta::assert_snapshot!(check_error(r#"
+    type T = [A(Int) | B(Int) | C(Int) | B(Int)]
+    "#), @r###"
+      2 |     type T = [A(Int) | B(Int) | C(Int) | B(Int)]
+                                                   ~
+    Duplicate variant constructor `B`.
     "###);
 }

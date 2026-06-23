@@ -56,6 +56,10 @@ pub enum Error {
     DuplicateTypeVar { var: TypeVar, original: SourceSpan },
     #[error("Duplicate definition of type `{var}`.")]
     DuplicateTypeDecl { var: TypeVar, original: SourceSpan },
+    #[error("Duplicate record field `{field}`.")]
+    DuplicateRecordField { field: ExprVar, original: SourceSpan },
+    #[error("Duplicate variant constructor `{constr}`.")]
+    DuplicateVariantConstr { constr: ExprCon, original: SourceSpan },
     #[error("Duplicate parameter `{var}`.")]
     DuplicateParam { var: ExprVar, original: SourceSpan },
     #[error("Duplicate definition of function `{var}`.")]

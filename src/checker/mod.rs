@@ -45,20 +45,12 @@ impl Module {
     }
 
     fn check_impl(&mut self) -> Result<Vec<SymbolInfo>, LError> {
-        if let Some((span, name)) = find_duplicate(self.type_decls().map(|decl| decl.name.as_ref()))
-        {
-            return Err(Located::new(
-                Error::DuplicateTypeDecl { var: *name.locatee, original: span },
-                name.span,
-            ));
-        }
-        if let Some((span, name)) = find_duplicate(self.func_decls().map(|decl| decl.name.as_ref()))
-        {
-            return Err(Located::new(
-                Error::DuplicateFuncDecl { var: *name.locatee, original: span },
-                name.span,
-            ));
-        }
+        check_unique(self.type_decls().map(|decl| decl.name.as_ref()), |var, original| {
+            Error::DuplicateTypeDecl { var, original }
+        })?;
+        check_unique(self.func_decls().map(|decl| decl.name.as_ref()), |var, original| {
+            Error::DuplicateFuncDecl { var, original }
+        })?;
         let mut env = Env::new();
         env.type_defs = Rc::new(self.type_defs());
         for type_decl in self.type_decls_mut() {
@@ -97,7 +89,9 @@ impl Module {
 impl TypeDecl {
     fn check(&mut self, env: &Env) -> Result<(), LError> {
         let Self { name: _, params, body } = self;
-        LTypeVar::check_unique(params.iter())?;
+        check_unique(params.iter().map(Located::as_ref), |var, original| {
+            Error::DuplicateTypeVar { var, original }
+        })?;
         let env = &mut env.clone();
         env.type_vars = params.iter().map(|param| param.locatee).collect();
         body.check(env)
@@ -107,7 +101,9 @@ impl TypeDecl {
 impl FuncDecl {
     fn check_signature(&mut self, env: &Env) -> Result<FuncSig, LError> {
         let Self { name, type_params, expr_params, return_type, body: _ } = self;
-        LTypeVar::check_unique(type_params.iter())?;
+        check_unique(type_params.iter().map(Located::as_ref), |var, original| {
+            Error::DuplicateTypeVar { var, original }
+        })?;
         let env = &mut env.clone();
         env.type_vars = type_params.iter().map(|param| param.locatee).collect();
         for (_, typ) in expr_params.iter_mut() {
@@ -209,7 +205,26 @@ impl syntax::Type {
                     Err(Located::new(Error::UnknownTypeVar(var.locatee), span))
                 }
             }
-            Self::Fun(_, _) | Self::Record(_) | Self::Variant(_) => {
+            Self::Fun(_, _) => {
+                for child in self.children_mut() {
+                    child.check(env)?;
+                }
+                Ok(())
+            }
+            Self::Record(fields) => {
+                check_unique(fields.iter().map(|(field, _)| field.as_ref()), |field, original| {
+                    Error::DuplicateRecordField { field, original }
+                })?;
+                for child in self.children_mut() {
+                    child.check(env)?;
+                }
+                Ok(())
+            }
+            Self::Variant(constrs) => {
+                check_unique(
+                    constrs.iter().map(|(constr, _)| constr.as_ref()),
+                    |constr, original| Error::DuplicateVariantConstr { constr, original },
+                )?;
                 for child in self.children_mut() {
                     child.check(env)?;
                 }
@@ -591,19 +606,6 @@ impl Env {
     }
 }
 
-impl LTypeVar {
-    fn check_unique<'a, I: Iterator<Item = &'a LTypeVar>>(iter: I) -> Result<(), LError> {
-        if let Some((span, lvar)) = find_duplicate(iter.map(Located::as_ref)) {
-            Err(Located::new(
-                Error::DuplicateTypeVar { var: *lvar.locatee, original: span },
-                lvar.span,
-            ))
-        } else {
-            Ok(())
-        }
-    }
-}
-
 fn found_vs_expected(
     env: &Env,
     span: SourceSpan,
@@ -768,16 +770,17 @@ fn check_match_patterns<'a>(
     }
 }
 
-fn find_duplicate<T: Eq + Hash, I: Iterator<Item = Located<T>>>(
-    iter: I,
-) -> Option<(SourceSpan, Located<T>)> {
+fn check_unique<'a, T: Copy + Eq + Hash + 'a>(
+    iter: impl Iterator<Item = Located<&'a T>>,
+    duplicate_err: impl Fn(T, SourceSpan) -> Error,
+) -> Result<(), LError> {
     let mut seen = std::collections::HashMap::new();
     for lvar in iter {
-        if let Some(span) = seen.get(&lvar.locatee) {
-            return Some((*span, lvar));
+        if let Some(first_span) = seen.get(&lvar.locatee) {
+            return Err(Located::new(duplicate_err(*lvar.locatee, *first_span), lvar.span));
         } else {
             seen.insert(lvar.locatee, lvar.span);
         }
     }
-    None
+    Ok(())
 }
