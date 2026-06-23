@@ -191,7 +191,7 @@ fn func_type_zero_params_one_comma() {
       1 | (,) -> Int
            ~
     Unrecognized token `,` found at 1:2:1:3
-    Expected one of "(", ")", "[", "{" or ID_UPPER
+    Expected one of ID_UPPER, "(", ")", "[" or "{"
     "###);
 }
 
@@ -205,7 +205,7 @@ fn type_app_zero_args() {
       1 | A<>
             ~
     Unrecognized token `>` found at 1:3:1:4
-    Expected one of "(", "[", "{" or ID_UPPER
+    Expected one of ID_UPPER, "(", "[" or "{"
     "###);
 }
 
@@ -217,7 +217,7 @@ fn record_zero_field_one_comma() {
       1 | {,}
            ~
     Unrecognized token `,` found at 1:2:1:3
-    Expected one of "}" or ID_LOWER
+    Expected one of ID_LOWER or "}"
     "###);
 }
 

@@ -72,12 +72,12 @@ fn recoverable_parse_error_types_good() {
       2 |     fn f(x: Int) -> Int { + }
                                     ~
     Unrecognized token `+` found at 2:27:2:28
-    Expected one of "(", "false", "fn", "if", "let", "match", "true", "{", ID_LOWER, ID_UPPER or NUMBER
+    Expected one of NUMBER, ID_UPPER, ID_LOWER, "(", "false", "fn", "if", "let", "match", "true" or "{"
     --------------------------------------------------
       2 |     fn f(x: Int) -> Int { + }
                                       ~
     Unrecognized token `}` found at 2:29:2:30
-    Expected one of "(", "false", "true", "{", ID_LOWER, ID_UPPER or NUMBER
+    Expected one of NUMBER, ID_UPPER, ID_LOWER, "(", "false", "true" or "{"
     "###);
 }
 
@@ -91,7 +91,7 @@ fn recoverable_parse_error_types_bad() {
       2 |     fn f(x: Int) -> Int { true + }
                                            ~
     Unrecognized token `}` found at 2:34:2:35
-    Expected one of "(", "false", "true", "{", ID_LOWER, ID_UPPER or NUMBER
+    Expected one of NUMBER, ID_UPPER, ID_LOWER, "(", "false", "true" or "{"
     --------------------------------------------------
       2 |     fn f(x: Int) -> Int { true + }
                                     ~~~~

@@ -10,12 +10,12 @@ repository = "https://github.com/hurryabit/homer.git"
 license = "Apache 2.0"
 
 [build-dependencies]
-lalrpop = { version = "0.20", features = ["lexer"] }
+lalrpop = { version = "0.23", features = ["lexer"] }
 
 [dependencies]
 genawaiter = "0.99.1"
 im = "15.0.0"
-lalrpop-util = { version = "0.20", features = ["lexer"] }
+lalrpop-util = { version = "0.23", features = ["lexer"] }
 lazy_static = "1.4.0"
 log = "0.4.14"
 lasso = { version = "0.7", features = ["multi-threaded"] }

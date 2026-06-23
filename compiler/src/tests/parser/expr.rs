@@ -642,7 +642,7 @@ fn match1_block_comma() {
       1 | match x { A => { 1 }, }
                               ~
     Unrecognized token `,` found at 1:21:1:22
-    Expected one of "}" or ID_UPPER
+    Expected one of ID_UPPER or "}"
     "###);
 }
 
