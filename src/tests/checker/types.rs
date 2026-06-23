@@ -424,3 +424,94 @@ fn rule_type_variant_repeat_2_4() {
     Duplicate variant constructor `B`.
     "###);
 }
+
+#[test]
+fn self_reference_not_contractive() {
+    insta::assert_snapshot!(check_error(r#"
+    type T = T
+    "#), @r#"
+      2 |     type T = T
+                   ~
+    Declaration of type `T` is not contractive.
+    "#);
+}
+
+#[test]
+fn two_cycle_not_contractive() {
+    insta::assert_snapshot!(check_error(r#"
+    type S = T
+    type T = S
+    "#), @r#"
+      2 |     type S = T
+                   ~
+    Declaration of type `S` is not contractive.
+    "#);
+}
+
+#[test]
+fn three_cycle_not_contractive() {
+    insta::assert_snapshot!(check_error(r#"
+    type S = T
+    type T = U
+    type U = S
+    "#), @r#"
+      2 |     type S = T
+                   ~
+    Declaration of type `S` is not contractive.
+    "#);
+}
+
+#[test]
+fn lolly_not_contractive() {
+    // We deliberately report `T` instead of `S` since fixing `T` would fix `S` as well.
+    insta::assert_snapshot!(check_error(r#"
+    type S = T
+    type T = U
+    type U = T
+    "#), @r#"
+      3 |     type T = U
+                   ~
+    Declaration of type `T` is not contractive.
+    "#);
+}
+
+#[test]
+fn generic_self_reference_not_contractive() {
+    insta::assert_snapshot!(check_error(r#"
+    type F<T> = F<T>
+    "#), @r#"
+      2 |     type F<T> = F<T>
+                   ~
+    Declaration of type `F` is not contractive.
+    "#);
+}
+
+#[test]
+fn generic_cycle_not_contractive() {
+    insta::assert_snapshot!(check_error(r#"
+    type F<S> = G<S, S>
+    type G<T, U> = F<{x: T, y: U}>
+    "#), @r#"
+      2 |     type F<S> = G<S, S>
+                   ~
+    Declaration of type `F` is not contractive.
+    "#);
+}
+
+#[test]
+fn list_contractive() {
+    check_success(
+        r#"
+        type List = [Nil | Cons({hd: Int, tl: List})]
+        "#,
+    );
+}
+
+#[test]
+fn stream_contractive() {
+    check_success(
+        r#"
+        type Stream<T> = () -> {value: T, next: Stream<T>}
+        "#,
+    );
+}

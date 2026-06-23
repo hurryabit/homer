@@ -61,16 +61,6 @@ fn rule_check_infer_both_same_syn() {
 }
 
 #[test]
-fn rule_check_infer_both_same_diverging_syn() {
-    check_success(
-        r#"
-        type A = A
-        fn f(x: A) -> A { x }
-        "#,
-    );
-}
-
-#[test]
 fn rule_check_infer_different_syns() {
     check_success(
         r#"

@@ -95,6 +95,8 @@ pub enum Error {
     NonExhaustiveMatch(RcType, ExprCon),
     #[error("Constructor `{1}` is covered repeatedly in pattern match.")]
     OverlappingMatch(RcType, ExprCon),
+    #[error("Declaration of type `{0}` is not contractive.")]
+    NonContractiveTypeDecl(TypeVar),
     #[error("Cannot infer the type of the expression. Further type annotations are required.")]
     TypeAnnsNeeded,
 }

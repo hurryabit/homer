@@ -58,6 +58,9 @@ impl Module {
         }
         // We reset `type_def` since the check above also updates the type with name information.
         env.type_defs = Rc::new(self.type_defs());
+        for type_decl in self.type_decls() {
+            type_decl.check_contractive(&env)?;
+        }
         let func_sigs = self
             .func_decls_mut()
             .map(|decl| Ok((decl.name.locatee, Arc::new(decl.check_signature(&env)?))))
@@ -95,6 +98,31 @@ impl TypeDecl {
         let env = &mut env.clone();
         env.type_vars = params.iter().map(|param| param.locatee).collect();
         body.check(env)
+    }
+
+    fn check_contractive(&self, env: &Env) -> Result<(), LError> {
+        let mut seen = collections::HashSet::new();
+        let mut current = self.name.locatee;
+        while let Type::SynApp(name, _) = env
+            .type_defs
+            .get(&current)
+            .expect("Unresolvable type reference after successful name resolution.")
+            .body
+            .as_ref()
+        {
+            if *name == self.name.locatee {
+                return Err(Located::new(
+                    Error::NonContractiveTypeDecl(self.name.locatee),
+                    self.name.span,
+                ));
+            }
+            if !seen.insert(*name) {
+                // Type declaration is not contractive but not the root of the problem.
+                break;
+            }
+            current = *name;
+        }
+        Ok(())
     }
 }
 
