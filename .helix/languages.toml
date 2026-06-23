@@ -1,0 +1,11 @@
+[language-server.homer-server]
+command = "homer"
+args = ["server"]
+
+[[language]]
+name = "homer"
+scope = "source.homer"
+file-types = ["doh"]
+language-servers = ["homer-server"]
+comment-token = "//"
+indent = { tab-width = 4, unit = "    " }
