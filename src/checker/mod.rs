@@ -61,6 +61,11 @@ impl Module {
         for type_decl in self.type_decls() {
             type_decl.check_contractive(&env)?;
         }
+        // We use `weak_normalize` in `check_polymorphic_recursion`, so we first need to check that
+        // _all_ type declarations are contractive.
+        for type_decl in self.type_decls() {
+            type_decl.check_polymorphic_recursion(&env)?;
+        }
         let func_sigs = self
             .func_decls_mut()
             .map(|decl| Ok((decl.name.locatee, Arc::new(decl.check_signature(&env)?))))
@@ -106,7 +111,7 @@ impl TypeDecl {
         while let Type::SynApp(name, _) = env
             .type_defs
             .get(&current)
-            .expect("Unresolvable type reference after successful name resolution.")
+            .expect("Unresolvable type declaration after successful name resolution.")
             .body
             .as_ref()
         {
@@ -123,6 +128,84 @@ impl TypeDecl {
             current = *name;
         }
         Ok(())
+    }
+
+    /// Check whether the type declaration is _not_ polymorphically recursive assuming that all
+    /// other type declarations are not. We use this as a conservative approximation of regularity.
+    /// (A type is regular if its tree representation has only finitely many different subtrees.)
+    ///
+    /// A type declaration `F<X1, ..., Xn>` is polymorphically recursive if its expansion contains
+    /// an instantiation `F<T1, ..., Tn>` where `Ti != Xi` for some `i`. For example
+    ///
+    /// ```homer
+    /// type F<X> = [A | B(F<List<X>>)]
+    /// type G<Y, Z> = [C | D(G<Z, Y>)]
+    /// ```
+    ///
+    /// are polymorphically recursive whereas
+    ///
+    /// ```homer
+    /// type F<X, Y> = [A | B(G<Y, X>)]
+    /// type G<U, V> = [C | D(F<V, U>)]
+    /// ```
+    ///
+    /// are not.
+    ///
+    /// There are more permissive conservative approximations but "polymorphic recursion" is a well
+    /// established term for functions, so we use that for now.
+    fn check_polymorphic_recursion(&self, env: &Env) -> Result<(), LError> {
+        // Check if the type tree for `typ` has polymorphic instantiation of the type named `root`.
+        // `seen` keeps track of the names of the type declarations expanded along the way.
+        fn has_poly_inst(
+            root: TypeVar,
+            env: &Env,
+            typ: &RcType,
+            seen: &mut collections::HashSet<TypeVar>,
+        ) -> bool {
+            if let Type::SynApp(name, args) = &**typ {
+                let scheme = &env
+                    .type_defs
+                    .get(name)
+                    .expect("Unresolvable type declaration after successful name resolution.");
+                if *name == root {
+                    assert_eq!(scheme.params.len(), args.len());
+                    scheme.params.iter().zip(args.iter()).any(|(param, arg)| {
+                        // We normalize to support cases where `arg` the is an alias expanding to a
+                        // type var.
+                        !matches!(&*arg.weak_normalize_env(env), Type::Var(var) if var == param)
+                    })
+                } else if seen.insert(*name) {
+                    let res = has_poly_inst(root, env, &scheme.instantiate(args), seen);
+                    // It is important that we remove `name` again since sibling instantiations
+                    // of the type alias `name` can have different arguments and lead to different
+                    // instantiations of `root`.
+                    seen.remove(name);
+                    res
+                } else {
+                    // We've expanded the type alias `name` on the path from the root of the
+                    // type tree to the current subtree. Since `name` is assumed to not be
+                    // polymorphically recursive, we won't find a polymorphic instantiation of
+                    // `root` we don't find under the previous expansion too.
+                    false
+                }
+            } else {
+                typ.children().any(|child| has_poly_inst(root, env, child, seen))
+            }
+        }
+
+        let typ = &env
+            .type_defs
+            .get(&self.name.locatee)
+            .expect("Unresolvable type declaration after successful name resolution.")
+            .body;
+        if has_poly_inst(self.name.locatee, env, typ, &mut collections::HashSet::new()) {
+            Err(Located::new(
+                Error::PolymorphicallyRecursiveTypeDecl(self.name.locatee),
+                self.name.span,
+            ))
+        } else {
+            Ok(())
+        }
     }
 }
 

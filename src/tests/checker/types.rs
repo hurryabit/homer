@@ -515,3 +515,80 @@ fn stream_contractive() {
         "#,
     );
 }
+
+#[test]
+fn perfect_tree_polymorphically_recursive() {
+    insta::assert_snapshot!(check_error(r#"
+    type Pair<A, B> = {fst: A, snd: B}
+    type Perfect<A> = [Leaf(A) | Branch(Perfect<Pair<A, A>>)]
+    "#), @r#"
+      3 |     type Perfect<A> = [Leaf(A) | Branch(Perfect<Pair<A, A>>)]
+                   ~~~~~~~
+    Declaration of type `Perfect` is polymorphically recursive.
+    "#);
+}
+
+#[test]
+fn mutually_recursive_explosion_polymorphically_recursive() {
+    insta::assert_snapshot!(check_error(r#"
+    type F<X> = [A(G<X>) | B(F<X>)]
+    type G<Y> = [C(G<G<Y>>) | D(F<Y>)]
+    "#), @r#"
+      3 |     type G<Y> = [C(G<G<Y>>) | D(F<Y>)]
+                   ~
+    Declaration of type `G` is polymorphically recursive.
+    "#);
+}
+
+#[test]
+fn guarded_mutually_recursive_explosion_polymorphically_recursive() {
+    insta::assert_snapshot!(check_error(r#"
+    type F<X> = [A(G<X>) | B(G<F<X>>)]
+    type G<Y> = [C | D(F<Y>)]
+    "#), @r#"
+      2 |     type F<X> = [A(G<X>) | B(G<F<X>>)]
+                   ~
+    Declaration of type `F` is polymorphically recursive.
+    "#);
+}
+
+#[test]
+fn swap_polymorphically_recursive() {
+    insta::assert_snapshot!(check_error(r#"
+    type F<X, Y> = [A | B(F<Y, X>)]
+    "#), @r#"
+      2 |     type F<X, Y> = [A | B(F<Y, X>)]
+                   ~
+    Declaration of type `F` is polymorphically recursive.
+    "#);
+}
+
+#[test]
+fn rose_tree_not_polymorphically_recursive() {
+    check_success(
+        r#"
+        type List<X> = [Nil | Cons({head: X, tail: List<X>})]
+        type Tree<X> = [Leaf | Branch({value: X, children: List<Tree<X>>})]
+        "#,
+    );
+}
+
+#[test]
+fn double_swap_not_polymorphically_recursive() {
+    check_success(
+        r#"
+        type F<X, Y> = [A | B(G<Y, X>)]
+        type G<X, Y> = [C | D(F<Y, X>)]
+        "#,
+    );
+}
+
+#[test]
+fn type_var_alias_not_polymorphically_recursive() {
+    check_success(
+        r#"
+        type Id<X> = X
+        type Tree<X> = [Leaf | Branch({left: Tree<Id<X>>, value: X, right: Tree<Id<Id<X>>>})]
+        "#,
+    );
+}

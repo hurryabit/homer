@@ -12,7 +12,7 @@ mod types;
 
 fn check_output_and_symbols(input: &str) -> (Module, Vec<SymbolInfo>) {
     let (result, diagnostics) = Module::parse(input);
-    assert!(diagnostics.is_empty());
+    assert!(diagnostics.is_empty(), "parse errors: {diagnostics:?}");
     let module = result.unwrap();
     match module.check() {
         Err(diagnostic) => panic!(
@@ -67,7 +67,7 @@ fn check_symbols(input: &str) -> Vec<SymbolInfo> {
 
 fn check_error(input: &str) -> String {
     let (result, diagnostics) = Module::parse(input);
-    assert!(diagnostics.is_empty());
+    assert!(diagnostics.is_empty(), "parse errors: {diagnostics:?}");
     let module = result.unwrap();
     let diagnostic = module.check().unwrap_err();
     diagnostic.layout(input)

@@ -97,6 +97,8 @@ pub enum Error {
     OverlappingMatch(RcType, ExprCon),
     #[error("Declaration of type `{0}` is not contractive.")]
     NonContractiveTypeDecl(TypeVar),
+    #[error("Declaration of type `{0}` is polymorphically recursive.")]
+    PolymorphicallyRecursiveTypeDecl(TypeVar),
     #[error("Cannot infer the type of the expression. Further type annotations are required.")]
     TypeAnnsNeeded,
 }
