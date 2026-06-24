@@ -713,7 +713,7 @@ impl Env {
     fn fresh_unification_type(&self) -> RcType {
         let name = self.unification_var_counter.get();
         self.unification_var_counter.set(name + 1);
-        RcType::new(Type::UnificationVar(UnificationCell::new_free(name)))
+        RcType::new(Type::UnificationVar(UnificationVar::new_free(name)))
     }
 }
 

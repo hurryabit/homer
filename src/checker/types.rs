@@ -1,6 +1,6 @@
 use join_lazy_fmt::*;
 use std::fmt;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, OnceLock};
 
 use crate::location::Located;
 use crate::util::in_parens_if_some;
@@ -9,7 +9,7 @@ use syntax::{ExprCon, ExprVar, LExprVar, TypeVar};
 
 pub use syntax::Type as SynType;
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Hash)]
 pub enum Type<T = RcType> {
     Error,
     Var(TypeVar),
@@ -19,20 +19,16 @@ pub enum Type<T = RcType> {
     Fun(Vec<T>, T),
     Record(Vec<(ExprVar, T)>),
     Variant(Vec<(ExprCon, Option<T>)>),
-    UnificationVar(UnificationCell),
+    UnificationVar(UnificationVar),
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct RcType(Arc<Type>);
 
-#[derive(Clone, Eq, PartialEq)]
-pub enum UnificationVar {
-    Free(u32),
-    Link(RcType),
+pub struct UnificationVar {
+    id: u32,
+    link: OnceLock<RcType>,
 }
-
-#[derive(Clone)]
-pub struct UnificationCell(Arc<Mutex<UnificationVar>>);
 
 #[derive(Eq, PartialEq)]
 pub struct FuncSig {
@@ -110,10 +106,12 @@ impl RcType {
                     let scheme = type_defs.get(syn).unwrap();
                     typ = scheme.instantiate(args);
                 }
-                Type::UnificationVar(cell) => match cell.get() {
-                    UnificationVar::Free(_) => break,
-                    UnificationVar::Link(target) => typ = target,
-                },
+                Type::UnificationVar(uvar) => {
+                    let Some(link) = uvar.link.get() else {
+                        break;
+                    };
+                    typ = link.clone();
+                }
                 _ => break,
             }
         }
@@ -133,31 +131,15 @@ impl RcType {
                 (Type::SynApp(_, _), _) | (_, Type::SynApp(_, _)) => {
                     panic!("IMPOSSIBLE: Type::SynApp after Type::weak_normalize")
                 }
-                (Type::UnificationVar(var1), Type::UnificationVar(var2)) => {
-                    match (var1.get(), var2.get()) {
-                        (UnificationVar::Free(name1), UnificationVar::Free(name2)) => {
-                            if name1 != name2 {
-                                var1.set_link(expected.clone())
-                            }
-                            true
-                        }
-                        (UnificationVar::Link(_), _) | (_, UnificationVar::Link(_)) => {
-                            panic!("IMPOSSIBLE: UnificationVar::Link after Type::weak_normalize")
-                        }
+                (Type::UnificationVar(uvar1), Type::UnificationVar(uvar2)) => {
+                    assert!(uvar1.is_free() && uvar2.is_free());
+                    if uvar1.id != uvar2.id {
+                        uvar1.set_link(expected.clone())
                     }
+                    true
                 }
-                (Type::UnificationVar(var1), _) => match var1.get() {
-                    UnificationVar::Free(_) => var1.try_set_link(expected.clone()),
-                    UnificationVar::Link(_) => {
-                        panic!("IMPOSSIBLE: UnificationVar::Link after Type::weak_normalize")
-                    }
-                },
-                (_, Type::UnificationVar(var2)) => match var2.get() {
-                    UnificationVar::Free(_) => var2.try_set_link(self.clone()),
-                    UnificationVar::Link(_) => {
-                        panic!("IMPOSSIBLE: UnificationVar::Link after Type::weak_normalize")
-                    }
-                },
+                (Type::UnificationVar(uvar1), _) => uvar1.try_set_link(expected.clone()),
+                (_, Type::UnificationVar(uvar2)) => uvar2.try_set_link(self.clone()),
                 (Type::Error, _) | (_, Type::Error) => true,
                 (Type::Var(var1), Type::Var(var2)) => var1 == var2,
                 (Type::Int, Type::Int) => true,
@@ -197,13 +179,13 @@ impl RcType {
         }
     }
 
-    fn occurs_check(&self, var: u32) -> bool {
+    fn occurs_check(&self, id: u32) -> bool {
         match self.as_ref() {
-            Type::UnificationVar(cell) => match cell.get() {
-                UnificationVar::Free(name) => name != var,
-                UnificationVar::Link(typ) => typ.occurs_check(var),
+            Type::UnificationVar(uvar) => match uvar.link() {
+                None => uvar.id != id,
+                Some(typ) => typ.occurs_check(id),
             },
-            typ => typ.children().all(|child| child.occurs_check(var)),
+            typ => typ.children().all(|child| child.occurs_check(id)),
         }
     }
 }
@@ -360,16 +342,16 @@ impl fmt::Display for Type {
                     }))
                 )
             }
-            Self::UnificationVar(cell) => cell.get().fmt(f),
+            Self::UnificationVar(uvar) => write!(f, "{}", uvar),
         }
     }
 }
 
 impl fmt::Display for UnificationVar {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Free(name) => write!(f, "?{}", name),
-            Self::Link(typ) => typ.fmt(f),
+        match self.link() {
+            None => write!(f, "?{}", self.id),
+            Some(typ) => typ.fmt(f),
         }
     }
 }
@@ -415,7 +397,7 @@ impl ast::Debug for Type {
                 }
                 Ok(())
             }),
-            Self::UnificationVar(cell) => cell.get().write(writer),
+            Self::UnificationVar(uvar) => uvar.write(writer),
         }
     }
 }
@@ -428,9 +410,9 @@ impl ast::Debug for RcType {
 
 impl ast::Debug for UnificationVar {
     fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
-        match self {
-            Self::Free(name) => writer.node("FREE", |writer| writer.child("name", name)),
-            Self::Link(typ) => writer.node("LINK", |writer| writer.child("typ", typ)),
+        match self.link() {
+            None => writer.node("FREE", |writer| writer.child("name", &self.id)),
+            Some(typ) => writer.node("LINK", |writer| writer.child("typ", &typ)),
         }
     }
 }
@@ -462,46 +444,45 @@ derive_fmt_debug!(RcType);
 derive_fmt_debug!(TypeScheme);
 derive_fmt_debug!(FuncSig);
 
-impl UnificationCell {
-    pub fn new_free(name: u32) -> Self {
-        UnificationCell(Arc::new(Mutex::new(UnificationVar::Free(name))))
+impl UnificationVar {
+    pub fn new_free(id: u32) -> Self {
+        Self { id, link: OnceLock::new() }
     }
 
-    fn get(&self) -> UnificationVar {
-        self.0.lock().unwrap().clone()
+    fn is_free(&self) -> bool {
+        self.link.get().is_none()
+    }
+
+    fn link(&self) -> Option<&RcType> {
+        self.link.get()
     }
 
     fn set_link(&self, typ: RcType) {
-        let mut lock = self.0.lock().unwrap();
-        assert!(matches!(*lock, UnificationVar::Free(_)));
-        *lock = UnificationVar::Link(typ);
+        self.link.set(typ).unwrap();
     }
 
     fn try_set_link(&self, typ: RcType) -> bool {
-        let mut lock = self.0.lock().unwrap();
-        match *lock {
-            UnificationVar::Link(_) => {
-                panic!("UnificationCell::try_set_link called on UnificationVar::Link")
-            }
-            UnificationVar::Free(var) => {
-                let result = typ.occurs_check(var);
-                if result {
-                    *lock = UnificationVar::Link(typ);
-                } else {
-                    eprintln!("Occurs check failed on {}", typ);
-                }
-                result
-            }
+        assert!(self.is_free());
+        let result = typ.occurs_check(self.id);
+        if result {
+            self.link.set(typ).unwrap();
+        } else {
+            eprintln!("Occurs check failed on {}", typ);
         }
+        result
     }
 }
 
-// TODO(MH): We only need this to make salsa happy. If we make sure there are
-// no unification variables left when salsa looks at this, we could fail here.
-impl PartialEq for UnificationCell {
+impl PartialEq for UnificationVar {
     fn eq(&self, other: &Self) -> bool {
-        self.get() == other.get()
+        self.id == other.id
     }
 }
 
-impl Eq for UnificationCell {}
+impl Eq for UnificationVar {}
+
+impl std::hash::Hash for UnificationVar {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
