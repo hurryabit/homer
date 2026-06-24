@@ -74,7 +74,31 @@ impl RcType {
                     .expect("subst: free vars must be a subset of the substitution's domain");
                 typ.clone()
             }
-            typ => Self::new(typ.map(|child| child.subst(mapping))),
+            Type::Error | Type::Int | Type::Bool => self.clone(),
+            Type::SynApp(var, args) => {
+                let args = args.iter().map(|child| child.subst(mapping)).collect();
+                Self::new(Type::SynApp(*var, args))
+            }
+            Type::Fun(params, result) => {
+                let params = params.iter().map(|child| child.subst(mapping)).collect();
+                let result = result.subst(mapping);
+                Self::new(Type::Fun(params, result))
+            }
+            Type::Record(fields) => {
+                let fields =
+                    fields.iter().map(|(name, child)| (*name, child.subst(mapping))).collect();
+                Self::new(Type::Record(fields))
+            }
+            Type::Variant(constrs) => {
+                let constrs = constrs
+                    .iter()
+                    .map(|(name, opt_child)| {
+                        (*name, opt_child.as_ref().map(|child| child.subst(mapping)))
+                    })
+                    .collect();
+                Self::new(Type::Variant(constrs))
+            }
+            Type::UnificationVar(_) => panic!("subst: unification var in substitution target"),
         }
     }
 
@@ -281,39 +305,6 @@ impl<T> Type<T> {
             }
         })
         .into_iter()
-    }
-
-    pub fn map<U, F>(&self, f: F) -> Type<U>
-    where
-        F: Fn(&T) -> U + Copy,
-    {
-        match self {
-            Self::Error => Type::Error,
-            Self::Var(var) => Type::Var(*var),
-            Self::SynApp(var, args) => {
-                let args = args.iter().map(f).collect();
-                Type::SynApp(*var, args)
-            }
-            Self::Int => Type::Int,
-            Self::Bool => Type::Bool,
-            Self::Fun(params, result) => {
-                let params = params.iter().map(&f).collect();
-                let result = f(result);
-                Type::Fun(params, result)
-            }
-            Self::Record(fields) => {
-                let fields = fields.iter().map(|(name, child)| (*name, f(child))).collect();
-                Type::Record(fields)
-            }
-            Self::Variant(constrs) => {
-                let constrs = constrs
-                    .iter()
-                    .map(|(name, opt_child)| (*name, opt_child.as_ref().map(f)))
-                    .collect();
-                Type::Variant(constrs)
-            }
-            Self::UnificationVar(cell) => Type::UnificationVar(cell.clone()),
-        }
     }
 }
 
