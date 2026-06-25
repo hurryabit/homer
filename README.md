@@ -35,7 +35,8 @@ Here's what the definition of a generic list type, the map function over it, and
 a function doubling all values in a list look like:
 
 ```rust
-type List<A> = [Nil | Cons({head: A, tail: List<A>})]
+type List<A> = [Nil | Cons({head: A, tail: List<A>})];
+
 
 fn map<A, B>(xs: List<A>, f: (A) -> B) -> List<B> {
     match xs {
