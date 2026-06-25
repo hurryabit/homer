@@ -1,6 +1,6 @@
-type Option<A> = [ None | Some(A) ]
+type Option<A> = [ None | Some(A) ];
 
-type List<A> = [ Nil | Cons({ head: A, tail: List<A> }) ]
+type List<A> = [ Nil | Cons({ head: A, tail: List<A> }) ];
 
 fn fold_left<A, B>(lst: List<A>, init: B, f: (B, A) -> B) -> B {
     match lst {
@@ -9,7 +9,7 @@ fn fold_left<A, B>(lst: List<A>, init: B, f: (B, A) -> B) -> B {
     }
 }
 
-type Pair<A, B> = {fst: A, snd: B}
+type Pair<A, B> = {fst: A, snd: B};
 
 fn unfold_left<A, B>(f: (A) -> Option<Pair<A, B>>, init: A) -> List<B> {
     match f(init) {

@@ -34,7 +34,7 @@ fn rule_check_infer() {
 fn rule_check_infer_expected_syn() {
     check_success(
         r#"
-        type A = Int
+        type A = Int;
         fn f() -> A { 0 }
         "#,
     );
@@ -44,7 +44,7 @@ fn rule_check_infer_expected_syn() {
 fn rule_check_infer_found_syn() {
     check_success(
         r#"
-        type A = Int
+        type A = Int;
         fn f(x: A) -> Int { x }
         "#,
     );
@@ -54,7 +54,7 @@ fn rule_check_infer_found_syn() {
 fn rule_check_infer_both_same_syn() {
     check_success(
         r#"
-        type A = Int
+        type A = Int;
         fn f(x: A) -> A { x }
         "#,
     );
@@ -64,8 +64,8 @@ fn rule_check_infer_both_same_syn() {
 fn rule_check_infer_different_syns() {
     check_success(
         r#"
-        type A = Int
-        type B = Int
+        type A = Int;
+        type B = Int;
         fn f(x: A) -> B { x }
         "#,
     );
@@ -75,8 +75,8 @@ fn rule_check_infer_different_syns() {
 fn rule_check_infer_expected_double_syn() {
     check_success(
         r#"
-        type A = Int
-        type B = A
+        type A = Int;
+        type B = A;
         fn f(x: Int) -> B { x }
         "#,
     );
@@ -86,8 +86,8 @@ fn rule_check_infer_expected_double_syn() {
 fn rule_check_infer_found_double_syn() {
     check_success(
         r#"
-        type A = Int
-        type B = A
+        type A = Int;
+        type B = A;
         fn f(x: B) -> Int { x }
         "#,
     );
@@ -233,7 +233,7 @@ fn rule_lam_infer_unknown_type_ann() {
 #[test]
 fn rule_lam_infer_illformed_type_ann() {
     insta::assert_snapshot!(check_error(r#"
-    type Illformed<A> = A
+    type Illformed<A> = A;
     fn f() -> Int {
         let f = fn (x: Int, y: Illformed) {
             0
@@ -301,7 +301,7 @@ fn rule_lam_check_2() {
 fn rule_lam_check_syn() {
     check_success(
         r#"
-        type F = (Int) -> Int
+        type F = (Int) -> Int;
         fn f() -> F {
             fn (x) { x }
         }
@@ -429,7 +429,7 @@ fn rule_lam_check_unknown_type_ann() {
 #[test]
 fn rule_lam_check_illformed_type_ann() {
     insta::assert_snapshot!(check_error(r#"
-    type Illformed<A> = A
+    type Illformed<A> = A;
     fn f() -> (Int, Int) -> Int {
         fn (x, y: Illformed) { 0 }
     }
@@ -970,7 +970,7 @@ fn rule_app_clo() {
 fn rule_app_clo_with_syn() {
     check_success(
         r#"
-        type F = (Int) -> Int
+        type F = (Int) -> Int;
         fn g(f: F) -> Int {
             let x = f(1);
             x
@@ -1257,7 +1257,7 @@ fn rule_let_check_infer_unknown_type_ann() {
 #[test]
 fn rule_let_check_infer_illformed_type_ann() {
     insta::assert_snapshot!(check_error(r#"
-    type Illformed<A> = A
+    type Illformed<A> = A;
     fn f() -> Int {
         let x = {
             let y: Illformed = 0;
@@ -1369,7 +1369,7 @@ fn rule_let_check_check_unknown_type_ann() {
 #[test]
 fn rule_let_check_check_illformed_type_ann() {
     insta::assert_snapshot!(check_error(r#"
-    type Illformed<A> = A
+    type Illformed<A> = A;
     fn f() -> Int {
         let y: Illformed = 0;
         0
@@ -1553,7 +1553,7 @@ fn rule_proj() {
 fn rule_proj_syn() {
     check_success(
         r#"
-        type R = {a: Int, b: Bool}
+        type R = {a: Int, b: Bool};
         fn f(r: R) -> Int {
             let x = {
                 r.a
@@ -1645,7 +1645,7 @@ fn rule_variant_without_payload_2() {
 fn rule_variant_without_payload_syn() {
     check_success(
         r#"
-        type T = [CheckMe]
+        type T = [CheckMe];
         fn f() -> T {
             CheckMe
         }
@@ -1750,7 +1750,7 @@ fn rule_variant_with_payload_2() {
 fn rule_variant_with_payload_syn() {
     check_success(
         r#"
-        type T = [CheckMe(Int)]
+        type T = [CheckMe(Int)];
         fn f() -> T {
             CheckMe(0)
         }
@@ -1896,7 +1896,7 @@ fn rule_match_infer_with_with_payload() {
 fn rule_match_infer_syn() {
     check_success(
         r#"
-        type A = [InferMe]
+        type A = [InferMe];
         fn f(x: A) -> Int {
             let r = match x {
                 InferMe => 0,
@@ -2259,7 +2259,7 @@ fn rule_match_check_with_with_payload() {
 fn rule_match_check_syn() {
     check_success(
         r#"
-        type A = [InferMe]
+        type A = [InferMe];
         fn f(x: A) -> Int {
             match x {
                 InferMe => 0,

@@ -4,7 +4,7 @@ use super::*;
 fn rule_type_var() {
     check_success(
         r#"
-        type T<A> = A
+        type T<A> = A;
         "#,
     );
 }
@@ -12,9 +12,9 @@ fn rule_type_var() {
 #[test]
 fn rule_type_var_unknown() {
     insta::assert_snapshot!(check_error(r#"
-    type T = A
+    type T = A;
     "#), @r###"
-      2 |     type T = A
+      2 |     type T = A;
                        ~
     Undeclared type variable `A`.
     "###);
@@ -24,8 +24,8 @@ fn rule_type_var_unknown() {
 fn rule_type_synapp_0() {
     check_success(
         r#"
-        type A = Int
-        type T = A
+        type A = Int;
+        type T = A;
         "#,
     );
 }
@@ -34,8 +34,8 @@ fn rule_type_synapp_0() {
 fn rule_type_synapp_1() {
     check_success(
         r#"
-        type F<A> = A
-        type T = F<Int>
+        type F<A> = A;
+        type T = F<Int>;
         "#,
     );
 }
@@ -44,8 +44,8 @@ fn rule_type_synapp_1() {
 fn rule_type_synapp_2() {
     check_success(
         r#"
-        type F<A, B> = {a: A, b: B}
-        type T<A> = F<A, Int>
+        type F<A, B> = {a: A, b: B};
+        type T<A> = F<A, Int>;
         "#,
     );
 }
@@ -53,9 +53,9 @@ fn rule_type_synapp_2() {
 #[test]
 fn rule_type_synapp_var() {
     insta::assert_snapshot!(check_error(r#"
-    type T<F> = F<Int>
+    type T<F> = F<Int>;
     "#), @r###"
-      2 |     type T<F> = F<Int>
+      2 |     type T<F> = F<Int>;
                           ~~~~~~
     Type `F` is not a generic type but is applied to 1 type argument(s).
     "###);
@@ -64,10 +64,10 @@ fn rule_type_synapp_var() {
 #[test]
 fn rule_type_synapp_args_on_mono() {
     insta::assert_snapshot!(check_error(r#"
-    type F = Int
-    type T = F<Bool>
+    type F = Int;
+    type T = F<Bool>;
     "#), @r###"
-      3 |     type T = F<Bool>
+      3 |     type T = F<Bool>;
                        ~~~~~~~
     Type `F` is not a generic type but is applied to 1 type argument(s).
     "###);
@@ -76,10 +76,10 @@ fn rule_type_synapp_args_on_mono() {
 #[test]
 fn rule_type_synapp_no_args_on_poly() {
     insta::assert_snapshot!(check_error(r#"
-    type F<A> = A
-    type T = F
+    type F<A> = A;
+    type T = F;
     "#), @r###"
-      3 |     type T = F
+      3 |     type T = F;
                        ~
     Expected a type but found the generic type `F`.
     "###);
@@ -88,10 +88,10 @@ fn rule_type_synapp_no_args_on_poly() {
 #[test]
 fn rule_type_synapp_too_many_args() {
     insta::assert_snapshot!(check_error(r#"
-    type F<A> = A
-    type T = F<Int, Bool>
+    type F<A> = A;
+    type T = F<Int, Bool>;
     "#), @r###"
-      3 |     type T = F<Int, Bool>
+      3 |     type T = F<Int, Bool>;
                        ~~~~~~~~~~~~
     Generic type `F` expects 1 type argument(s) but is applied to 2 type argument(s).
     "###);
@@ -100,10 +100,10 @@ fn rule_type_synapp_too_many_args() {
 #[test]
 fn rule_type_synapp_too_few_args() {
     insta::assert_snapshot!(check_error(r#"
-    type F<A, B> = B
-    type T = F<Int>
+    type F<A, B> = B;
+    type T = F<Int>;
     "#), @r###"
-      3 |     type T = F<Int>
+      3 |     type T = F<Int>;
                        ~~~~~~
     Generic type `F` expects 2 type argument(s) but is applied to 1 type argument(s).
     "###);
@@ -112,11 +112,11 @@ fn rule_type_synapp_too_few_args() {
 #[test]
 fn rule_type_synapp_illformed_arg_1() {
     insta::assert_snapshot!(check_error(r#"
-    type F<A> = A
-    type G<B> = B
-    type T = F<G>
+    type F<A> = A;
+    type G<B> = B;
+    type T = F<G>;
     "#), @r###"
-      4 |     type T = F<G>
+      4 |     type T = F<G>;
                          ~
     Expected a type but found the generic type `G`.
     "###);
@@ -125,10 +125,10 @@ fn rule_type_synapp_illformed_arg_1() {
 #[test]
 fn rule_type_synapp_illformed_arg_2() {
     insta::assert_snapshot!(check_error(r#"
-    type F<A, B> = A
-    type T = F<Int, F>
+    type F<A, B> = A;
+    type T = F<Int, F>;
     "#), @r###"
-      3 |     type T = F<Int, F>
+      3 |     type T = F<Int, F>;
                               ~
     Expected a type but found the generic type `F`.
     "###);
@@ -138,7 +138,7 @@ fn rule_type_synapp_illformed_arg_2() {
 fn rule_type_int() {
     check_success(
         r#"
-        type T = Int
+        type T = Int;
         "#,
     );
 }
@@ -147,7 +147,7 @@ fn rule_type_int() {
 fn rule_type_bool() {
     check_success(
         r#"
-        type T = Bool
+        type T = Bool;
         "#,
     );
 }
@@ -156,7 +156,7 @@ fn rule_type_bool() {
 fn rule_type_fun_0() {
     check_success(
         r#"
-        type T = () -> Bool
+        type T = () -> Bool;
         "#,
     );
 }
@@ -165,7 +165,7 @@ fn rule_type_fun_0() {
 fn rule_type_fun_1() {
     check_success(
         r#"
-        type T = (Int) -> Int
+        type T = (Int) -> Int;
         "#,
     );
 }
@@ -174,8 +174,8 @@ fn rule_type_fun_1() {
 fn rule_type_fun_2() {
     check_success(
         r#"
-        type B = Int
-        type T<A> = (A, B) -> A
+        type B = Int;
+        type T<A> = (A, B) -> A;
         "#,
     );
 }
@@ -183,10 +183,10 @@ fn rule_type_fun_2() {
 #[test]
 fn rule_type_fun_illformed_param_1() {
     insta::assert_snapshot!(check_error(r#"
-    type F<A> = A
-    type T = (F) -> Int
+    type F<A> = A;
+    type T = (F) -> Int;
     "#), @r###"
-      3 |     type T = (F) -> Int
+      3 |     type T = (F) -> Int;
                         ~
     Expected a type but found the generic type `F`.
     "###);
@@ -195,10 +195,10 @@ fn rule_type_fun_illformed_param_1() {
 #[test]
 fn rule_type_fun_illformed_param_2() {
     insta::assert_snapshot!(check_error(r#"
-    type F<A> = A
-    type T = (Int, F) -> Bool
+    type F<A> = A;
+    type T = (Int, F) -> Bool;
     "#), @r###"
-      3 |     type T = (Int, F) -> Bool
+      3 |     type T = (Int, F) -> Bool;
                              ~
     Expected a type but found the generic type `F`.
     "###);
@@ -207,10 +207,10 @@ fn rule_type_fun_illformed_param_2() {
 #[test]
 fn rule_type_fun_illformed_result() {
     insta::assert_snapshot!(check_error(r#"
-    type F<A> = A
-    type T = (Int) -> F
+    type F<A> = A;
+    type T = (Int) -> F;
     "#), @r###"
-      3 |     type T = (Int) -> F
+      3 |     type T = (Int) -> F;
                                 ~
     Expected a type but found the generic type `F`.
     "###);
@@ -220,7 +220,7 @@ fn rule_type_fun_illformed_result() {
 fn rule_type_record_0() {
     check_success(
         r#"
-        type T = {}
+        type T = {};
         "#,
     );
 }
@@ -229,7 +229,7 @@ fn rule_type_record_0() {
 fn rule_type_record_1() {
     check_success(
         r#"
-        type T<A> = {a: A}
+        type T<A> = {a: A};
         "#,
     );
 }
@@ -238,7 +238,7 @@ fn rule_type_record_1() {
 fn rule_type_record_2() {
     check_success(
         r#"
-        type T = {y: Int, x: Int}
+        type T = {y: Int, x: Int};
         "#,
     );
 }
@@ -246,10 +246,10 @@ fn rule_type_record_2() {
 #[test]
 fn rule_type_record_illformed_1() {
     insta::assert_snapshot!(check_error(r#"
-  type F<A> = A
-  type T = {f: F}
+  type F<A> = A;
+  type T = {f: F};
   "#), @r###"
-    3 |   type T = {f: F}
+    3 |   type T = {f: F};
                        ~
   Expected a type but found the generic type `F`.
   "###);
@@ -258,10 +258,10 @@ fn rule_type_record_illformed_1() {
 #[test]
 fn rule_type_record_illformed_2() {
     insta::assert_snapshot!(check_error(r#"
-  type F<A> = A
-  type T = {x: Int, f: F}
+  type F<A> = A;
+  type T = {x: Int, f: F};
   "#), @r###"
-    3 |   type T = {x: Int, f: F}
+    3 |   type T = {x: Int, f: F};
                                ~
   Expected a type but found the generic type `F`.
   "###);
@@ -270,9 +270,9 @@ fn rule_type_record_illformed_2() {
 #[test]
 fn rule_type_record_repeat_1_2() {
     insta::assert_snapshot!(check_error(r#"
-    type T = {x: Int, x: Int}
+    type T = {x: Int, x: Int};
     "#), @r###"
-      2 |     type T = {x: Int, x: Int}
+      2 |     type T = {x: Int, x: Int};
                                 ~
     Duplicate record field `x`.
     "###);
@@ -281,9 +281,9 @@ fn rule_type_record_repeat_1_2() {
 #[test]
 fn rule_type_record_repeat_2_4() {
     insta::assert_snapshot!(check_error(r#"
-    type T = {x: Int, y: Int, z: Int, y: Int}
+    type T = {x: Int, y: Int, z: Int, y: Int};
     "#), @r###"
-      2 |     type T = {x: Int, y: Int, z: Int, y: Int}
+      2 |     type T = {x: Int, y: Int, z: Int, y: Int};
                                                 ~
     Duplicate record field `y`.
     "###);
@@ -293,7 +293,7 @@ fn rule_type_record_repeat_2_4() {
 fn rule_variant_with() {
     check_success(
         r#"
-        type T<A> = [A(A)]
+        type T<A> = [A(A)];
         "#,
     );
 }
@@ -302,7 +302,7 @@ fn rule_variant_with() {
 fn rule_variant_without() {
     check_success(
         r#"
-        type T = [A]
+        type T = [A];
         "#,
     );
 }
@@ -311,7 +311,7 @@ fn rule_variant_without() {
 fn rule_variant_with_with() {
     check_success(
         r#"
-        type T<A, B> = [A(A) | B(B)]
+        type T<A, B> = [A(A) | B(B)];
         "#,
     );
 }
@@ -320,7 +320,7 @@ fn rule_variant_with_with() {
 fn rule_variant_with_without() {
     check_success(
         r#"
-        type T = [A(Int) | B]
+        type T = [A(Int) | B];
         "#,
     );
 }
@@ -329,7 +329,7 @@ fn rule_variant_with_without() {
 fn rule_variant_without_with() {
     check_success(
         r#"
-        type T = [C | D(Bool)]
+        type T = [C | D(Bool)];
         "#,
     );
 }
@@ -338,7 +338,7 @@ fn rule_variant_without_with() {
 fn rule_variant_without_without() {
     check_success(
         r#"
-        type T = [C | D]
+        type T = [C | D];
         "#,
     );
 }
@@ -346,10 +346,10 @@ fn rule_variant_without_without() {
 #[test]
 fn rule_type_variant_illformed_with_1() {
     insta::assert_snapshot!(check_error(r#"
-    type F<A> = A
-    type T = [A(F)]
+    type F<A> = A;
+    type T = [A(F)];
     "#), @r###"
-      3 |     type T = [A(F)]
+      3 |     type T = [A(F)];
                           ~
     Expected a type but found the generic type `F`.
     "###);
@@ -358,10 +358,10 @@ fn rule_type_variant_illformed_with_1() {
 #[test]
 fn rule_type_variant_illformed_with_with_1() {
     insta::assert_snapshot!(check_error(r#"
-    type F<A> = A
-    type T = [A(F) | B(Int)]
+    type F<A> = A;
+    type T = [A(F) | B(Int)];
     "#), @r###"
-      3 |     type T = [A(F) | B(Int)]
+      3 |     type T = [A(F) | B(Int)];
                           ~
     Expected a type but found the generic type `F`.
     "###);
@@ -370,10 +370,10 @@ fn rule_type_variant_illformed_with_with_1() {
 #[test]
 fn rule_type_variant_illformed_with_without_1() {
     insta::assert_snapshot!(check_error(r#"
-    type F<A> = A
-    type T = [A(F) | B]
+    type F<A> = A;
+    type T = [A(F) | B];
     "#), @r###"
-      3 |     type T = [A(F) | B]
+      3 |     type T = [A(F) | B];
                           ~
     Expected a type but found the generic type `F`.
     "###);
@@ -382,10 +382,10 @@ fn rule_type_variant_illformed_with_without_1() {
 #[test]
 fn rule_type_variant_illformed_without_with_2() {
     insta::assert_snapshot!(check_error(r#"
-    type F<A> = A
-    type T = [B | A(F)]
+    type F<A> = A;
+    type T = [B | A(F)];
     "#), @r###"
-      3 |     type T = [B | A(F)]
+      3 |     type T = [B | A(F)];
                               ~
     Expected a type but found the generic type `F`.
     "###);
@@ -394,10 +394,10 @@ fn rule_type_variant_illformed_without_with_2() {
 #[test]
 fn rule_type_variant_illformed_with_with_2() {
     insta::assert_snapshot!(check_error(r#"
-    type F<A> = A
-    type T = [A(Bool) | B(F)]
+    type F<A> = A;
+    type T = [A(Bool) | B(F)];
     "#), @r###"
-      3 |     type T = [A(Bool) | B(F)]
+      3 |     type T = [A(Bool) | B(F)];
                                     ~
     Expected a type but found the generic type `F`.
     "###);
@@ -406,9 +406,9 @@ fn rule_type_variant_illformed_with_with_2() {
 #[test]
 fn rule_type_variant_repeat_1_2() {
     insta::assert_snapshot!(check_error(r#"
-    type T = [A | A]
+    type T = [A | A];
     "#), @r###"
-      2 |     type T = [A | A]
+      2 |     type T = [A | A];
                             ~
     Duplicate variant constructor `A`.
     "###);
@@ -417,9 +417,9 @@ fn rule_type_variant_repeat_1_2() {
 #[test]
 fn rule_type_variant_repeat_2_4() {
     insta::assert_snapshot!(check_error(r#"
-    type T = [A(Int) | B(Int) | C(Int) | B(Int)]
+    type T = [A(Int) | B(Int) | C(Int) | B(Int)];
     "#), @r###"
-      2 |     type T = [A(Int) | B(Int) | C(Int) | B(Int)]
+      2 |     type T = [A(Int) | B(Int) | C(Int) | B(Int)];
                                                    ~
     Duplicate variant constructor `B`.
     "###);
@@ -428,9 +428,9 @@ fn rule_type_variant_repeat_2_4() {
 #[test]
 fn self_reference_not_contractive() {
     insta::assert_snapshot!(check_error(r#"
-    type T = T
+    type T = T;
     "#), @r#"
-      2 |     type T = T
+      2 |     type T = T;
                    ~
     Declaration of type `T` is not contractive.
     "#);
@@ -439,10 +439,10 @@ fn self_reference_not_contractive() {
 #[test]
 fn two_cycle_not_contractive() {
     insta::assert_snapshot!(check_error(r#"
-    type S = T
-    type T = S
+    type S = T;
+    type T = S;
     "#), @r#"
-      2 |     type S = T
+      2 |     type S = T;
                    ~
     Declaration of type `S` is not contractive.
     "#);
@@ -451,11 +451,11 @@ fn two_cycle_not_contractive() {
 #[test]
 fn three_cycle_not_contractive() {
     insta::assert_snapshot!(check_error(r#"
-    type S = T
-    type T = U
-    type U = S
+    type S = T;
+    type T = U;
+    type U = S;
     "#), @r#"
-      2 |     type S = T
+      2 |     type S = T;
                    ~
     Declaration of type `S` is not contractive.
     "#);
@@ -465,11 +465,11 @@ fn three_cycle_not_contractive() {
 fn lolly_not_contractive() {
     // We deliberately report `T` instead of `S` since fixing `T` would fix `S` as well.
     insta::assert_snapshot!(check_error(r#"
-    type S = T
-    type T = U
-    type U = T
+    type S = T;
+    type T = U;
+    type U = T;
     "#), @r#"
-      3 |     type T = U
+      3 |     type T = U;
                    ~
     Declaration of type `T` is not contractive.
     "#);
@@ -478,9 +478,9 @@ fn lolly_not_contractive() {
 #[test]
 fn generic_self_reference_not_contractive() {
     insta::assert_snapshot!(check_error(r#"
-    type F<T> = F<T>
+    type F<T> = F<T>;
     "#), @r#"
-      2 |     type F<T> = F<T>
+      2 |     type F<T> = F<T>;
                    ~
     Declaration of type `F` is not contractive.
     "#);
@@ -489,10 +489,10 @@ fn generic_self_reference_not_contractive() {
 #[test]
 fn generic_cycle_not_contractive() {
     insta::assert_snapshot!(check_error(r#"
-    type F<S> = G<S, S>
-    type G<T, U> = F<{x: T, y: U}>
+    type F<S> = G<S, S>;
+    type G<T, U> = F<{x: T, y: U}>;
     "#), @r#"
-      2 |     type F<S> = G<S, S>
+      2 |     type F<S> = G<S, S>;
                    ~
     Declaration of type `F` is not contractive.
     "#);
@@ -502,7 +502,7 @@ fn generic_cycle_not_contractive() {
 fn list_contractive() {
     check_success(
         r#"
-        type List = [Nil | Cons({hd: Int, tl: List})]
+        type List = [Nil | Cons({hd: Int, tl: List})];
         "#,
     );
 }
@@ -511,7 +511,7 @@ fn list_contractive() {
 fn stream_contractive() {
     check_success(
         r#"
-        type Stream<T> = () -> {value: T, next: Stream<T>}
+        type Stream<T> = () -> {value: T, next: Stream<T>};
         "#,
     );
 }
@@ -519,10 +519,10 @@ fn stream_contractive() {
 #[test]
 fn perfect_tree_polymorphically_recursive() {
     insta::assert_snapshot!(check_error(r#"
-    type Pair<A, B> = {fst: A, snd: B}
-    type Perfect<A> = [Leaf(A) | Branch(Perfect<Pair<A, A>>)]
+    type Pair<A, B> = {fst: A, snd: B};
+    type Perfect<A> = [Leaf(A) | Branch(Perfect<Pair<A, A>>)];
     "#), @r#"
-      3 |     type Perfect<A> = [Leaf(A) | Branch(Perfect<Pair<A, A>>)]
+      3 |     type Perfect<A> = [Leaf(A) | Branch(Perfect<Pair<A, A>>)];
                    ~~~~~~~
     Declaration of type `Perfect` is polymorphically recursive.
     "#);
@@ -531,10 +531,10 @@ fn perfect_tree_polymorphically_recursive() {
 #[test]
 fn mutually_recursive_explosion_polymorphically_recursive() {
     insta::assert_snapshot!(check_error(r#"
-    type F<X> = [A(G<X>) | B(F<X>)]
-    type G<Y> = [C(G<G<Y>>) | D(F<Y>)]
+    type F<X> = [A(G<X>) | B(F<X>)];
+    type G<Y> = [C(G<G<Y>>) | D(F<Y>)];
     "#), @r#"
-      3 |     type G<Y> = [C(G<G<Y>>) | D(F<Y>)]
+      3 |     type G<Y> = [C(G<G<Y>>) | D(F<Y>)];
                    ~
     Declaration of type `G` is polymorphically recursive.
     "#);
@@ -543,10 +543,10 @@ fn mutually_recursive_explosion_polymorphically_recursive() {
 #[test]
 fn guarded_mutually_recursive_explosion_polymorphically_recursive() {
     insta::assert_snapshot!(check_error(r#"
-    type F<X> = [A(G<X>) | B(G<F<X>>)]
-    type G<Y> = [C | D(F<Y>)]
+    type F<X> = [A(G<X>) | B(G<F<X>>)];
+    type G<Y> = [C | D(F<Y>)];
     "#), @r#"
-      2 |     type F<X> = [A(G<X>) | B(G<F<X>>)]
+      2 |     type F<X> = [A(G<X>) | B(G<F<X>>)];
                    ~
     Declaration of type `F` is polymorphically recursive.
     "#);
@@ -555,9 +555,9 @@ fn guarded_mutually_recursive_explosion_polymorphically_recursive() {
 #[test]
 fn swap_polymorphically_recursive() {
     insta::assert_snapshot!(check_error(r#"
-    type F<X, Y> = [A | B(F<Y, X>)]
+    type F<X, Y> = [A | B(F<Y, X>)];
     "#), @r#"
-      2 |     type F<X, Y> = [A | B(F<Y, X>)]
+      2 |     type F<X, Y> = [A | B(F<Y, X>)];
                    ~
     Declaration of type `F` is polymorphically recursive.
     "#);
@@ -567,8 +567,8 @@ fn swap_polymorphically_recursive() {
 fn rose_tree_not_polymorphically_recursive() {
     check_success(
         r#"
-        type List<X> = [Nil | Cons({head: X, tail: List<X>})]
-        type Tree<X> = [Leaf | Branch({value: X, children: List<Tree<X>>})]
+        type List<X> = [Nil | Cons({head: X, tail: List<X>})];
+        type Tree<X> = [Leaf | Branch({value: X, children: List<Tree<X>>})];
         "#,
     );
 }
@@ -577,8 +577,8 @@ fn rose_tree_not_polymorphically_recursive() {
 fn double_swap_not_polymorphically_recursive() {
     check_success(
         r#"
-        type F<X, Y> = [A | B(G<Y, X>)]
-        type G<X, Y> = [C | D(F<Y, X>)]
+        type F<X, Y> = [A | B(G<Y, X>)];
+        type G<X, Y> = [C | D(F<Y, X>)];
         "#,
     );
 }
@@ -587,8 +587,8 @@ fn double_swap_not_polymorphically_recursive() {
 fn type_var_alias_not_polymorphically_recursive() {
     check_success(
         r#"
-        type Id<X> = X
-        type Tree<X> = [Leaf | Branch({left: Tree<Id<X>>, value: X, right: Tree<Id<Id<X>>>})]
+        type Id<X> = X;
+        type Tree<X> = [Leaf | Branch({left: Tree<Id<X>>, value: X, right: Tree<Id<Id<X>>>})];
         "#,
     );
 }

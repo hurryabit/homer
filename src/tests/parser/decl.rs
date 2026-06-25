@@ -9,7 +9,7 @@ fn parse(input: &str) -> Decl {
 
 #[test]
 fn type_mono() {
-    insta::assert_debug_snapshot!(parse("type T = Int"), @r###"
+    insta::assert_debug_snapshot!(parse("type T = Int;"), @r###"
     TYPEDECL
         name: T @ 1:6-1:7
         body: VAR @ 1:10-1:13
@@ -19,7 +19,7 @@ fn type_mono() {
 
 #[test]
 fn type_poly() {
-    insta::assert_debug_snapshot!(parse("type T<A> = A"), @r###"
+    insta::assert_debug_snapshot!(parse("type T<A> = A;"), @r###"
     TYPEDECL
         name: T @ 1:6-1:7
         type_param: A @ 1:8-1:9

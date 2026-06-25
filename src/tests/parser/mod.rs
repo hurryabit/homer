@@ -45,9 +45,9 @@ fn parse_error(input: &'static str) -> String {
 #[test]
 fn module() {
     insta::assert_debug_snapshot!(parse_output(r#"
-    type Mono = Int
+    type Mono = Int;
     fn mono(x: Int) -> Mono { x }
-    type Poly<A> = A
+    type Poly<A> = A;
     fn poly<A>(x: A) -> Poly<A> { x }
     "#), @r###"
     MODULE

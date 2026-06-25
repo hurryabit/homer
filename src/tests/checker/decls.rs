@@ -4,7 +4,7 @@ use super::*;
 fn type_decl_1() {
     check_success(
         r#"
-    type List<A> = [Nil | Cons({head: A, tail: List<A>})]
+    type List<A> = [Nil | Cons({head: A, tail: List<A>})];
     "#,
     );
 }
@@ -12,10 +12,10 @@ fn type_decl_1() {
 #[test]
 fn type_decl_duplicate_decl() {
     insta::assert_snapshot!(check_error(r#"
-    type T<Original> = Original
-    type T<Duplicate> = Duplicate
+    type T<Original> = Original;
+    type T<Duplicate> = Duplicate;
     "#), @r###"
-      3 |     type T<Duplicate> = Duplicate
+      3 |     type T<Duplicate> = Duplicate;
                    ~
     Duplicate definition of type `T`.
     "###);
@@ -24,9 +24,9 @@ fn type_decl_duplicate_decl() {
 #[test]
 fn type_decl_duplicate_type_var() {
     insta::assert_snapshot!(check_error(r#"
-    type T<Duplicate, Duplicate> = Duplicate
+    type T<Duplicate, Duplicate> = Duplicate;
     "#), @r###"
-      2 |     type T<Duplicate, Duplicate> = Duplicate
+      2 |     type T<Duplicate, Duplicate> = Duplicate;
                                 ~~~~~~~~~
     Duplicate type variable `Duplicate`.
     "###);
@@ -35,9 +35,9 @@ fn type_decl_duplicate_type_var() {
 #[test]
 fn type_decl_unknown_in_body() {
     insta::assert_snapshot!(check_error(r#"
-    type T = Unknown
+    type T = Unknown;
     "#), @r###"
-      2 |     type T = Unknown
+      2 |     type T = Unknown;
                        ~~~~~~~
     Undeclared type variable `Unknown`.
     "###);
@@ -46,10 +46,10 @@ fn type_decl_unknown_in_body() {
 #[test]
 fn type_decl_illformed_body() {
     insta::assert_snapshot!(check_error(r#"
-    type Illformed<A> = A
-    type T = Illformed
+    type Illformed<A> = A;
+    type T = Illformed;
     "#), @r###"
-      3 |     type T = Illformed
+      3 |     type T = Illformed;
                        ~~~~~~~~~
     Expected a type but found the generic type `Illformed`.
     "###);
@@ -59,7 +59,7 @@ fn type_decl_illformed_body() {
 fn func_decl_1() {
     check_success(
         r#"
-        type List<A> = [Nil | Cons({head: A, tail: List<A>})]
+        type List<A> = [Nil | Cons({head: A, tail: List<A>})];
         fn map<A, B>(xs: List<A>, f: (A) -> B) -> List<B> {
           let g = fn (xs: List<A>) { map@<A, B>(xs, f)};
           match xs {
@@ -119,7 +119,7 @@ fn func_decl_unknown_type_in_param() {
 #[test]
 fn func_decl_illformed_type_in_param() {
     insta::assert_snapshot!(check_error(r#"
-    type Illformed<A> = A
+    type Illformed<A> = A;
     fn f(x: Illformed) -> Int { 0 }
     "#), @r###"
       3 |     fn f(x: Illformed) -> Int { 0 }
@@ -142,7 +142,7 @@ fn func_decl_unknown_type_in_result() {
 #[test]
 fn func_decl_illformed_type_in_result() {
     insta::assert_snapshot!(check_error(r#"
-    type Illformed<A> = A
+    type Illformed<A> = A;
     fn f() -> Illformed { 0 }
     "#), @r###"
       3 |     fn f() -> Illformed { 0 }

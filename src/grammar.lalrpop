@@ -16,7 +16,7 @@ pub Decl: Decl = {
 }
 
 TypeDecl: TypeDecl = {
-    "type" <name: LTypeVar> <params: TypeParams> "=" <body: LType> =>
+    "type" <name: LTypeVar> <params: TypeParams> "=" <body: LType> ";" =>
         TypeDecl { name, params, body },
 }
 

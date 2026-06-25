@@ -39,15 +39,15 @@ use super::*;
 #[test]
 fn resolve_type_top_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X = Int
+    type X = Int;
     "#), @"INT");
 }
 
 #[test]
 fn resolve_type_top_def_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type Int = Bool
-    type X = Int
+    type Int = Bool;
+    type X = Int;
     "#), @r###"
     APP
         syn: Int @ 3:14-3:17
@@ -57,8 +57,8 @@ fn resolve_type_top_def_int() {
 #[test]
 fn resolve_type_top_var_def() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type ResolveMe = Int
-    type X<ResolveMe> = ResolveMe
+    type ResolveMe = Int;
+    type X<ResolveMe> = ResolveMe;
     "#), @r###"
     VAR
         var: ResolveMe @ 3:25-3:34
@@ -68,7 +68,7 @@ fn resolve_type_top_var_def() {
 #[test]
 fn resolve_type_top_var_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X<Int> = Int
+    type X<Int> = Int;
     "#), @r###"
     VAR
         var: Int @ 2:19-2:22
@@ -78,8 +78,8 @@ fn resolve_type_top_var_int() {
 #[test]
 fn resolve_type_syn_def() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type ResolveMe<A> = A
-    type X = ResolveMe<Int>
+    type ResolveMe<A> = A;
+    type X = ResolveMe<Int>;
     "#), @r###"
     APP
         syn: ResolveMe @ 3:14-3:23
@@ -90,8 +90,8 @@ fn resolve_type_syn_def() {
 #[test]
 fn resolve_type_syn_def_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type Int<A> = A
-    type X = Int<Bool>
+    type Int<A> = A;
+    type X = Int<Bool>;
     "#), @r###"
     APP
         syn: Int @ 3:14-3:17
@@ -102,8 +102,8 @@ fn resolve_type_syn_def_int() {
 #[test]
 fn resolve_type_arg1_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type F<A> = A
-    type X = F<Int>
+    type F<A> = A;
+    type X = F<Int>;
     "#), @r###"
     APP
         syn: F @ 3:14-3:15
@@ -114,9 +114,9 @@ fn resolve_type_arg1_int() {
 #[test]
 fn resolve_type_arg1_def_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type F<A> = A
-    type Int = Bool
-    type X = F<Int>
+    type F<A> = A;
+    type Int = Bool;
+    type X = F<Int>;
     "#), @r###"
     APP
         syn: F @ 4:14-4:15
@@ -128,9 +128,9 @@ fn resolve_type_arg1_def_int() {
 #[test]
 fn resolve_type_arg1_var_def() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type F<A> = A
-    type ResolveMe = Int
-    type X<ResolveMe> = F<ResolveMe>
+    type F<A> = A;
+    type ResolveMe = Int;
+    type X<ResolveMe> = F<ResolveMe>;
     "#), @r###"
     APP
         syn: F @ 4:25-4:26
@@ -142,8 +142,8 @@ fn resolve_type_arg1_var_def() {
 #[test]
 fn resolve_type_arg1_var_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type F<A> = A
-    type X<Int> = F<Int>
+    type F<A> = A;
+    type X<Int> = F<Int>;
     "#), @r###"
     APP
         syn: F @ 3:19-3:20
@@ -155,8 +155,8 @@ fn resolve_type_arg1_var_int() {
 #[test]
 fn resolve_type_arg2_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type F<A, B> = B
-    type X = F<Bool, Int>
+    type F<A, B> = B;
+    type X = F<Bool, Int>;
     "#), @r###"
     APP
         syn: F @ 3:14-3:15
@@ -168,9 +168,9 @@ fn resolve_type_arg2_int() {
 #[test]
 fn resolve_type_arg2_def_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type F<A, B> = B
-    type Int = Bool
-    type X = F<Bool, Int>
+    type F<A, B> = B;
+    type Int = Bool;
+    type X = F<Bool, Int>;
     "#), @r###"
     APP
         syn: F @ 4:14-4:15
@@ -183,9 +183,9 @@ fn resolve_type_arg2_def_int() {
 #[test]
 fn resolve_type_arg2_var_def() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type F<A, B> = B
-    type ResolveMe = Int
-    type X<ResolveMe> = F<Bool, ResolveMe>
+    type F<A, B> = B;
+    type ResolveMe = Int;
+    type X<ResolveMe> = F<Bool, ResolveMe>;
     "#), @r###"
     APP
         syn: F @ 4:25-4:26
@@ -198,8 +198,8 @@ fn resolve_type_arg2_var_def() {
 #[test]
 fn resolve_type_arg2_var_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type F<A, B> = B
-    type X<Int> = F<Bool, Int>
+    type F<A, B> = B;
+    type X<Int> = F<Bool, Int>;
     "#), @r###"
     APP
         syn: F @ 3:19-3:20
@@ -212,7 +212,7 @@ fn resolve_type_arg2_var_int() {
 #[test]
 fn resolve_type_param1_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X = (Int) -> Bool
+    type X = (Int) -> Bool;
     "#), @r###"
     FUN
         param: INT @ 2:15-2:18
@@ -223,8 +223,8 @@ fn resolve_type_param1_int() {
 #[test]
 fn resolve_type_param1_def_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type Int = Bool
-    type X = (Int) -> Bool
+    type Int = Bool;
+    type X = (Int) -> Bool;
     "#), @r###"
     FUN
         param: APP @ 3:15-3:18
@@ -236,8 +236,8 @@ fn resolve_type_param1_def_int() {
 #[test]
 fn resolve_type_param1_var_def() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type ResolveMe = Int
-    type X<ResolveMe> = (ResolveMe) -> Bool
+    type ResolveMe = Int;
+    type X<ResolveMe> = (ResolveMe) -> Bool;
     "#), @r###"
     FUN
         param: VAR @ 3:26-3:35
@@ -249,7 +249,7 @@ fn resolve_type_param1_var_def() {
 #[test]
 fn resolve_type_param1_var_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X<Int> = (Int) -> Bool
+    type X<Int> = (Int) -> Bool;
     "#), @r###"
     FUN
         param: VAR @ 2:20-2:23
@@ -261,7 +261,7 @@ fn resolve_type_param1_var_int() {
 #[test]
 fn resolve_type_param2_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X = ({}, Int) -> Bool
+    type X = ({}, Int) -> Bool;
     "#), @r###"
     FUN
         param: RECORD @ 2:15-2:17
@@ -273,8 +273,8 @@ fn resolve_type_param2_int() {
 #[test]
 fn resolve_type_param2_def_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type Int = Bool
-    type X = ({}, Int) -> Bool
+    type Int = Bool;
+    type X = ({}, Int) -> Bool;
     "#), @r###"
     FUN
         param: RECORD @ 3:15-3:17
@@ -287,8 +287,8 @@ fn resolve_type_param2_def_int() {
 #[test]
 fn resolve_type_param2_var_def() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type ResolveMe = Int
-    type X<ResolveMe> = ({}, ResolveMe) -> Bool
+    type ResolveMe = Int;
+    type X<ResolveMe> = ({}, ResolveMe) -> Bool;
     "#), @r###"
     FUN
         param: RECORD @ 3:26-3:28
@@ -301,7 +301,7 @@ fn resolve_type_param2_var_def() {
 #[test]
 fn resolve_type_param2_var_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X<Int> = ({}, Int) -> Bool
+    type X<Int> = ({}, Int) -> Bool;
     "#), @r###"
     FUN
         param: RECORD @ 2:20-2:22
@@ -314,7 +314,7 @@ fn resolve_type_param2_var_int() {
 #[test]
 fn resolve_type_result_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X = () -> Int
+    type X = () -> Int;
     "#), @r###"
     FUN
         result: INT @ 2:20-2:23
@@ -324,8 +324,8 @@ fn resolve_type_result_int() {
 #[test]
 fn resolve_type_result_def_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type Int = Bool
-    type X = () -> Int
+    type Int = Bool;
+    type X = () -> Int;
     "#), @r###"
     FUN
         result: APP @ 3:20-3:23
@@ -336,8 +336,8 @@ fn resolve_type_result_def_int() {
 #[test]
 fn resolve_type_result_var_def() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type ResolveMe = Int
-    type X<ResolveMe> = () -> ResolveMe
+    type ResolveMe = Int;
+    type X<ResolveMe> = () -> ResolveMe;
     "#), @r###"
     FUN
         result: VAR @ 3:31-3:40
@@ -348,7 +348,7 @@ fn resolve_type_result_var_def() {
 #[test]
 fn resolve_type_result_var_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X<Int> = () -> Int
+    type X<Int> = () -> Int;
     "#), @r###"
     FUN
         result: VAR @ 2:25-2:28
@@ -359,7 +359,7 @@ fn resolve_type_result_var_int() {
 #[test]
 fn resolve_type_field1_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X = {a: Int}
+    type X = {a: Int};
     "#), @r###"
     RECORD
         field: a @ 2:15-2:16
@@ -370,8 +370,8 @@ fn resolve_type_field1_int() {
 #[test]
 fn resolve_type_field1_def_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type Int = Bool
-    type X = {a: Int}
+    type Int = Bool;
+    type X = {a: Int};
     "#), @r###"
     RECORD
         field: a @ 3:15-3:16
@@ -383,8 +383,8 @@ fn resolve_type_field1_def_int() {
 #[test]
 fn resolve_type_field1_var_def() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type ResolveMe = Int
-    type X<ResolveMe> = {a: ResolveMe}
+    type ResolveMe = Int;
+    type X<ResolveMe> = {a: ResolveMe};
     "#), @r###"
     RECORD
         field: a @ 3:26-3:27
@@ -396,7 +396,7 @@ fn resolve_type_field1_var_def() {
 #[test]
 fn resolve_type_field1_var_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X<Int> = {a: Int}
+    type X<Int> = {a: Int};
     "#), @r###"
     RECORD
         field: a @ 2:20-2:21
@@ -408,7 +408,7 @@ fn resolve_type_field1_var_int() {
 #[test]
 fn resolve_type_field2_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X = {a: Bool, b: Int}
+    type X = {a: Bool, b: Int};
     "#), @r###"
     RECORD
         field: a @ 2:15-2:16
@@ -421,8 +421,8 @@ fn resolve_type_field2_int() {
 #[test]
 fn resolve_type_field2_def_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type Int = Bool
-    type X = {a: Bool, b: Int}
+    type Int = Bool;
+    type X = {a: Bool, b: Int};
     "#), @r###"
     RECORD
         field: a @ 3:15-3:16
@@ -436,8 +436,8 @@ fn resolve_type_field2_def_int() {
 #[test]
 fn resolve_type_field2_var_def() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type ResolveMe = Int
-    type X<ResolveMe> = {a: Bool, b: ResolveMe}
+    type ResolveMe = Int;
+    type X<ResolveMe> = {a: Bool, b: ResolveMe};
     "#), @r###"
     RECORD
         field: a @ 3:26-3:27
@@ -451,7 +451,7 @@ fn resolve_type_field2_var_def() {
 #[test]
 fn resolve_type_field2_var_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X<Int> = {a: Bool, b: Int}
+    type X<Int> = {a: Bool, b: Int};
     "#), @r###"
     RECORD
         field: a @ 2:20-2:21
@@ -465,7 +465,7 @@ fn resolve_type_field2_var_int() {
 #[test]
 fn resolve_type_constr1_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X = [C(Int)]
+    type X = [C(Int)];
     "#), @r###"
     VARIANT
         constr: C @ 2:15-2:16
@@ -476,8 +476,8 @@ fn resolve_type_constr1_int() {
 #[test]
 fn resolve_type_constr1_def_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type Int = Bool
-    type X = [C(Int)]
+    type Int = Bool;
+    type X = [C(Int)];
     "#), @r###"
     VARIANT
         constr: C @ 3:15-3:16
@@ -489,8 +489,8 @@ fn resolve_type_constr1_def_int() {
 #[test]
 fn resolve_type_constr1_var_def() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type ResolveMe = Int
-    type X<ResolveMe> = [C(ResolveMe)]
+    type ResolveMe = Int;
+    type X<ResolveMe> = [C(ResolveMe)];
     "#), @r###"
     VARIANT
         constr: C @ 3:26-3:27
@@ -502,7 +502,7 @@ fn resolve_type_constr1_var_def() {
 #[test]
 fn resolve_type_constr1_var_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X<Int> = [C(Int)]
+    type X<Int> = [C(Int)];
     "#), @r###"
     VARIANT
         constr: C @ 2:20-2:21
@@ -514,7 +514,7 @@ fn resolve_type_constr1_var_int() {
 #[test]
 fn resolve_type_constr2_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X = [B | C(Int)]
+    type X = [B | C(Int)];
     "#), @r###"
     VARIANT
         constr: B @ 2:15-2:16
@@ -526,8 +526,8 @@ fn resolve_type_constr2_int() {
 #[test]
 fn resolve_type_constr2_def_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type Int = Bool
-    type X = [B | C(Int)]
+    type Int = Bool;
+    type X = [B | C(Int)];
     "#), @r###"
     VARIANT
         constr: B @ 3:15-3:16
@@ -540,8 +540,8 @@ fn resolve_type_constr2_def_int() {
 #[test]
 fn resolve_type_constr2_var_def() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type ResolveMe = Int
-    type X<ResolveMe> = [B | C(ResolveMe)]
+    type ResolveMe = Int;
+    type X<ResolveMe> = [B | C(ResolveMe)];
     "#), @r###"
     VARIANT
         constr: B @ 3:26-3:27
@@ -554,7 +554,7 @@ fn resolve_type_constr2_var_def() {
 #[test]
 fn resolve_type_constr2_var_int() {
     insta::assert_debug_snapshot!(check_output_type("X", r#"
-    type X<Int> = [B | C(Int)]
+    type X<Int> = [B | C(Int)];
     "#), @r###"
     VARIANT
         constr: B @ 2:20-2:21
@@ -582,7 +582,7 @@ fn resolve_func_sign_int() {
 #[test]
 fn resolve_func_sign_def_int() {
     insta::assert_debug_snapshot!(check_output_func_decl("f", r#"
-    type Int = Bool
+    type Int = Bool;
     fn f(x: Int) -> Int { x }
     "#), @r###"
     FUNCDECL
@@ -600,7 +600,7 @@ fn resolve_func_sign_def_int() {
 #[test]
 fn resolve_func_sign_var_def() {
     insta::assert_debug_snapshot!(check_output_func_decl("f", r#"
-    type ResolveMe = Int
+    type ResolveMe = Int;
     fn f(x: ResolveMe) -> ResolveMe { x }
     "#), @r###"
     FUNCDECL
@@ -658,7 +658,7 @@ fn resolve_func_let_lam_int() {
 #[test]
 fn resolve_func_let_lam_def_int() {
     insta::assert_debug_snapshot!(check_output_func_decl("f", r#"
-    type Int = Bool
+    type Int = Bool;
     fn f() -> Bool { let g = fn (x: Int) { false }; true }
     "#), @r###"
     FUNCDECL
@@ -683,7 +683,7 @@ fn resolve_func_let_lam_def_int() {
 #[test]
 fn resolve_func_let_lam_var_def() {
     insta::assert_debug_snapshot!(check_output_func_decl("f", r#"
-    type ResolveMe = Int
+    type ResolveMe = Int;
     fn f() -> Bool { let g = fn (x: ResolveMe) { false }; true }
     "#), @r###"
     FUNCDECL
@@ -747,7 +747,7 @@ fn resolve_func_inst_int() {
 #[test]
 fn resolve_func_inst_def_int() {
     insta::assert_debug_snapshot!(check_output_func_decl("f", r#"
-    type Int = Bool
+    type Int = Bool;
     fn g<A>() -> Bool { true }
     fn f() -> Bool { g@<Int>() }
     "#), @r###"
@@ -764,7 +764,7 @@ fn resolve_func_inst_def_int() {
 #[test]
 fn resolve_func_inst_var_def() {
     insta::assert_debug_snapshot!(check_output_func_decl("f", r#"
-    type ResolveMe = Int
+    type ResolveMe = Int;
     fn g<A>() -> Bool { true }
     fn f() -> Bool { g@<ResolveMe>() }
     "#), @r###"

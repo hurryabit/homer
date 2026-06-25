@@ -1,4 +1,4 @@
-type Option<A> = [ None | Some(A) ]
+type Option<A> = [ None | Some(A) ];
 
 fn map_option<A, B>(opt_x: Option<A>, f: (A) -> B) -> Option<B> {
     match opt_x {
@@ -28,7 +28,7 @@ fn is_some<A>(opt: Option<A>) -> Bool {
     }
 }
 
-type List<A> = [ Nil | Cons({ head: A, tail: List<A> }) ]
+type List<A> = [ Nil | Cons({ head: A, tail: List<A> }) ];
 
 fn map_list<A, B>(lst: List<A>, f: (A) -> B) -> List<B> {
     match lst {
