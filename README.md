@@ -4,9 +4,9 @@ This is my attempt at a _very boring_ functional programming language. It is
 boring on purpose. I am trying to explore the boundaries of how simple a
 language can get before it gets unbearable. In order to stay above my personal
 threshold for bearability, _Homer_ is statically typed, although structural, has
-sum types and pattern matching, and supports parametric polymorphism. These are
-the fanciest features the language offers. ([Usage](#usage) instructions can be
-found toward the bottom of the file.)
+sum types and pattern matching, and supports parametric polymorphism and
+_equi_-recursive types. These are the fanciest features the language offers.
+([Usage](#usage) instructions can be found toward the bottom of the file.)
 
 ![Homer - Boring note](https://i.pinimg.com/736x/fa/e1/fa/fae1fa90b9d47809257a9d9b7ad5bbe8.jpg)
 
@@ -21,11 +21,11 @@ Polymorphism and recursion are only allowed at the top level. There is no
 [Hindley-Milner type inference](https://en.wikipedia.org/wiki/Hindley–Milner_type_system),
 only a
 [bidirectional type checker](http://davidchristiansen.dk/tutorials/bidirectional.pdf)
-(enriched with some lightweight inference for the type arguments of generic
-functions). The syntax is not indentation sensitive but rather uses good old
-curly braces and semicolons. There is no currying; function arguments have to be
-separated by commas and wrapped in parentheses instead. There really is nothing
-fancy.
+(enriched with some lightweight unification-based inference for the type
+arguments of generic functions). The syntax is not indentation sensitive but
+rather uses good old curly braces and semicolons. There is no currying; function
+arguments have to be separated by commas and wrapped in parentheses instead.
+There really is nothing fancy.
 
 As a side note, there are also no sum-of-product types. There are only sum types
 and product types, but because the type system is structural, there's no real
@@ -36,7 +36,6 @@ a function doubling all values in a list look like:
 
 ```rust
 type List<A> = [Nil | Cons({head: A, tail: List<A>})];
-
 
 fn map<A, B>(xs: List<A>, f: (A) -> B) -> List<B> {
     match xs {

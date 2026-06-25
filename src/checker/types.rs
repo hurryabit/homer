@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt;
 use std::sync::Arc;
 use std::sync::OnceLock;
@@ -124,67 +125,6 @@ impl RcType {
         typ
     }
 
-    pub fn equiv(&self, expected: &RcType, type_defs: &TypeDefs) -> bool {
-        match (self.as_ref(), expected.as_ref()) {
-            (Type::SynApp(var1, args1), Type::SynApp(var2, args2)) if var1 == var2 => {
-                assert_eq!(args1.len(), args2.len());
-                args1.iter().zip(args2.iter()).all(|(arg1, arg2)| arg1.equiv(arg2, type_defs))
-            }
-            _ => match (
-                self.weak_normalize(type_defs).as_ref(),
-                expected.weak_normalize(type_defs).as_ref(),
-            ) {
-                (Type::SynApp(_, _), _) | (_, Type::SynApp(_, _)) => {
-                    panic!("IMPOSSIBLE: Type::SynApp after Type::weak_normalize")
-                }
-                (Type::UnificationVar(uvar1), Type::UnificationVar(uvar2)) => {
-                    assert!(uvar1.is_free() && uvar2.is_free());
-                    if uvar1.id != uvar2.id {
-                        uvar1.set_link(expected.clone())
-                    }
-                    true
-                }
-                (Type::UnificationVar(uvar1), _) => uvar1.try_set_link(expected.clone()),
-                (_, Type::UnificationVar(uvar2)) => uvar2.try_set_link(self.clone()),
-                (Type::Error, _) | (_, Type::Error) => true,
-                (Type::Var(var1), Type::Var(var2)) => var1 == var2,
-                (Type::Int, Type::Int) => true,
-                (Type::Bool, Type::Bool) => true,
-                (Type::Fun(params1, result1), Type::Fun(params2, result2)) => {
-                    params1.len() == params2.len()
-                        && params1
-                            .iter()
-                            .zip(params2.iter())
-                            .all(|(param1, param2)| param1.equiv(param2, type_defs))
-                        && result1.equiv(result2, type_defs)
-                }
-                (Type::Record(fields1), Type::Record(fields2)) => {
-                    same_keys(fields1, fields2)
-                        && fields1
-                            .iter()
-                            .zip(fields2.iter())
-                            .all(|((_, typ1), (_, typ2))| typ1.equiv(typ2, type_defs))
-                }
-                (Type::Variant(constrs1), Type::Variant(constrs2)) => {
-                    same_keys(constrs1, constrs2)
-                        && constrs1.iter().zip(constrs2.iter()).all(
-                            |((_, opt_typ1), (_, opt_typ2))| match (opt_typ1, opt_typ2) {
-                                (None, None) => true,
-                                (None, Some(_)) | (Some(_), None) => false,
-                                (Some(typ1), Some(typ2)) => typ1.equiv(typ2, type_defs),
-                            },
-                        )
-                }
-                (Type::Var(_), _)
-                | (Type::Int, _)
-                | (Type::Bool, _)
-                | (Type::Fun(_, _), _)
-                | (Type::Record(_), _)
-                | (Type::Variant(_), _) => false,
-            },
-        }
-    }
-
     fn occurs_check(&self, id: u32) -> bool {
         match self.as_ref() {
             Type::UnificationVar(uvar) => match uvar.link() {
@@ -308,10 +248,6 @@ impl AsRef<Type> for RcType {
     fn as_ref(&self) -> &Type {
         self.0.as_ref()
     }
-}
-
-pub fn same_keys<'a, K: Eq, V>(vec1: &'a [(K, V)], vec2: &'a [(K, V)]) -> bool {
-    vec1.len() == vec2.len() && vec1.iter().zip(vec2.iter()).all(|((k1, _), (k2, _))| k1 == k2)
 }
 
 impl fmt::Display for RcType {
@@ -464,10 +400,6 @@ impl UnificationVar {
         self.link.get()
     }
 
-    fn set_link(&self, typ: RcType) {
-        self.link.set(typ).unwrap();
-    }
-
     fn try_set_link(&self, typ: RcType) -> bool {
         assert!(self.is_free());
         let result = typ.occurs_check(self.id);
@@ -491,5 +423,103 @@ impl Eq for UnificationVar {}
 impl std::hash::Hash for UnificationVar {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);
+    }
+}
+
+pub(crate) struct EquivChecker<'a> {
+    type_defs: &'a TypeDefs,
+    assumptions: HashSet<(RcType, RcType)>,
+}
+
+impl<'a> EquivChecker<'a> {
+    pub(crate) fn new(type_defs: &'a TypeDefs) -> Self {
+        Self { type_defs, assumptions: HashSet::new() }
+    }
+
+    pub(crate) fn check(mut self, found: &RcType, expected: &RcType) -> bool {
+        // This check will always terminate because we enforce that types are regular (by ruling out
+        // polymorphic recursion) beforehand.
+        self.check_impl(found, expected)
+    }
+
+    fn check_impl(&mut self, found: &RcType, expected: &RcType) -> bool {
+        if !self.assumptions.insert((found.clone(), expected.clone())) {
+            return true;
+        }
+        match (
+            found.weak_normalize(self.type_defs).as_ref(),
+            expected.weak_normalize(self.type_defs).as_ref(),
+        ) {
+            (Type::SynApp(..), _) | (_, Type::SynApp(..)) => {
+                unreachable!("Type::SynApp after Type::weak_normalize")
+            }
+            (Type::UnificationVar(uvar1), _) if !uvar1.is_free() => {
+                unreachable!("Solved Type::UnificationVar after Type::weak_normalize")
+            }
+            (_, Type::UnificationVar(uvar2)) if !uvar2.is_free() => {
+                unreachable!("Solved Type::UnificationVar after Type::weak_normalize")
+            }
+            (Type::UnificationVar(uvar1), Type::UnificationVar(uvar2)) if uvar1.id == uvar2.id => {
+                // This is a separate case because it would fail occurs check in the next case.
+                true
+            }
+            (Type::UnificationVar(uvar1), _) => uvar1.try_set_link(expected.clone()),
+            (_, Type::UnificationVar(uvar2)) => uvar2.try_set_link(found.clone()),
+            (Type::Error, _) | (_, Type::Error) => true,
+            (Type::Var(var1), Type::Var(var2)) => var1 == var2,
+            (Type::Int, Type::Int) => true,
+            (Type::Bool, Type::Bool) => true,
+            (Type::Fun(params1, result1), Type::Fun(params2, result2)) => {
+                params1.len() == params2.len()
+                    && equal_by(params1, params2, |param1, param2| self.check_impl(param1, param2))
+                    && self.check_impl(result1, result2)
+            }
+            (Type::Record(fields1), Type::Record(fields2)) => {
+                fields1.len() == fields2.len()
+                    && equal_by(fields1, fields2, |(name1, _), (name2, _)| name1 == name2)
+                    && equal_by(fields1, fields2, |(_, typ1), (_, typ2)| {
+                        self.check_impl(typ1, typ2)
+                    })
+            }
+            (Type::Variant(constrs1), Type::Variant(constrs2)) => {
+                constrs1.len() == constrs2.len()
+                    && equal_by(constrs1, constrs2, |(name1, _), (name2, _)| name1 == name2)
+                    && equal_by(constrs1, constrs2, |(_, opt_typ1), (_, opt_typ2)| {
+                        equal_by(opt_typ1, opt_typ2, |typ1, typ2| self.check_impl(typ1, typ2))
+                    })
+            }
+            (
+                // We explicitly list all variants so that this breaks when we add a new variant.
+                Type::Var(_)
+                | Type::Int
+                | Type::Bool
+                | Type::Fun(_, _)
+                | Type::Record(_)
+                | Type::Variant(_),
+                _,
+            ) => false,
+        }
+    }
+}
+
+fn equal_by<I, J, F>(i: I, j: J, f: F) -> bool
+where
+    I: IntoIterator,
+    J: IntoIterator,
+    F: FnMut(I::Item, J::Item) -> bool,
+{
+    let mut i = i.into_iter();
+    let mut j = j.into_iter();
+    let mut f = f;
+    loop {
+        match (i.next(), j.next()) {
+            (None, None) => return true,
+            (None, Some(_)) | (Some(_), None) => return false,
+            (Some(x), Some(y)) => {
+                if !f(x, y) {
+                    return false;
+                }
+            }
+        }
     }
 }

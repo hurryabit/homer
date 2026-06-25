@@ -14,6 +14,7 @@ use std::sync::Arc;
 use self::error::Error;
 use self::error::LError;
 pub use self::info::SymbolInfo;
+use self::types::EquivChecker;
 use self::types::FuncSig;
 pub use self::types::RcType;
 pub use self::types::Type;
@@ -396,7 +397,7 @@ impl Expr {
                                 if let Some(type_ann) = opt_type_ann {
                                     type_ann.check(env)?;
                                     let found = RcType::from_lsyntax(type_ann);
-                                    if !found.equiv(expected, &env.type_defs) {
+                                    if !EquivChecker::new(&env.type_defs).check(&found, expected) {
                                         Err(Located::new(
                                             Error::ParamTypeMismatch {
                                                 param: var.locatee,
@@ -740,7 +741,7 @@ fn found_vs_expected(
     found: RcType,
     expected: &RcType,
 ) -> Result<(), LError> {
-    if found.equiv(expected, &env.type_defs) {
+    if EquivChecker::new(&env.type_defs).check(&found, expected) {
         Ok(())
     } else {
         Err(Located::new(Error::TypeMismatch { found, expected: expected.clone() }, span))

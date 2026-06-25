@@ -4,6 +4,7 @@ mod expressions;
 mod func_resolution;
 mod shadowing;
 mod symbols;
+mod type_equiv;
 mod type_resolution;
 mod types;
 
