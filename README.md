@@ -98,9 +98,9 @@ There is also a simple language server that can be started via
 cargo run -- server
 ```
 
-The repo also contains a [configuration file](blob/main/.helix/languages.toml)
-which adds support for _Homer_ to the [helix](https://helix-editor.com/) editor.
-This can be used by running
+The repo also contains a [configuration file](.helix/languages.toml) which adds
+support for _Homer_ to the [helix](https://helix-editor.com/) editor. This can
+be used by running
 
 ```sh
 cargo build
