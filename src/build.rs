@@ -116,7 +116,7 @@ mod tests {
     fn all_good() {
         insta::assert_snapshot!(build_output(r#"
         fn f(x: Int) -> Int { x }
-        "#), @r###"
+        "#), @r#"
         MODULE
             decl: FUNCDECL
                 name: f
@@ -124,7 +124,7 @@ mod tests {
                 body: EXPR
                     binder: $result
                     bindee: x/1
-        "###);
+        "#);
     }
 
     #[test]

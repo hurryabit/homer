@@ -97,11 +97,11 @@ fn rule_check_infer_found_double_syn() {
 fn rule_check_infer_mismatch() {
     insta::assert_snapshot!(check_error(r#"
     fn f() -> Bool { 0 }
-    "#), @r###"
+    "#), @r#"
       2 |     fn f() -> Bool { 0 }
                                ~
     Expected an expression of type `Bool` but found an expression of type `Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -207,11 +207,11 @@ fn rule_lam_infer_duplicate_param() {
         let f = fn (x: Int, x: Int) { x };
         f
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let f = fn (x: Int, x: Int) { x };
                                       ~
     Duplicate parameter `x`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -223,11 +223,11 @@ fn rule_lam_infer_unknown_type_ann() {
         };
         0
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let f = fn (x: Unknown) {
                                  ~~~~~~~
     Undeclared type variable `Unknown`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -240,11 +240,11 @@ fn rule_lam_infer_illformed_type_ann() {
         };
         0
     }
-    "#), @r###"
+    "#), @r#"
       4 |         let f = fn (x: Int, y: Illformed) {
                                          ~~~~~~~~~
     Expected a type but found the generic type `Illformed`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -257,11 +257,11 @@ fn rule_lam_infer_not_inferrable() {
         };
         f
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let f = fn (x) {
                               ~
     Cannot infer the type of parameter `x`. A type annoation is needed.
-    "###);
+    "#);
 }
 
 #[test]
@@ -315,11 +315,11 @@ fn rule_lam_check_no_func() {
     fn f() -> Int {
         fn (x) { 0 }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         fn (x) { 0 }
                   ~~~~~~~~~~~~
     Expected an expression of type `Int` but found a lambda with 1 parameter(s).
-    "###);
+    "#);
 }
 
 #[test]
@@ -328,11 +328,11 @@ fn rule_lam_check_duplicate_param_annotated() {
     fn f() -> (Int, Int) -> Int {
         fn (x: Int, x: Int) { 0 }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         fn (x: Int, x: Int) { 0 }
                               ~
     Duplicate parameter `x`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -341,11 +341,11 @@ fn rule_lam_check_duplicate_param_not_annotated() {
     fn f() -> (Int, Int) -> Int {
         fn (x, x) { 0 }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         fn (x, x) { 0 }
                          ~
     Duplicate parameter `x`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -354,11 +354,11 @@ fn rule_lam_check_too_many_params() {
     fn f() -> () -> Int {
         fn (x) { 0 }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         fn (x) { 0 }
                   ~~~~~~~~~~~~
     Expected an expression of type `() -> Int` but found a lambda with 1 parameter(s).
-    "###);
+    "#);
 }
 
 #[test]
@@ -367,11 +367,11 @@ fn rule_lam_check_too_few_params() {
     fn f() -> (Int) -> Int {
         fn () { 0 }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         fn () { 0 }
                   ~~~~~~~~~~~
     Expected an expression of type `(Int) -> Int` but found a lambda with 0 parameter(s).
-    "###);
+    "#);
 }
 
 #[test]
@@ -380,11 +380,11 @@ fn rule_lam_check_mismatch_param_1() {
     fn f() -> (Int) -> Int {
         fn (x: Bool) { 0 }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         fn (x: Bool) { 0 }
                          ~~~~
     Expected parameter `x` to have type `Int` but found a type annotation `Bool`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -393,11 +393,11 @@ fn rule_lam_check_mismatch_param_2() {
     fn f() -> (Int, Int) -> Int {
         fn (x, y: Bool) { 0 }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         fn (x, y: Bool) { 0 }
                             ~~~~
     Expected parameter `y` to have type `Int` but found a type annotation `Bool`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -406,11 +406,11 @@ fn rule_lam_check_mismatch_result() {
     fn f() -> (Int, Int) -> Bool {
         fn (x, y: Int) { CheckMe }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         fn (x, y: Int) { CheckMe }
                                    ~~~~~~~
     Expected an expression of type `Bool` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -419,11 +419,11 @@ fn rule_lam_check_unknown_type_ann() {
     fn f() -> (Int) -> Int {
         fn (x: Unknown) { 0 }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         fn (x: Unknown) { 0 }
                          ~~~~~~~
     Undeclared type variable `Unknown`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -433,11 +433,11 @@ fn rule_lam_check_illformed_type_ann() {
     fn f() -> (Int, Int) -> Int {
         fn (x, y: Illformed) { 0 }
     }
-    "#), @r###"
+    "#), @r#"
       4 |         fn (x, y: Illformed) { 0 }
                             ~~~~~~~~~
     Expected a type but found the generic type `Illformed`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -497,11 +497,11 @@ fn rule_mono_app_fun_check_too_many_args() {
     fn f() -> Int {
         mono_fun(1)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         mono_fun(1)
                   ~~~~~~~~~~~
     Cannot apply 1 argument(s) to `mono_fun` because it has has type `() -> Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -512,11 +512,11 @@ fn rule_mono_app_fun_infer_too_many_args() {
         let x = mono_fun(1);
         x
     }
-    "#), @r###"
+    "#), @r#"
       4 |         let x = mono_fun(1);
                           ~~~~~~~~~~~
     Cannot apply 1 argument(s) to `mono_fun` because it has has type `() -> Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -526,11 +526,11 @@ fn rule_mono_app_fun_check_too_few_args() {
     fn f() -> Int {
         mono_fun(1)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         mono_fun(1)
                   ~~~~~~~~~~~
     Cannot apply 1 argument(s) to `mono_fun` because it has has type `(Int, Int) -> Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -541,11 +541,11 @@ fn rule_mono_app_fun_infer_too_few_args() {
         let x = mono_fun(1);
         x
     }
-    "#), @r###"
+    "#), @r#"
       4 |         let x = mono_fun(1);
                           ~~~~~~~~~~~
     Cannot apply 1 argument(s) to `mono_fun` because it has has type `(Int, Int) -> Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -555,11 +555,11 @@ fn rule_mono_app_fun_check_arg_mismatch_1() {
     fn f() -> Int {
         mono_fun(true)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         mono_fun(true)
                            ~~~~
     Expected an expression of type `Int` but found an expression of type `Bool`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -570,11 +570,11 @@ fn rule_mono_app_fun_infer_arg_mismatch_1() {
         let x = mono_fun(true);
         x
     }
-    "#), @r###"
+    "#), @r#"
       4 |         let x = mono_fun(true);
                                    ~~~~
     Expected an expression of type `Int` but found an expression of type `Bool`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -584,11 +584,11 @@ fn rule_mono_app_fun_check_arg_mismatch_2() {
     fn f() -> Int {
         mono_fun(1, 1)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         mono_fun(1, 1)
                               ~
     Expected an expression of type `Bool` but found an expression of type `Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -599,11 +599,11 @@ fn rule_mono_app_fun_infer_arg_mismatch_2() {
         let x = mono_fun(1, 1);
         x
     }
-    "#), @r###"
+    "#), @r#"
       4 |         let x = mono_fun(1, 1);
                                       ~
     Expected an expression of type `Bool` but found an expression of type `Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -613,11 +613,11 @@ fn rule_mono_app_fun_check_result_mismatch() {
     fn f() -> Bool {
         mono_fun()
     }
-    "#), @r###"
+    "#), @r#"
       4 |         mono_fun()
                   ~~~~~~~~~~
     Expected an expression of type `Bool` but found an expression of type `Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -628,11 +628,11 @@ fn rule_mono_app_fun_infer_result_mismatch() {
         let x = mono_fun();
         x
     }
-    "#), @r###"
+    "#), @r#"
       5 |         x
                   ~
     Expected an expression of type `Bool` but found an expression of type `Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -671,11 +671,11 @@ fn rule_poly_app_fun_check_on_mono_fun() {
     fn f() -> Int {
         mono_fun@<Int>(1)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         mono_fun@<Int>(1)
                   ~~~~~~~~
     `mono_fun` is not a generic function and must be called as `mono_fun(...)`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -686,11 +686,11 @@ fn rule_poly_app_fun_infer_on_mono_fun() {
         let x = mono_fun@<Int>(1);
         x
     }
-    "#), @r###"
+    "#), @r#"
       4 |         let x = mono_fun@<Int>(1);
                           ~~~~~~~~
     `mono_fun` is not a generic function and must be called as `mono_fun(...)`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -700,11 +700,11 @@ fn rule_poly_app_fun_check_too_many_types() {
     fn f() -> Int {
         poly_fun@<Int, Int>(1)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         poly_fun@<Int, Int>(1)
                   ~~~~~~~~
     `poly_fun` is a generic function that expects 1 type argument(s) but is applied to 2 type argument(s).
-    "###);
+    "#);
 }
 
 #[test]
@@ -715,11 +715,11 @@ fn rule_poly_app_fun_infer_too_many_types() {
         let x = poly_fun@<Int, Int>(1);
         x
     }
-    "#), @r###"
+    "#), @r#"
       4 |         let x = poly_fun@<Int, Int>(1);
                           ~~~~~~~~
     `poly_fun` is a generic function that expects 1 type argument(s) but is applied to 2 type argument(s).
-    "###);
+    "#);
 }
 
 #[test]
@@ -729,11 +729,11 @@ fn rule_poly_app_fun_check_too_few_types() {
     fn f() -> Int {
         poly_fun@<Int>(1)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         poly_fun@<Int>(1)
                   ~~~~~~~~
     `poly_fun` is a generic function that expects 2 type argument(s) but is applied to 1 type argument(s).
-    "###);
+    "#);
 }
 
 #[test]
@@ -744,11 +744,11 @@ fn rule_poly_app_fun_infer_too_few_types() {
         let x = poly_fun@<Int>(1);
         x
     }
-    "#), @r###"
+    "#), @r#"
       4 |         let x = poly_fun@<Int>(1);
                           ~~~~~~~~
     `poly_fun` is a generic function that expects 2 type argument(s) but is applied to 1 type argument(s).
-    "###);
+    "#);
 }
 
 #[test]
@@ -758,11 +758,11 @@ fn rule_poly_app_fun_check_zero_types() {
     fn f() -> Int {
         poly_fun@<>(1)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         poly_fun@<>(1)
                   ~~~~~~~~
     `poly_fun` is a generic function that expects 1 type argument(s) but is applied to 0 type argument(s).
-    "###);
+    "#);
 }
 
 #[test]
@@ -773,11 +773,11 @@ fn rule_poly_app_fun_infer_zero_types() {
         let x = poly_fun@<>(1);
         x
     }
-    "#), @r###"
+    "#), @r#"
       4 |         let x = poly_fun@<>(1);
                           ~~~~~~~~
     `poly_fun` is a generic function that expects 1 type argument(s) but is applied to 0 type argument(s).
-    "###);
+    "#);
 }
 
 #[test]
@@ -787,11 +787,11 @@ fn rule_poly_app_fun_check_bad_type() {
     fn f() -> Int {
         poly_fun@<Unknown>(1)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         poly_fun@<Unknown>(1)
                             ~~~~~~~
     Undeclared type variable `Unknown`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -802,11 +802,11 @@ fn rule_poly_app_fun_infer_bad_type() {
         let x = poly_fun@<Unknown>(1);
         x
     }
-    "#), @r###"
+    "#), @r#"
       4 |         let x = poly_fun@<Unknown>(1);
                                     ~~~~~~~
     Undeclared type variable `Unknown`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -816,11 +816,11 @@ fn rule_poly_app_fun_check_too_many_args() {
     fn f() -> Int {
         poly_fun@<Int>(1, 2)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         poly_fun@<Int>(1, 2)
                   ~~~~~~~~~~~~~~~~~~~~
     Cannot apply 2 argument(s) to `poly_fun` because it has has type `(Int) -> Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -831,11 +831,11 @@ fn rule_poly_app_fun_infer_too_many_args() {
         let x = poly_fun@<Int>(1, 2);
         x
     }
-    "#), @r###"
+    "#), @r#"
       4 |         let x = poly_fun@<Int>(1, 2);
                           ~~~~~~~~~~~~~~~~~~~~
     Cannot apply 2 argument(s) to `poly_fun` because it has has type `(Int) -> Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -845,11 +845,11 @@ fn rule_poly_app_fun_check_too_few_args() {
     fn f() -> Int {
         poly_fun@<Int>(1)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         poly_fun@<Int>(1)
                   ~~~~~~~~~~~~~~~~~
     Cannot apply 1 argument(s) to `poly_fun` because it has has type `(Int, Int) -> Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -859,11 +859,11 @@ fn rule_poly_app_fun_infer_too_few_args() {
     fn f() -> Int {
         poly_fun@<Int>(1)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         poly_fun@<Int>(1)
                   ~~~~~~~~~~~~~~~~~
     Cannot apply 1 argument(s) to `poly_fun` because it has has type `(Int, Int) -> Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -873,11 +873,11 @@ fn rule_poly_app_fun_check_arg_mismatch_1() {
     fn f() -> Int {
         poly_fun@<Int>(CheckMe)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         poly_fun@<Int>(CheckMe)
                                  ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -888,11 +888,11 @@ fn rule_poly_app_fun_infer_arg_mismatch_1() {
         let x = poly_fun@<Int>(CheckMe);
         x
     }
-    "#), @r###"
+    "#), @r#"
       4 |         let x = poly_fun@<Int>(CheckMe);
                                          ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -902,11 +902,11 @@ fn rule_poly_app_fun_check_arg_mismatch_2() {
     fn f() -> Int {
         poly_fun@<Int>(1, CheckMe)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         poly_fun@<Int>(1, CheckMe)
                                     ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -917,11 +917,11 @@ fn rule_poly_app_fun_infer_arg_mismatch_2() {
         let x = poly_fun@<Int>(1, CheckMe);
         x
     }
-    "#), @r###"
+    "#), @r#"
       4 |         let x = poly_fun@<Int>(1, CheckMe);
                                             ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -931,11 +931,11 @@ fn rule_poly_app_fun_check_result_mismatch() {
     fn f() -> Int {
         poly_fun@<[CheckMe]>(CheckMe)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         poly_fun@<[CheckMe]>(CheckMe)
                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Expected an expression of type `Int` but found an expression of type `[CheckMe]`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -946,11 +946,11 @@ fn rule_poly_app_fun_infer_result_mismatch() {
         let x = poly_fun@<[CheckMe]>(CheckMe);
         x
     }
-    "#), @r###"
+    "#), @r#"
       5 |         x
                   ~
     Expected an expression of type `Int` but found an expression of type `[CheckMe]`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -985,11 +985,11 @@ fn rule_app_clo_no_fun() {
     fn f(x: Int) -> Int {
         x()
     }
-    "#), @r###"
+    "#), @r#"
       3 |         x()
                   ~~~
     Cannot apply 0 argument(s) to `x` because it has has type `Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -999,11 +999,11 @@ fn rule_app_clo_too_many_args() {
         let g = fn () { 0 };
         g(1)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         g(1)
                   ~~~~
     Cannot apply 1 argument(s) to `g` because it has has type `() -> Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1013,11 +1013,11 @@ fn rule_app_clo_too_few_args() {
         let g = fn (x: Int) { x };
         g()
     }
-    "#), @r###"
+    "#), @r#"
       4 |         g()
                   ~~~
     Cannot apply 0 argument(s) to `g` because it has has type `(Int) -> Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1027,11 +1027,11 @@ fn rule_app_clo_mismatch_arg1() {
         let g = fn (x: Int) { x };
         g(CheckMe)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         g(CheckMe)
                     ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1041,11 +1041,11 @@ fn rule_app_clo_mismatch_arg2() {
         let g = fn (x: Int, y: Bool) { x };
         g(1, CheckMe)
     }
-    "#), @r###"
+    "#), @r#"
       4 |         g(1, CheckMe)
                        ~~~~~~~
     Expected an expression of type `Bool` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1066,11 +1066,11 @@ fn rule_binop_arith_mismatch_lhs() {
     fn f() -> Int {
         CheckMe - 0
     }
-    "#), @r###"
+    "#), @r#"
       3 |         CheckMe - 0
                   ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1079,11 +1079,11 @@ fn rule_binop_arith_mismatch_rhs() {
     fn f() -> Int {
         0 * CheckMe
     }
-    "#), @r###"
+    "#), @r#"
       3 |         0 * CheckMe
                       ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1104,11 +1104,11 @@ fn rule_binop_cmp_lhs_not_inferrable() {
     fn f() -> Bool {
         InferMe < CheckMe
     }
-    "#), @r###"
+    "#), @r#"
       3 |         InferMe < CheckMe
                   ~~~~~~~
     Cannot infer the type of the expression. Further type annotations are required.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1117,11 +1117,11 @@ fn rule_binop_cmp_mismatch() {
     fn f() -> Bool {
         0 >= CheckMe
     }
-    "#), @r###"
+    "#), @r#"
       3 |         0 >= CheckMe
                        ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1149,11 +1149,11 @@ fn rule_let_infer_infer_bindee_not_inferrable() {
         };
         0
     }
-    "#), @r###"
+    "#), @r#"
       4 |             let y = InferMe;
                               ~~~~~~~
     Cannot infer the type of the expression. Further type annotations are required.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1166,11 +1166,11 @@ fn rule_let_infer_infer_tail_not_inferrable() {
         };
         0
     }
-    "#), @r###"
+    "#), @r#"
       5 |             InferMe
                       ~~~~~~~
     Cannot infer the type of the expression. Further type annotations are required.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1213,11 +1213,11 @@ fn rule_let_check_infer_mismatch_bindee() {
         };
         0
     }
-    "#), @r###"
+    "#), @r#"
       4 |             let y: Int = CheckMe;
                                    ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1230,11 +1230,11 @@ fn rule_let_check_infer_tail_not_inferrable() {
         };
         0
     }
-    "#), @r###"
+    "#), @r#"
       5 |             InferMe
                       ~~~~~~~
     Cannot infer the type of the expression. Further type annotations are required.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1247,11 +1247,11 @@ fn rule_let_check_infer_unknown_type_ann() {
         };
         0
     }
-    "#), @r###"
+    "#), @r#"
       4 |             let y: Unknown = 0;
                              ~~~~~~~
     Undeclared type variable `Unknown`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1265,11 +1265,11 @@ fn rule_let_check_infer_illformed_type_ann() {
         };
         0
     }
-    "#), @r###"
+    "#), @r#"
       5 |             let y: Illformed = 0;
                              ~~~~~~~~~
     Expected a type but found the generic type `Illformed`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1291,11 +1291,11 @@ fn rule_let_infer_check_bindee_not_inferrable() {
         let x = InferMe;
         0
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let x = InferMe;
                           ~~~~~~~
     Cannot infer the type of the expression. Further type annotations are required.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1305,11 +1305,11 @@ fn rule_let_infer_check_mismatch_tail() {
         let x = 0;
         CheckMe
     }
-    "#), @r###"
+    "#), @r#"
       4 |         CheckMe
                   ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1331,11 +1331,11 @@ fn rule_let_check_check_mismatch_bindee() {
         let x: Int = CheckMe2;
         CheckMe1
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let x: Int = CheckMe2;
                                ~~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe2`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1345,11 +1345,11 @@ fn rule_let_check_check_mismatch_tail() {
         let x: [CheckMe2] = CheckMe2;
         CheckMe1
     }
-    "#), @r###"
+    "#), @r#"
       4 |         CheckMe1
                   ~~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe1`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1359,11 +1359,11 @@ fn rule_let_check_check_unknown_type_ann() {
         let y: Unknown = 0;
         0
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let y: Unknown = 0;
                          ~~~~~~~
     Undeclared type variable `Unknown`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1374,11 +1374,11 @@ fn rule_let_check_check_illformed_type_ann() {
         let y: Illformed = 0;
         0
     }
-    "#), @r###"
+    "#), @r#"
       4 |         let y: Illformed = 0;
                          ~~~~~~~~~
     Expected a type but found the generic type `Illformed`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1405,11 +1405,11 @@ fn rule_if_infer_cond_mismatch() {
         let x = if CheckMe { 1 } else { 2 };
         0
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let x = if CheckMe { 1 } else { 2 };
                              ~~~~~~~
     Expected an expression of type `Bool` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1419,11 +1419,11 @@ fn rule_if_infer_then_not_inferrable() {
         let x = if true { InferMe } else { 1 };
         0
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let x = if true { InferMe } else { 1 };
                                     ~~~~~~~
     Cannot infer the type of the expression. Further type annotations are required.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1433,11 +1433,11 @@ fn rule_if_infer_else_mismatch() {
         let x = if true { 0 } else { CheckMe };
         x
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let x = if true { 0 } else { CheckMe };
                                                ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1461,11 +1461,11 @@ fn rule_if_check_cond_mismatch() {
     fn f() -> Int {
         if CheckMe { 1 } else { 2 }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         if CheckMe { 1 } else { 2 }
                      ~~~~~~~
     Expected an expression of type `Bool` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1474,11 +1474,11 @@ fn rule_if_check_then_bad() {
     fn f() -> Int {
         if true { CheckMe } else { 1 }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         if true { CheckMe } else { 1 }
                             ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1487,11 +1487,11 @@ fn rule_if_check_else_bad() {
     fn f() -> Int {
         if true { 0 } else { CheckMe }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         if true { 0 } else { CheckMe }
                                        ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1513,11 +1513,11 @@ fn rule_record_infer_field_1_not_inferrable() {
         let x = {a = InferMe};
         0
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let x = {a = InferMe};
                                ~~~~~~~
     Cannot infer the type of the expression. Further type annotations are required.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1527,11 +1527,11 @@ fn rule_record_infer_field_2_not_inferrable() {
         let x = {a = 0, b = InferMe};
         0
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let x = {a = 0, b = InferMe};
                                       ~~~~~~~
     Cannot infer the type of the expression. Further type annotations are required.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1572,7 +1572,7 @@ fn rule_proj_index() {
         let y = r.b;
         0
     }
-    "#), @r###"
+    "#), @r#"
     LET
         binder: x @ 3:13-3:14
         type: INFERRED @ 3:13-3:14
@@ -1590,7 +1590,7 @@ fn rule_proj_index() {
                     var: r @ 4:17-4:18
                 field: b/1 @ 4:19-4:20
             tail: 0 @ 5:9-5:10
-    "###);
+    "#);
 }
 
 #[test]
@@ -1599,11 +1599,11 @@ fn rule_proj_record_not_inferrable() {
     fn f() -> Int {
         InferMe.a
     }
-    "#), @r###"
+    "#), @r#"
       3 |         InferMe.a
                   ~~~~~~~
     Cannot infer the type of the expression. Further type annotations are required.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1612,11 +1612,11 @@ fn rule_proj_bad_field() {
     fn f() -> Int {
         {a = 1}.b
     }
-    "#), @r###"
+    "#), @r#"
       3 |         {a = 1}.b
                   ~~~~~~~~~
     Expression of type `{a: Int}` do not contain a field named `b`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1659,7 +1659,7 @@ fn rule_variant_rank() {
     fn f(b: Bool) -> [A | B(Int)] {
         if b { A } else { B(0) }
     }
-    "#), @r###"
+    "#), @r#"
     IF
         cond: VAR @ 3:12-3:13
             var: b @ 3:12-3:13
@@ -1668,7 +1668,7 @@ fn rule_variant_rank() {
         else: VARIANT @ 3:27-3:31
             constr: B/1
             payload: 0 @ 3:29-3:30
-    "###);
+    "#);
 }
 
 #[test]
@@ -1678,11 +1678,11 @@ fn rule_variant_without_payload_not_inferrable() {
         let x = InferMe;
         0
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let x = InferMe;
                           ~~~~~~~
     Cannot infer the type of the expression. Further type annotations are required.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1691,11 +1691,11 @@ fn rule_variant_without_payload_no_variant_type() {
     fn f() -> Int {
         CheckMe
     }
-    "#), @r###"
+    "#), @r#"
       3 |         CheckMe
                   ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1704,11 +1704,11 @@ fn rule_variant_without_payload_unknown_constructor() {
     fn f() -> [NotCheckMe] {
         CheckMe
     }
-    "#), @r###"
+    "#), @r#"
       3 |         CheckMe
                   ~~~~~~~
     `CheckMe` is not a possible constructor for variant type `[NotCheckMe]`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1717,11 +1717,11 @@ fn rule_variant_without_payload_constructor_with_payload() {
     fn f() -> [CheckMe(Int)] {
         CheckMe
     }
-    "#), @r###"
+    "#), @r#"
       3 |         CheckMe
                   ~~~~~~~
     Constructor `CheckMe` of variant type `[CheckMe(Int)]` needs a payload.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1765,11 +1765,11 @@ fn rule_variant_with_payload_not_inferrable() {
         let x = InferMe(0);
         0
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let x = InferMe(0);
                           ~~~~~~~~~~
     Cannot infer the type of the expression. Further type annotations are required.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1778,11 +1778,11 @@ fn rule_variant_with_payload_no_variant_type() {
     fn f() -> Int {
         CheckMe(0)
     }
-    "#), @r###"
+    "#), @r#"
       3 |         CheckMe(0)
                   ~~~~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1791,11 +1791,11 @@ fn rule_variant_with_payload_unknown_constructor() {
     fn f() -> [NotCheckMe] {
         CheckMe(0)
     }
-    "#), @r###"
+    "#), @r#"
       3 |         CheckMe(0)
                   ~~~~~~~~~~
     `CheckMe` is not a possible constructor for variant type `[NotCheckMe]`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1804,11 +1804,11 @@ fn rule_variant_with_payload_constructor_without_payload() {
     fn f() -> [CheckMe] {
         CheckMe(0)
     }
-    "#), @r###"
+    "#), @r#"
       3 |         CheckMe(0)
                   ~~~~~~~~~~
     Constructor `CheckMe` of variant type `[CheckMe]` does not take a payload.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1817,11 +1817,11 @@ fn rule_variant_with_payload_mismatch() {
     fn f() -> [CheckMe(Int)] {
         CheckMe(CheckMeToo)
     }
-    "#), @r###"
+    "#), @r#"
       3 |         CheckMe(CheckMeToo)
                           ~~~~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMeToo`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1916,7 +1916,7 @@ fn rule_match_rank() {
             B(y) => y,
         }
     }
-    "#), @r###"
+    "#), @r#"
     MATCH
         scrut: VAR @ 3:15-3:16
             var: x @ 3:15-3:16
@@ -1930,7 +1930,7 @@ fn rule_match_rank() {
                 binder: y @ 5:15-5:16
             rhs: VAR @ 5:21-5:22
                 var: y @ 5:21-5:22
-    "###);
+    "#);
 }
 
 #[test]
@@ -1942,11 +1942,11 @@ fn rule_match_infer_scrutinee_not_inferrable() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let r = match InferMe {
                                 ~~~~~~~
     Cannot infer the type of the expression. Further type annotations are required.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1958,11 +1958,11 @@ fn rule_match_infer_scrutinee_not_variant() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let r = match 0 {
                                 ~
     Cannot match on expressions of type `Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1973,11 +1973,11 @@ fn rule_match_infer_no_branches() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let r = match x {
                                 ~
     Match expressions must have at least one branch.
-    "###);
+    "#);
 }
 
 #[test]
@@ -1989,11 +1989,11 @@ fn rule_match_infer_unknown_constructor_without_payload() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       4 |             B => 0,
                       ~
     `B` is not a possible constructor for variant type `[A]`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2005,11 +2005,11 @@ fn rule_match_infer_unknown_constructor_with_payload() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       4 |             B(y) => 0,
                       ~~~~
     `B` is not a possible constructor for variant type `[A]`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2021,11 +2021,11 @@ fn rule_match_infer_unexpected_payload() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       4 |             A(y) => 0,
                       ~~~~
     Constructor `A` of variant type `[A]` does not take a payload.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2037,11 +2037,11 @@ fn rule_match_infer_expected_payload() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       4 |             A => 0,
                       ~
     Constructor `A` of variant type `[A(Int)]` needs a payload.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2053,11 +2053,11 @@ fn rule_match_infer_branch1_not_inferrable() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       4 |             A => InferMe,
                            ~~~~~~~
     Cannot infer the type of the expression. Further type annotations are required.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2070,11 +2070,11 @@ fn rule_match_infer_branch2_mismatch() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       5 |             B => CheckMe,
                            ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2087,11 +2087,11 @@ fn rule_match_infer_unknown_constructor_after_not_inferrable() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       5 |             C => 0,
                       ~
     `C` is not a possible constructor for variant type `[A | B]`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2105,11 +2105,11 @@ fn rule_match_infer_unknown_constructor_after_mismatch() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       6 |             C => 0,
                       ~
     `C` is not a possible constructor for variant type `[A | B]`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2121,11 +2121,11 @@ fn rule_match_infer_non_exhaustive_1() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let r = match x {
                                 ~
     Constructor `A` is not covered in pattern match on type `[A | B]`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2137,11 +2137,11 @@ fn rule_match_infer_non_exhaustive_2() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       3 |         let r = match x {
                                 ~
     Constructor `B` is not covered in pattern match on type `[A(Int) | B(Bool)]`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2155,11 +2155,11 @@ fn rule_match_infer_overlap_1() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       5 |             A => 1,
                       ~
     Constructor `A` is covered repeatedly in pattern match.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2173,11 +2173,11 @@ fn rule_match_infer_overlap_2() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       6 |             B(x) => 1,
                       ~~~~
     Constructor `B` is covered repeatedly in pattern match.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2190,11 +2190,11 @@ fn rule_match_infer_overlap_non_exhaustive() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       5 |             A => 1,
                       ~
     Constructor `A` is covered repeatedly in pattern match.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2277,11 +2277,11 @@ fn rule_match_check_scrutinee_not_inferrable() {
             A => 0,
         }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         match InferMe {
                         ~~~~~~~
     Cannot infer the type of the expression. Further type annotations are required.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2292,11 +2292,11 @@ fn rule_match_check_scrutinee_not_variant() {
             A => 0,
         }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         match 0 {
                         ~
     Cannot match on expressions of type `Int`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2306,11 +2306,11 @@ fn rule_match_check_no_branches() {
         match x {
         }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         match x {
                         ~
     Match expressions must have at least one branch.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2321,11 +2321,11 @@ fn rule_match_check_unknown_constructor_without_payload() {
             B => 0,
         }
     }
-    "#), @r###"
+    "#), @r#"
       4 |             B => 0,
                       ~
     `B` is not a possible constructor for variant type `[A]`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2336,11 +2336,11 @@ fn rule_match_check_unknown_constructor_with_payload() {
             B(y) => 0,
         }
     }
-    "#), @r###"
+    "#), @r#"
       4 |             B(y) => 0,
                       ~~~~
     `B` is not a possible constructor for variant type `[A]`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2351,11 +2351,11 @@ fn rule_match_check_unexpected_payload() {
             A(y) => 0,
         }
     }
-    "#), @r###"
+    "#), @r#"
       4 |             A(y) => 0,
                       ~~~~
     Constructor `A` of variant type `[A]` does not take a payload.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2366,11 +2366,11 @@ fn rule_match_check_expected_payload() {
             A => 0,
         }
     }
-    "#), @r###"
+    "#), @r#"
       4 |             A => 0,
                       ~
     Constructor `A` of variant type `[A(Int)]` needs a payload.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2381,11 +2381,11 @@ fn rule_match_check_branch1_mismatch() {
             A => CheckMe,
         }
     }
-    "#), @r###"
+    "#), @r#"
       4 |             A => CheckMe,
                            ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2398,11 +2398,11 @@ fn rule_match_check_branch2_mismatch() {
         };
         r
     }
-    "#), @r###"
+    "#), @r#"
       5 |             B => CheckMe,
                            ~~~~~~~
     Expected an expression of type `Int` but found variant constructor `CheckMe`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2414,11 +2414,11 @@ fn rule_match_check_unknown_constructor_after_mismatch() {
             C => 0,
         }
     }
-    "#), @r###"
+    "#), @r#"
       5 |             C => 0,
                       ~
     `C` is not a possible constructor for variant type `[A | B]`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2429,11 +2429,11 @@ fn rule_match_check_non_exhaustive_1() {
             B => 0,
         }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         match x {
                         ~
     Constructor `A` is not covered in pattern match on type `[A | B]`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2444,11 +2444,11 @@ fn rule_match_check_non_exhaustive_2() {
             A(x) => x,
         }
     }
-    "#), @r###"
+    "#), @r#"
       3 |         match x {
                         ~
     Constructor `B` is not covered in pattern match on type `[A(Int) | B(Bool)]`.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2461,11 +2461,11 @@ fn rule_match_check_overlap_1() {
             B => 2,
         }
     }
-    "#), @r###"
+    "#), @r#"
       5 |             A => 1,
                       ~
     Constructor `A` is covered repeatedly in pattern match.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2478,11 +2478,11 @@ fn rule_match_check_overlap_2() {
             B(x) => 1,
         }
     }
-    "#), @r###"
+    "#), @r#"
       6 |             B(x) => 1,
                       ~~~~
     Constructor `B` is covered repeatedly in pattern match.
-    "###);
+    "#);
 }
 
 #[test]
@@ -2494,9 +2494,9 @@ fn rule_match_check_overlap_non_exhaustive() {
             A => 1,
         }
     }
-    "#), @r###"
+    "#), @r#"
       5 |             A => 1,
                       ~
     Constructor `A` is covered repeatedly in pattern match.
-    "###);
+    "#);
 }

@@ -7,7 +7,7 @@ fn smoke_test() {
         let y = x;
         y
     }
-    "#), @r###"
+    "#), @r#"
     [
         EXPR_BINDER
             var: x @ 2:10-2:11
@@ -24,7 +24,7 @@ fn smoke_test() {
             type: INT
             def: 3:13-3:14,
     ]
-    "###);
+    "#);
 }
 
 #[test]
@@ -32,7 +32,7 @@ fn func_ref() {
     insta::assert_debug_snapshot!(check_symbols(r#"
     fn f() -> Int { 0 }
     fn g() -> Int { f() }
-    "#), @r###"
+    "#), @r#"
     [
         FUNC_REF
             var: f @ 3:21-3:22
@@ -40,5 +40,5 @@ fn func_ref() {
                 name: f @ 2:8-2:9
                 result: INT,
     ]
-    "###);
+    "#);
 }

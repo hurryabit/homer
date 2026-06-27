@@ -90,7 +90,7 @@ fn module() {
     fn mono(x: Int) -> Mono { x }
     type Poly<A> = A;
     fn poly<A>(x: A) -> Poly<A> { x }
-    "#), @r###"
+    "#), @r#"
     MODULE
         decl: TYPEDECL
             name: Mono @ 2:10-2:14
@@ -122,53 +122,53 @@ fn module() {
                     var: A @ 5:30-5:31
             body: VAR @ 5:35-5:36
                 var: x @ 5:35-5:36
-    "###);
+    "#);
 }
 
 #[test]
 fn location_eol_lf() {
-    insta::assert_snapshot!(parse_error("\nx"), @r###"
+    insta::assert_snapshot!(parse_error("\nx"), @r#"
     ---
     --------------------------------------------------
       2 | x
           ~
     Unrecognized token `x` found at 2:1:2:2
     Expected one of "fn" or "type"
-    "###);
+    "#);
 }
 
 #[test]
 fn location_eol_crlf() {
-    insta::assert_snapshot!(parse_error("\r\nx"), @r###"
+    insta::assert_snapshot!(parse_error("\r\nx"), @r#"
     ---
     --------------------------------------------------
       2 | x
           ~
     Unrecognized token `x` found at 2:1:2:2
     Expected one of "fn" or "type"
-    "###);
+    "#);
 }
 
 #[test]
 fn location_comment_ascii() {
-    insta::assert_snapshot!(parse_error("/* aeiou */ x"), @r###"
+    insta::assert_snapshot!(parse_error("/* aeiou */ x"), @r#"
     ---
     --------------------------------------------------
       1 | /* aeiou */ x
                       ~
     Unrecognized token `x` found at 1:13:1:14
     Expected one of "fn" or "type"
-    "###);
+    "#);
 }
 
 #[test]
 fn location_comment_unlauts() {
-    insta::assert_snapshot!(parse_error("/* äëïöü */ x"), @r###"
+    insta::assert_snapshot!(parse_error("/* äëïöü */ x"), @r#"
     ---
     --------------------------------------------------
       1 | /* äëïöü */ x
                       ~
     Unrecognized token `x` found at 1:13:1:14
     Expected one of "fn" or "type"
-    "###);
+    "#);
 }

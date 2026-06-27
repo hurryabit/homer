@@ -17,7 +17,7 @@ fn anf_output(input: &str) -> String {
 fn simple() {
     insta::assert_snapshot!(anf_output(r#"
     fn f() -> Int { 1 + 2 }
-    "#), @r###"
+    "#), @r#"
     MODULE
         decl: FUNCDECL
             name: f
@@ -31,7 +31,7 @@ fn simple() {
                     lhs: $v1/2
                     op: ADD
                     rhs: $v2/1
-    "###);
+    "#);
 }
 
 #[test]
@@ -42,7 +42,7 @@ fn lambda_shadowing() {
         let f = fn (x: Int) { x };
         f(x)
     }
-    "#), @r###"
+    "#), @r#"
     MODULE
         decl: FUNCDECL
             name: f
@@ -59,7 +59,7 @@ fn lambda_shadowing() {
                 bindee: APP
                     fun: f/1
                     arg: x/2
-    "###);
+    "#);
 }
 
 #[test]
@@ -73,7 +73,7 @@ fn nested_shadowing() {
         };
         x
     }
-    "#), @r###"
+    "#), @r#"
     MODULE
         decl: FUNCDECL
             name: f
@@ -86,7 +86,7 @@ fn nested_shadowing() {
                 bindee: $v1/1
                 binder: $result
                 bindee: $v2/1
-    "###);
+    "#);
 }
 
 #[test]
@@ -97,7 +97,7 @@ fn capture() {
         let f = fn () { x };
         f()
     }
-    "#), @r###"
+    "#), @r#"
     MODULE
         decl: FUNCDECL
             name: f
@@ -113,7 +113,7 @@ fn capture() {
                 binder: $result
                 bindee: APP
                     fun: f/1
-    "###);
+    "#);
 }
 
 #[test]
@@ -124,7 +124,7 @@ fn pattern_shadowing() {
             C(x) => x + x,
         }
     }
-    "#), @r###"
+    "#), @r#"
     MODULE
         decl: FUNCDECL
             name: f
@@ -143,7 +143,7 @@ fn pattern_shadowing() {
                                 lhs: $v1/1
                                 op: ADD
                                 rhs: $v1/1
-    "###);
+    "#);
 }
 
 #[test]
@@ -155,7 +155,7 @@ fn branch_sorting() {
             A => 1,
         }
     }
-    "#), @r###"
+    "#), @r#"
     MODULE
         decl: FUNCDECL
             name: f
@@ -176,5 +176,5 @@ fn branch_sorting() {
                         rhs: EXPR
                             binder: $result
                             bindee: 0
-    "###);
+    "#);
 }
