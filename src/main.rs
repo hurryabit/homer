@@ -21,10 +21,14 @@ struct Args {
 enum Command {
     Check { file: PathBuf },
     Run { file: PathBuf },
+    Compile { file: PathBuf },
     Server,
 }
 
-fn check_and_run(file: PathBuf, run: bool) -> anyhow::Result<bool> {
+fn process_file(
+    file: PathBuf,
+    f: impl FnOnce(PathBuf, &mut build::CompilerDB, build::Uri) -> anyhow::Result<bool>,
+) -> anyhow::Result<bool> {
     let uri =
         build::Uri::new(file.to_str().ok_or_else(|| anyhow!("non-UTF-8 paths are not supported"))?);
     let db = &mut build::CompilerDB::new();
@@ -38,18 +42,36 @@ fn check_and_run(file: PathBuf, run: bool) -> anyhow::Result<bool> {
             eprintln!("{}\n{}", "-".repeat(50), diagnostic.layout(&input));
         }
     });
-
-    if run && let Some(module) = db.anf_module(uri) {
-        let main = syntax::ExprVar::new("main");
-        if module.func_decls.iter().any(|decl| decl.name == main) {
-            let machine = cek::Machine::new(&module, main);
-            let result = machine.run();
-            println!("Result: {}", result.value());
-        } else {
-            eprintln!("No function `main` to run.");
-        }
+    if success {
+        success = f(file, db, uri)?;
     }
     Ok(success)
+}
+
+fn run_file(_file: PathBuf, db: &mut build::CompilerDB, uri: build::Uri) -> anyhow::Result<bool> {
+    let module = db.anf_module(uri).expect("conversion to ANF cannot fail when checks have passed");
+    let main = syntax::ExprVar::new("main");
+    if module.func_decls.iter().any(|decl| decl.name == main) {
+        let machine = cek::Machine::new(&module, main);
+        let result = machine.run();
+        println!("Result: {}", result.value());
+        Ok(true)
+    } else {
+        eprintln!("No function `main` to run.");
+        Ok(false)
+    }
+}
+
+fn compile_file(
+    mut file: PathBuf,
+    db: &mut build::CompilerDB,
+    uri: build::Uri,
+) -> anyhow::Result<bool> {
+    assert!(file.set_extension("wasm"));
+    let bytes =
+        db.wasm_module(uri).expect("complication to WASM cannot fail when checks have passed");
+    std::fs::write(file, &*bytes)?;
+    Ok(true)
 }
 
 async fn language_server() -> anyhow::Result<bool> {
@@ -75,8 +97,9 @@ async fn language_server() -> anyhow::Result<bool> {
 async fn main() {
     let args = Args::parse();
     let result = match args.command {
-        Command::Check { file } => check_and_run(file, false),
-        Command::Run { file } => check_and_run(file, true),
+        Command::Check { file } => process_file(file, |_, _, _| Ok(true)),
+        Command::Run { file } => process_file(file, run_file),
+        Command::Compile { file } => process_file(file, compile_file),
         Command::Server => language_server().await,
     };
     match result {

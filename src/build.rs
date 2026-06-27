@@ -5,6 +5,7 @@ use crate::anf;
 use crate::checker::SymbolInfo;
 use crate::diagnostic::Diagnostic;
 use crate::syntax;
+use crate::wasm;
 
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
 pub struct Uri(lasso::Spur);
@@ -38,6 +39,8 @@ pub trait Compiler: salsa::Database {
     fn checked_module(&self, uri: Uri) -> CheckedModuleOutcome;
 
     fn anf_module(&self, uri: Uri) -> Option<Arc<anf::Module>>;
+
+    fn wasm_module(&self, uri: Uri) -> Option<Arc<Vec<u8>>>;
 }
 
 fn parsed_module(
@@ -62,6 +65,10 @@ fn checked_module(db: &dyn Compiler, uri: Uri) -> CheckedModuleOutcome {
 
 fn anf_module(db: &dyn Compiler, uri: Uri) -> Option<Arc<anf::Module>> {
     db.checked_module(uri).0.map(|checked_module| Arc::new(checked_module.to_anf()))
+}
+
+fn wasm_module(db: &dyn Compiler, uri: Uri) -> Option<Arc<Vec<u8>>> {
+    db.checked_module(uri).0.map(|checked_module| Arc::new(wasm::compile_module(&checked_module)))
 }
 
 #[salsa::database(CompilerStorage)]

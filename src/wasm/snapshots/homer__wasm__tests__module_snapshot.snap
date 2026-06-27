@@ -1,0 +1,72 @@
+---
+source: src/wasm/mod.rs
+expression: wat
+---
+(module
+  (type (;0;) (sub (struct)))
+  (type (;1;) (sub final 0 (struct (field i64))))
+  (type (;2;) (sub final 0 (struct (field i32))))
+  (type (;3;) (array (ref 0)))
+  (type (;4;) (func (param (ref 3)) (result (ref 0))))
+  (type (;5;) (func (param (ref 3) (ref 0)) (result (ref 0))))
+  (type (;6;) (func (param (ref 3) (ref 0) (ref 0)) (result (ref 0))))
+  (type (;7;) (func (param (ref 3) (ref 0) (ref 0) (ref 0)) (result (ref 0))))
+  (type (;8;) (func (param (ref 3) (ref 0) (ref 0) (ref 0) (ref 0)) (result (ref 0))))
+  (type (;9;) (func (param (ref 3) (ref 0) (ref 0) (ref 0) (ref 0) (ref 0)) (result (ref 0))))
+  (type (;10;) (sub final 0 (struct (field (ref 3)) (field (ref 4)))))
+  (type (;11;) (sub final 0 (struct (field (ref 3)) (field (ref 5)))))
+  (type (;12;) (sub final 0 (struct (field (ref 3)) (field (ref 6)))))
+  (type (;13;) (sub final 0 (struct (field (ref 3)) (field (ref 7)))))
+  (type (;14;) (sub final 0 (struct (field (ref 3)) (field (ref 8)))))
+  (type (;15;) (sub final 0 (struct (field (ref 3)) (field (ref 9)))))
+  (type (;16;) (sub final 0 (struct)))
+  (type (;17;) (sub final 0 (struct (field (ref 0)))))
+  (type (;18;) (sub final 0 (struct (field (ref 0)) (field (ref 0)))))
+  (type (;19;) (sub final 0 (struct (field (ref 0)) (field (ref 0)) (field (ref 0)))))
+  (type (;20;) (sub final 0 (struct (field (ref 0)) (field (ref 0)) (field (ref 0)) (field (ref 0)))))
+  (type (;21;) (sub final 0 (struct (field (ref 0)) (field (ref 0)) (field (ref 0)) (field (ref 0)) (field (ref 0)))))
+  (type (;22;) (sub final 0 (struct (field i32) (field (ref null 0)))))
+  (type (;23;) (func (result (ref 0))))
+  (type (;24;) (func (param (ref 0)) (result (ref 0))))
+  (type (;25;) (func (param (ref 0) (ref 0)) (result (ref 0))))
+  (type (;26;) (func (param (ref 0) (ref 0) (ref 0)) (result (ref 0))))
+  (type (;27;) (func (param (ref 0) (ref 0) (ref 0) (ref 0)) (result (ref 0))))
+  (type (;28;) (func (param (ref 0) (ref 0) (ref 0) (ref 0) (ref 0)) (result (ref 0))))
+  (type (;29;) (func (param i32 i64 i64) (result i64)))
+  (export "f" (func 1))
+  (func (;0;) (type 26) (param (ref 0) (ref 0) (ref 0)) (result (ref 0))
+    local.get 0
+    ref.cast (ref 2)
+    struct.get 2 0
+    if (result (ref 0)) ;; label = @1
+      local.get 1
+      ref.cast (ref 1)
+      struct.get 1 0
+      local.get 2
+      ref.cast (ref 1)
+      struct.get 1 0
+      i64.mul
+      struct.new 1
+    else
+      local.get 1
+      ref.cast (ref 1)
+      struct.get 1 0
+      local.get 2
+      ref.cast (ref 1)
+      struct.get 1 0
+      i64.add
+      struct.new 1
+    end
+  )
+  (func (;1;) (type 29) (param i32 i64 i64) (result i64)
+    local.get 0
+    struct.new 2
+    local.get 1
+    struct.new 1
+    local.get 2
+    struct.new 1
+    call 0
+    ref.cast (ref 1)
+    struct.get 1 0
+  )
+)

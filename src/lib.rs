@@ -9,6 +9,7 @@ mod lsp;
 mod parser;
 pub mod syntax;
 mod util;
+mod wasm;
 
 use std::sync::LazyLock;
 
