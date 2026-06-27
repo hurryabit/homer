@@ -468,20 +468,45 @@ impl Expr {
                 }
                 Ok(())
             }
+            Self::Record(fields) => {
+                // TODO: Produce dedicated error messages instead of falling back to subsumption.
+                let expected = &expected.weak_normalize_env(env);
+                let Type::Record(expected_fields) = expected.as_ref() else {
+                    return self.subsume_resolved(span, env, expected);
+                };
+                if fields.len() != expected_fields.len() {
+                    return self.subsume_resolved(span, env, expected);
+                }
+                let expected_fields = expected_fields
+                    .iter()
+                    .map(|(name, typ)| (name, typ)) // &(_, _) -> (&_, &_)
+                    .collect::<HashMap<_, _>>();
+                if fields.iter().any(|(name, _)| !expected_fields.contains_key(&name.locatee)) {
+                    return self.subsume_resolved(span, env, expected);
+                }
+                for (name, expr) in fields {
+                    expr.check(env, expected_fields[&name.locatee])?;
+                }
+                Ok(())
+            }
             Self::Error
             | Self::Var(_)
             | Self::Num(_)
             | Self::Bool(_)
             | Self::AppClo(_, _)
             | Self::BinOp(_, _, _)
-            // TODO(MH): Pushing the expected type into the fields gives better inference.
-            | Self::Record(_)
-            | Self::Proj(_, _, _) => {
-                // This is subsumption.
-                let found = self.infer_resolved(span, env)?;
-                found_vs_expected(env, span, found, expected)
-            }
+            | Self::Proj(_, _, _) => self.subsume_resolved(span, env, expected),
         }
+    }
+
+    fn subsume_resolved(
+        &mut self,
+        span: SourceSpan,
+        env: &Env,
+        expected: &RcType,
+    ) -> Result<(), LError> {
+        let found = self.infer_resolved(span, env)?;
+        found_vs_expected(env, span, found, expected)
     }
 
     fn infer(&mut self, span: SourceSpan, env: &Env) -> Result<RcType, LError> {

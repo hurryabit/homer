@@ -243,7 +243,7 @@ The typing rules and the implementation of the type checker are bidirectional, a
   E |- e1 <= t1
   ...
   E |- en <= tn
--------------------------------------------------- RecordCheck (TODO)
+-------------------------------------------------- RecordCheck
   E |- {a1 = e1, ..., an = en}
     <= {a1: t1, ..., an: tn}
 

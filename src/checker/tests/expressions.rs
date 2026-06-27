@@ -2500,3 +2500,127 @@ fn rule_match_check_overlap_non_exhaustive() {
     Constructor `A` is covered repeatedly in pattern match.
     "#);
 }
+
+#[test]
+fn rule_record_check_ordered() {
+    check_success(
+        r#"
+        fn f() -> {a: Int, b: Bool} {
+            {a = 0, b = true}
+        }
+        "#,
+    );
+}
+
+#[test]
+fn rule_record_check_reordered() {
+    check_success(
+        r#"
+        fn f() -> {a: Int, b: Bool} {
+            {b = true, a = 0}
+        }
+        "#,
+    );
+}
+
+#[test]
+fn rule_record_check_constraint_pushed() {
+    check_success(
+        r#"
+        fn f() -> {g: (Int) -> Int} {
+            {g = fn(x) { x }}
+        }
+        "#,
+    );
+}
+
+#[test]
+fn rule_record_check_mismatch_field_1() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> {a: Int, b: Bool} {
+        {a = CheckMe, b = true}
+    }
+    "#), @r#"
+      3 |         {a = CheckMe, b = true}
+                       ~~~~~~~
+    Expected an expression of type `Int` but found variant constructor `CheckMe`.
+    "#);
+}
+
+#[test]
+fn rule_record_check_mismatch_field_2() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> {a: Int, b: Bool} {
+        {a = 0, b = CheckMe}
+    }
+    "#), @r#"
+      3 |         {a = 0, b = CheckMe}
+                              ~~~~~~~
+    Expected an expression of type `Bool` but found variant constructor `CheckMe`.
+    "#);
+}
+
+#[test]
+fn rule_record_check_mismatch_reordered() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> {a: Bool, b: Int} {
+        {b = CheckMe, a = true}
+    }
+    "#), @r#"
+      3 |         {b = CheckMe, a = true}
+                       ~~~~~~~
+    Expected an expression of type `Int` but found variant constructor `CheckMe`.
+    "#);
+}
+
+#[test]
+fn rule_record_check_too_few_fields() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> {a: Int, b: Bool} {
+        {a = 0}
+    }
+    "#), @r#"
+      3 |         {a = 0}
+                  ~~~~~~~
+    Expected an expression of type `{a: Int, b: Bool}` but found an expression of type `{a: Int}`.
+    "#);
+}
+
+#[test]
+fn rule_record_check_wrong_field_names() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> {a: Int, c: Bool} {
+        {a = 0, b = true}
+    }
+    "#), @r#"
+      3 |         {a = 0, b = true}
+                  ~~~~~~~~~~~~~~~~~
+    Expected an expression of type `{a: Int, c: Bool}` but found an expression of type `{a: Int, b: Bool}`.
+    "#);
+}
+
+#[test]
+fn rule_record_check_too_many_fields() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> {a: Int} {
+        {a = 0, b = true}
+    }
+    "#), @r#"
+      3 |         {a = 0, b = true}
+                  ~~~~~~~~~~~~~~~~~
+    Expected an expression of type `{a: Int}` but found an expression of type `{a: Int, b: Bool}`.
+    "#);
+}
+
+#[test]
+fn rule_record_check_not_a_record() {
+    insta::assert_snapshot!(check_error(r#"
+    fn f() -> Int {
+        {a = 0}
+    }
+    "#), @r#"
+      3 |         {a = 0}
+                  ~~~~~~~
+    Expected an expression of type `Int` but found an expression of type `{a: Int}`.
+    "#);
+}
