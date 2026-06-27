@@ -1,5 +1,9 @@
-use crate::location::{Located, SourceSpan};
 use std::fmt;
+use std::rc::Rc;
+use std::sync::Arc;
+
+use crate::location::Located;
+use crate::location::SourceSpan;
 
 pub trait Debug {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result;
@@ -18,13 +22,13 @@ impl<T: Debug> Debug for Box<T> {
     }
 }
 
-impl<T: Debug> Debug for std::sync::Arc<T> {
+impl<T: Debug> Debug for Arc<T> {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
         self.as_ref().write(writer)
     }
 }
 
-impl<T: Debug> Debug for std::rc::Rc<T> {
+impl<T: Debug> Debug for Rc<T> {
     fn write(&self, writer: &mut DebugWriter) -> fmt::Result {
         self.as_ref().write(writer)
     }
@@ -136,7 +140,6 @@ impl<'a> DebugWriter<'a> {
     }
 }
 
-#[macro_export]
 macro_rules! derive_fmt_debug {
     ($type_name:ident) => {
         impl std::fmt::Debug for $type_name {
@@ -146,3 +149,4 @@ macro_rules! derive_fmt_debug {
         }
     };
 }
+pub(crate) use derive_fmt_debug;

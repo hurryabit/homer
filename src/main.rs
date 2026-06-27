@@ -1,10 +1,13 @@
 use std::sync::Arc;
 
-use clap::{Parser, Subcommand};
-use tower_lsp::{LspService, Server};
-
-use homer::build::Compiler;
-use homer::{build, cek, syntax};
+use clap::Parser;
+use clap::Subcommand;
+use homer::build;
+use homer::build::Compiler as _;
+use homer::cek;
+use homer::syntax;
+use tower_lsp::LspService;
+use tower_lsp::Server;
 
 #[derive(Parser)]
 struct Args {

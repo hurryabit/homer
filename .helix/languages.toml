@@ -9,3 +9,14 @@ file-types = ["doh"]
 language-servers = ["homer-server"]
 comment-token = "//"
 indent = { tab-width = 4, unit = "    " }
+
+[[language]]
+name = "rust"
+[language.formatter]
+command = "rustfmt"
+args = [
+    "--edition",
+    "2024",
+    "--config",
+    "group_imports=StdExternalCrate,imports_granularity=Item",
+]

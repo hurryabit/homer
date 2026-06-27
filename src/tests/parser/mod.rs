@@ -1,10 +1,11 @@
-use crate::{diagnostic, syntax};
-use diagnostic::Diagnostic;
-use syntax::Module;
-
 mod decl;
 mod expr;
 mod type_;
+
+use std::fmt;
+
+use crate::diagnostic::Diagnostic;
+use crate::syntax::Module;
 
 fn parse_output_impl<T, F>(f: F, input: &str) -> T
 where
@@ -15,11 +16,11 @@ where
     result.unwrap()
 }
 
-fn parse_error_impl<T: std::fmt::Debug, F>(f: F, input: &str) -> String
+fn parse_error_impl<T: fmt::Debug, F>(f: F, input: &str) -> String
 where
     F: Fn(&str) -> (Option<T>, Vec<Diagnostic>),
 {
-    use std::fmt::Write;
+    use fmt::Write as _;
     let (result, diagnostics) = f(input);
     assert!(!diagnostics.is_empty() || result.is_none());
     let mut output = String::new();

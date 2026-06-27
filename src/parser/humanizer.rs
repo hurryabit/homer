@@ -1,5 +1,8 @@
+use line_index::LineIndex;
+use line_index::TextSize;
+use line_index::WideEncoding;
+
 use crate::location::SourceLocation;
-use line_index::{LineIndex, TextSize, WideEncoding};
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Humanizer(LineIndex);

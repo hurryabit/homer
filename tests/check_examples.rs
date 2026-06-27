@@ -1,5 +1,7 @@
-use homer::build::{self, Compiler};
 use std::sync::Arc;
+
+use homer::build;
+use homer::build::Compiler as _;
 
 #[test]
 fn readme_blocks_pass_checker() -> anyhow::Result<()> {

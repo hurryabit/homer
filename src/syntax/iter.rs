@@ -38,7 +38,8 @@ impl LType {
 
 impl Type {
     pub fn children_mut(&mut self) -> impl Iterator<Item = &mut LType> {
-        use genawaiter::{rc::r#gen, yield_};
+        use genawaiter::rc::r#gen;
+        use genawaiter::yield_;
         r#gen!({
             match self {
                 Self::Error => {}
@@ -82,7 +83,8 @@ impl LExpr {
 
 impl Expr {
     pub fn children_mut(&mut self) -> impl Iterator<Item = &mut LExpr> {
-        use genawaiter::{rc::r#gen, yield_};
+        use genawaiter::rc::r#gen;
+        use genawaiter::yield_;
         r#gen!({
             match self {
                 Self::Error => {}

@@ -1,5 +1,4 @@
-use crate::*;
-use syntax::Expr;
+use crate::syntax::Expr;
 
 fn parse_output(input: &str) -> Expr {
     super::parse_output_impl(Expr::parse_test, input)

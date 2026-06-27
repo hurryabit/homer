@@ -1,9 +1,10 @@
-use crate::{anf, checker, diagnostic, syntax};
-use checker::SymbolInfo;
-use diagnostic::Diagnostic;
 use std::fmt;
 use std::sync::Arc;
-use syntax::Module;
+
+use crate::anf;
+use crate::checker::SymbolInfo;
+use crate::diagnostic::Diagnostic;
+use crate::syntax;
 
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
 pub struct Uri(lasso::Spur);
@@ -24,23 +25,27 @@ impl fmt::Debug for Uri {
     }
 }
 
-type CheckedModuleOutcome = (Option<Arc<Module>>, Arc<Vec<SymbolInfo>>, Arc<Vec<Diagnostic>>);
+type CheckedModuleOutcome =
+    (Option<Arc<syntax::Module>>, Arc<Vec<SymbolInfo>>, Arc<Vec<Diagnostic>>);
 
 #[salsa::query_group(CompilerStorage)]
 pub trait Compiler: salsa::Database {
     #[salsa::input]
     fn input(&self, uri: Uri) -> Arc<String>;
 
-    fn parsed_module(&self, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>);
+    fn parsed_module(&self, uri: Uri) -> (Option<Arc<syntax::Module>>, Arc<Vec<Diagnostic>>);
 
     fn checked_module(&self, uri: Uri) -> CheckedModuleOutcome;
 
     fn anf_module(&self, uri: Uri) -> Option<Arc<anf::Module>>;
 }
 
-fn parsed_module(db: &dyn Compiler, uri: Uri) -> (Option<Arc<Module>>, Arc<Vec<Diagnostic>>) {
+fn parsed_module(
+    db: &dyn Compiler,
+    uri: Uri,
+) -> (Option<Arc<syntax::Module>>, Arc<Vec<Diagnostic>>) {
     let input = db.input(uri);
-    let (opt_parsed_module, diagnostics) = Module::parse(&input);
+    let (opt_parsed_module, diagnostics) = syntax::Module::parse(&input);
     (opt_parsed_module.map(Arc::new), Arc::new(diagnostics))
 }
 

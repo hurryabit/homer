@@ -1,13 +1,19 @@
-use join_lazy_fmt::*;
+use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
+use std::sync::OnceLock;
 
+use join_lazy_fmt::Join as _;
+use join_lazy_fmt::lazy_format;
+
+use crate::ast;
 use crate::location::Located;
+use crate::syntax::ExprCon;
+use crate::syntax::ExprVar;
+use crate::syntax::LExprVar;
+use crate::syntax::Type as SynType;
+use crate::syntax::TypeVar;
 use crate::util::in_parens_if_some;
-use crate::{ast, syntax};
-use syntax::{ExprCon, ExprVar, LExprVar, TypeVar};
-
-pub use syntax::Type as SynType;
 
 #[derive(Eq, PartialEq, Hash)]
 pub enum Type<T = RcType> {
@@ -43,7 +49,7 @@ pub struct TypeScheme {
     pub body: RcType,
 }
 
-type TypeDefs = std::collections::HashMap<TypeVar, TypeScheme>;
+type TypeDefs = HashMap<TypeVar, TypeScheme>;
 
 impl RcType {
     pub fn new(typ: Type) -> Self {
@@ -62,7 +68,7 @@ impl RcType {
         Self::new(Type::from_syntax(syntax))
     }
 
-    pub fn subst(&self, mapping: &std::collections::HashMap<&TypeVar, &RcType>) -> RcType {
+    pub fn subst(&self, mapping: &HashMap<&TypeVar, &RcType>) -> RcType {
         match &**self {
             Type::Var(var) => {
                 let &typ = mapping
@@ -254,7 +260,8 @@ impl Type {
 
 impl<T> Type<T> {
     pub fn children(&self) -> impl Iterator<Item = &T> {
-        use genawaiter::{rc::r#gen, yield_};
+        use genawaiter::rc::r#gen;
+        use genawaiter::yield_;
         r#gen!({
             match self {
                 Self::Error => {}
@@ -439,10 +446,10 @@ impl ast::Debug for FuncSig {
     }
 }
 
-derive_fmt_debug!(Type);
-derive_fmt_debug!(RcType);
-derive_fmt_debug!(TypeScheme);
-derive_fmt_debug!(FuncSig);
+ast::derive_fmt_debug!(Type);
+ast::derive_fmt_debug!(RcType);
+ast::derive_fmt_debug!(TypeScheme);
+ast::derive_fmt_debug!(FuncSig);
 
 impl UnificationVar {
     pub fn new_free(id: u32) -> Self {

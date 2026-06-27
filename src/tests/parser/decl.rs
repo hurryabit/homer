@@ -1,5 +1,4 @@
-use crate::*;
-use syntax::*;
+use crate::syntax::Decl;
 
 fn parse(input: &str) -> Decl {
     let (result, diagnostics) = Decl::parse_test(input);

@@ -1,12 +1,18 @@
-use crate::*;
-use join_lazy_fmt::*;
-use std::fmt;
-use util::in_parens_if_some;
-
-use location::SourceSpan;
-pub use syntax::{ExprCon, ExprVar, LExprVar, OpCode};
-
 mod debruijn;
+
+use std::fmt;
+
+use join_lazy_fmt::Join as _;
+use join_lazy_fmt::lazy_format;
+
+use crate::ast;
+use crate::location::SourceSpan;
+use crate::syntax;
+use crate::syntax::ExprCon;
+use crate::syntax::ExprVar;
+use crate::syntax::LExprVar;
+use crate::syntax::OpCode;
+use crate::util::in_parens_if_some;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Module {
@@ -27,8 +33,6 @@ pub struct Expr {
     // to make the presentation uniform for for the sake of easier interpretation.
     pub bindings: Vec<Binding>,
 }
-
-pub type TailExpr = Bindee;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Binding {
@@ -124,13 +128,13 @@ impl Bindee {
         bindings: &mut Vec<Binding>,
     ) -> (Self, FreeVars) {
         match &expr.locatee {
-            syntax::Expr::Error => (Self::Error(expr.span), ordset![]),
+            syntax::Expr::Error => (Self::Error(expr.span), im::ordset![]),
             syntax::Expr::Var(var) => {
                 let (atom, fvs) = Atom::from_var(env, var);
                 (Self::Atom(atom), fvs)
             }
-            syntax::Expr::Num(n) => (Self::Num(*n), ordset![]),
-            syntax::Expr::Bool(b) => (Self::Bool(*b), ordset![]),
+            syntax::Expr::Num(n) => (Self::Num(*n), im::ordset![]),
+            syntax::Expr::Bool(b) => (Self::Bool(*b), im::ordset![]),
             syntax::Expr::Lam(params, body) => {
                 let (params, body, fvs) = {
                     let env = &mut env.clone();
@@ -195,7 +199,7 @@ impl Bindee {
             syntax::Expr::Variant(constr, rank, None) => {
                 let variant =
                     Self::Variant(rank.expect("Variant constructor without rank"), *constr, None);
-                (variant, ordset![])
+                (variant, im::ordset![])
             }
             syntax::Expr::Variant(constr, rank, Some(payload)) => {
                 let (payload, fvs) = Atom::from_syntax(env, payload, bindings);
@@ -250,7 +254,7 @@ impl Branch {
 impl Atom {
     fn from_var(env: &mut Env, var: &LExprVar) -> (Self, FreeVars) {
         let binder = *env.get_binder(&var.locatee);
-        (Self(IdxVar(0, binder)), ordset![binder])
+        (Self(IdxVar(0, binder)), im::ordset![binder])
     }
 
     fn from_syntax(
@@ -320,7 +324,7 @@ impl Env {
     }
 }
 
-derive_fmt_debug!(Module);
+ast::derive_fmt_debug!(Module);
 
 impl ast::Debug for Module {
     fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {

@@ -1,11 +1,12 @@
-use crate::checker;
-use crate::location::Located;
-
-pub mod debug;
-#[macro_use]
+mod debug;
 mod ident;
 mod iter;
-pub use iter::ExprRef;
+
+use self::ident::ident_type;
+pub use self::iter::ExprRef;
+use crate::ast;
+use crate::checker;
+use crate::location::Located;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Module {
@@ -109,8 +110,8 @@ pub type LExprVar = Located<ExprVar>;
 ident_type!(ExprCon);
 pub type LExprCon = Located<ExprCon>;
 
-derive_fmt_debug!(Module);
-derive_fmt_debug!(Decl);
-derive_fmt_debug!(FuncDecl);
-derive_fmt_debug!(Type);
-derive_fmt_debug!(Expr);
+ast::derive_fmt_debug!(Module);
+ast::derive_fmt_debug!(Decl);
+ast::derive_fmt_debug!(FuncDecl);
+ast::derive_fmt_debug!(Type);
+ast::derive_fmt_debug!(Expr);

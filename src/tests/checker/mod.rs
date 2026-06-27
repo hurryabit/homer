@@ -1,7 +1,3 @@
-use crate::*;
-use checker::SymbolInfo;
-use syntax::{Decl, Expr, ExprRef, FuncDecl, Module, Type};
-
 mod decls;
 mod expressions;
 mod func_resolution;
@@ -9,6 +5,14 @@ mod shadowing;
 mod symbols;
 mod type_resolution;
 mod types;
+
+use crate::checker::SymbolInfo;
+use crate::syntax::Decl;
+use crate::syntax::Expr;
+use crate::syntax::ExprRef;
+use crate::syntax::FuncDecl;
+use crate::syntax::Module;
+use crate::syntax::Type;
 
 fn check_output_and_symbols(input: &str) -> (Module, Vec<SymbolInfo>) {
     let (result, diagnostics) = Module::parse(input);

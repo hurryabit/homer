@@ -1,5 +1,10 @@
+edition = "2024"
 use_small_heuristics = "Max"
+
+
 # Do this once it's stable.
+# group_imports = "StdExternalCrate"
+# imports_granularity = "Item"
 # match_arm_blocks = false
 # overflow_delimited_expr = true
 # error_on_line_overflow = true

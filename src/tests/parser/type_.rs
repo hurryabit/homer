@@ -1,5 +1,4 @@
-use crate::*;
-use syntax::Type;
+use crate::syntax::Type;
 
 fn parse_output(input: &str) -> Type {
     super::parse_output_impl(Type::parse_test, input)

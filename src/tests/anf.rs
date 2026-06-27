@@ -1,6 +1,8 @@
-use crate::build::Compiler;
-use crate::build::*;
 use std::sync::Arc;
+
+use crate::build::Compiler as _;
+use crate::build::CompilerDB;
+use crate::build::Uri;
 
 fn anf_output(input: &str) -> String {
     let db = &mut CompilerDB::new();

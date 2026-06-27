@@ -1,29 +1,49 @@
-use crate::{diagnostic, location, syntax};
-use diagnostic::*;
-use error::{Error, LError};
-use location::{Located, SourceSpan};
+mod error;
+mod info;
+mod types;
+
 use std::cell::Cell;
-use std::collections;
+use std::collections::BTreeSet;
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::Arc;
-use syntax::*;
-use types::*;
 
-mod error;
-pub mod info;
-mod types;
+use self::error::Error;
+use self::error::LError;
+pub use self::info::SymbolInfo;
+use self::types::FuncSig;
+pub use self::types::RcType;
+pub use self::types::Type;
+use self::types::TypeScheme;
+use self::types::UnificationVar;
+use crate::diagnostic::Diagnostic;
+use crate::diagnostic::Severity;
+use crate::diagnostic::Source;
+use crate::location::Located;
+use crate::location::SourceSpan;
+use crate::syntax::Branch;
+use crate::syntax::Expr;
+use crate::syntax::ExprVar;
+use crate::syntax::FuncDecl;
+use crate::syntax::LExpr;
+use crate::syntax::LExprVar;
+use crate::syntax::LType;
+use crate::syntax::Module;
+use crate::syntax::OpCode;
+use crate::syntax::Pattern;
+use crate::syntax::Type as SynType;
+use crate::syntax::TypeDecl;
+use crate::syntax::TypeVar;
 
 type Arity = usize;
 
-pub use info::SymbolInfo;
-pub use types::{RcType, SynType, Type};
-
 #[derive(Clone)]
 struct Env {
-    builtin_types: Rc<collections::HashMap<TypeVar, Box<dyn Fn() -> syntax::Type>>>,
-    type_defs: Rc<collections::HashMap<TypeVar, TypeScheme>>,
-    func_sigs: Rc<collections::HashMap<ExprVar, Arc<FuncSig>>>,
+    builtin_types: Rc<HashMap<TypeVar, Box<dyn Fn() -> SynType>>>,
+    type_defs: Rc<HashMap<TypeVar, TypeScheme>>,
+    func_sigs: Rc<HashMap<ExprVar, Arc<FuncSig>>>,
     type_vars: im::HashSet<TypeVar>,
     expr_vars: im::HashMap<ExprVar, (SourceSpan, RcType)>,
     symbols: Rc<Cell<Vec<SymbolInfo>>>,
@@ -79,7 +99,7 @@ impl Module {
         Ok(symbols)
     }
 
-    fn type_defs(&self) -> collections::HashMap<TypeVar, TypeScheme> {
+    fn type_defs(&self) -> HashMap<TypeVar, TypeScheme> {
         self.type_decls()
             .map(|TypeDecl { name, params, body }| {
                 (
@@ -106,7 +126,7 @@ impl TypeDecl {
     }
 
     fn check_contractive(&self, env: &Env) -> Result<(), LError> {
-        let mut seen = collections::HashSet::new();
+        let mut seen = HashSet::new();
         let mut current = self.name.locatee;
         while let Type::SynApp(name, _) = env
             .type_defs
@@ -160,7 +180,7 @@ impl TypeDecl {
             root: TypeVar,
             env: &Env,
             typ: &RcType,
-            seen: &mut collections::HashSet<TypeVar>,
+            seen: &mut HashSet<TypeVar>,
         ) -> bool {
             if let Type::SynApp(name, args) = &**typ {
                 let scheme = &env
@@ -198,7 +218,7 @@ impl TypeDecl {
             .get(&self.name.locatee)
             .expect("Unresolvable type declaration after successful name resolution.")
             .body;
-        if has_poly_inst(self.name.locatee, env, typ, &mut collections::HashSet::new()) {
+        if has_poly_inst(self.name.locatee, env, typ, &mut HashSet::new()) {
             Err(Located::new(
                 Error::PolymorphicallyRecursiveTypeDecl(self.name.locatee),
                 self.name.span,
@@ -249,7 +269,7 @@ impl LType {
     }
 }
 
-impl syntax::Type {
+impl SynType {
     fn check(&mut self, span: SourceSpan, env: &Env) -> Result<(), LError> {
         match self {
             Self::Error => Ok(()),
@@ -641,19 +661,15 @@ impl Expr {
 
 impl Env {
     fn new() -> Self {
-        let mut builtin_types = collections::HashMap::new();
-        builtin_types.insert(
-            TypeVar::new("Int"),
-            Box::new(|| syntax::Type::Int) as Box<dyn Fn() -> syntax::Type>,
-        );
-        builtin_types.insert(
-            TypeVar::new("Bool"),
-            Box::new(|| syntax::Type::Bool) as Box<dyn Fn() -> syntax::Type>,
-        );
+        let mut builtin_types = HashMap::new();
+        builtin_types
+            .insert(TypeVar::new("Int"), Box::new(|| SynType::Int) as Box<dyn Fn() -> SynType>);
+        builtin_types
+            .insert(TypeVar::new("Bool"), Box::new(|| SynType::Bool) as Box<dyn Fn() -> SynType>);
         Self {
             builtin_types: Rc::new(builtin_types),
-            type_defs: Rc::new(collections::HashMap::new()),
-            func_sigs: Rc::new(collections::HashMap::new()),
+            type_defs: Rc::new(HashMap::new()),
+            func_sigs: Rc::new(HashMap::new()),
             type_vars: im::HashSet::new(),
             expr_vars: im::HashMap::new(),
             symbols: Rc::new(Cell::new(Vec::new())),
@@ -676,7 +692,7 @@ impl Env {
         I: IntoIterator<Item = Result<(LExprVar, RcType), LError>>,
         F: FnOnce(&Self) -> Result<R, LError>,
     {
-        let mut seen = collections::HashMap::new();
+        let mut seen = HashMap::new();
         let mut env = self.clone();
         for binder_or_err in params {
             let (var, typ) = binder_or_err?;
@@ -733,7 +749,7 @@ fn found_vs_expected(
 fn check_let_bindee(
     env: &Env,
     binder: &LExprVar,
-    opt_type_ann: &mut Option<syntax::LType>,
+    opt_type_ann: &mut Option<Located<SynType>>,
     bindee: &mut LExpr,
 ) -> Result<RcType, LError> {
     if let Some(type_ann) = opt_type_ann {
@@ -825,7 +841,7 @@ fn check_match_patterns<'a>(
     match scrut_type.weak_normalize_env(env).as_ref() {
         Type::Variant(constrs) => {
             if !branches.is_empty() {
-                let mut matched = std::collections::BTreeSet::new();
+                let mut matched = BTreeSet::new();
                 let branches = branches
                     .iter_mut()
                     .map(|Branch { pattern, rhs }| {
@@ -885,7 +901,7 @@ fn check_unique<'a, T: Copy + Eq + Hash + 'a>(
     iter: impl Iterator<Item = Located<&'a T>>,
     duplicate_err: impl Fn(T, SourceSpan) -> Error,
 ) -> Result<(), LError> {
-    let mut seen = std::collections::HashMap::new();
+    let mut seen = HashMap::new();
     for lvar in iter {
         if let Some(first_span) = seen.get(&lvar.locatee) {
             return Err(Located::new(duplicate_err(*lvar.locatee, *first_span), lvar.span));

@@ -1,8 +1,9 @@
-use crate::build::*;
 use std::sync::Arc;
 
+use crate::build::*;
+
 fn build_output(input: &str) -> String {
-    use std::fmt::Write;
+    use std::fmt::Write as _;
     let db = &mut CompilerDB::new();
     let uri = Uri::new("foo.homer");
     db.set_input(uri, Arc::new(input.to_owned()));

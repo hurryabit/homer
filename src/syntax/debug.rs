@@ -1,6 +1,7 @@
+use std::fmt;
+
 use super::*;
 use crate::ast;
-use std::fmt;
 
 impl ast::Debug for Module {
     fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {

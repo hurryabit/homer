@@ -1,8 +1,11 @@
-use super::types::{FuncSig, RcType};
-use crate::*;
-use location::SourceSpan;
+use std::fmt;
 use std::sync::Arc;
-use syntax::LExprVar;
+
+use super::types::FuncSig;
+use super::types::RcType;
+use crate::ast;
+use crate::location::SourceSpan;
+use crate::syntax::LExprVar;
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum SymbolInfo {
@@ -30,7 +33,7 @@ impl SymbolInfo {
 }
 
 impl ast::Debug for SymbolInfo {
-    fn write(&self, writer: &mut ast::DebugWriter) -> std::fmt::Result {
+    fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
         match self {
             Self::ExprBinder { var, typ } => writer.node("EXPR_BINDER", |writer| {
                 writer.child("var", var)?;
@@ -49,4 +52,4 @@ impl ast::Debug for SymbolInfo {
     }
 }
 
-derive_fmt_debug!(SymbolInfo);
+ast::derive_fmt_debug!(SymbolInfo);

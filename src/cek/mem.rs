@@ -1,6 +1,10 @@
+use std::fmt;
+use std::marker::PhantomData;
+
+use static_assertions::assert_eq_size;
+
 use crate::anf;
 use crate::util::in_parens_if_some;
-use std::fmt;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u16)]
@@ -40,7 +44,7 @@ assert_eq_size!(Data<'_>, usize);
 #[derive(Clone)]
 pub struct Memory<'a> {
     data: Vec<Data<'a>>,
-    phantom: std::marker::PhantomData<&'a anf::Expr>,
+    phantom: PhantomData<&'a anf::Expr>,
 }
 
 impl Header {
@@ -49,10 +53,6 @@ impl Header {
     const fn new(tag: Tag, rank: u16, size: u32) -> Self {
         Self { tag, rank, size }
     }
-}
-
-impl Addr {
-    pub const NULL: Self = Self(0);
 }
 
 impl<'a> Data<'a> {
@@ -90,7 +90,7 @@ impl<'a> Data<'a> {
 impl<'a> Memory<'a> {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        Self { data: vec![Data::NULL], phantom: std::marker::PhantomData }
+        Self { data: vec![Data::NULL], phantom: PhantomData }
     }
 
     // #[inline(never)]

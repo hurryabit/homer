@@ -1,5 +1,7 @@
-use crate::location::*;
 use tower_lsp::lsp_types;
+
+use crate::location::SourceLocation;
+use crate::location::SourceSpan;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Severity {
@@ -41,14 +43,14 @@ impl SourceLocation {
         Self { line, column }
     }
 
-    pub fn to_lsp(&self) -> lsp_types::Position {
+    pub fn to_lsp(self) -> lsp_types::Position {
         let Self { line, column } = self;
-        lsp_types::Position::new(*line, *column)
+        lsp_types::Position::new(line, column)
     }
 }
 
 impl SourceSpan {
-    pub fn to_lsp(&self) -> lsp_types::Range {
+    pub fn to_lsp(self) -> lsp_types::Range {
         let Self { start, end } = self;
         lsp_types::Range::new(start.to_lsp(), end.to_lsp())
     }

@@ -1,9 +1,12 @@
-use super::Arity;
-use super::types::*;
-use crate::location::{Located, SourceSpan};
-use crate::syntax;
-use syntax::{ExprCon, ExprVar, TypeVar};
 use thiserror::Error;
+
+use super::Arity;
+use crate::checker::RcType;
+use crate::location::Located;
+use crate::location::SourceSpan;
+use crate::syntax::ExprCon;
+use crate::syntax::ExprVar;
+use crate::syntax::TypeVar;
 
 #[derive(Debug, Error)]
 pub enum Error {

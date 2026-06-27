@@ -4,10 +4,13 @@ use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 
-use crate::{build, cek, checker, diagnostic, location, syntax};
-
-use build::Compiler;
-use checker::SymbolInfo;
+use crate::build;
+use crate::build::Compiler as _;
+use crate::cek;
+use crate::checker::SymbolInfo;
+use crate::diagnostic;
+use crate::location;
+use crate::syntax;
 
 // #[derive(Debug)]
 pub struct LanguageServer {

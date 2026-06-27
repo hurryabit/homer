@@ -1,7 +1,22 @@
-use crate::anf::*;
-use mem::{Addr, Data, Memory, Tag, Value};
+mod mem;
 
-pub mod mem;
+use self::mem::Addr;
+use self::mem::Data;
+use self::mem::Memory;
+use self::mem::Tag;
+use self::mem::Value;
+use crate::anf::Atom;
+use crate::anf::Bindee;
+use crate::anf::Binding;
+use crate::anf::Branch;
+use crate::anf::Expr;
+use crate::anf::FuncDecl;
+use crate::anf::IdxVar;
+use crate::anf::MakeClosure;
+use crate::anf::Module;
+use crate::anf::Pattern;
+use crate::syntax::ExprVar;
+use crate::syntax::OpCode;
 
 type Stack<'a> = Vec<(ExprVar, Addr)>;
 

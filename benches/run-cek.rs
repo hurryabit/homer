@@ -1,10 +1,13 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-
-use homer::build::Compiler;
-use homer::{build, cek};
+use criterion::BenchmarkId;
+use criterion::Criterion;
+use criterion::criterion_group;
+use criterion::criterion_main;
+use homer::build;
+use homer::build::Compiler as _;
+use homer::cek;
 
 const ADDRESS_VAR: &str = "HOMER_BENCH";
 

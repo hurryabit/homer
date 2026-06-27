@@ -26,3 +26,4 @@ macro_rules! ident_type {
         }
     };
 }
+pub(crate) use ident_type;

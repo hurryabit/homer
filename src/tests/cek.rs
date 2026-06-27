@@ -1,6 +1,9 @@
-use crate::*;
-use build::Compiler;
 use std::sync::Arc;
+
+use crate::build;
+use crate::build::Compiler as _;
+use crate::cek;
+use crate::syntax;
 
 fn with_cek_result<R, F>(main: &str, input: &str, f: F) -> R
 where
