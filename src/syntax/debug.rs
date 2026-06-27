@@ -192,13 +192,10 @@ impl ast::Debug for Branch {
 
 impl ast::Debug for Pattern {
     fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
-        let Self { constr, rank, binder } = self;
+        let Self { constr, binder } = self;
         writer.node("PATTERN", |writer| {
-            writer.child("constr", &(*constr, *rank))?;
-            if let Some(binder) = binder {
-                writer.child("binder", binder)?;
-            }
-            Ok(())
+            writer.child("constr", constr)?;
+            writer.child_if_some("binder", binder)
         })
     }
 }

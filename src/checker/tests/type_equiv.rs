@@ -55,6 +55,7 @@ fn all() {
             b: {fst: Int, snd: Bool},
             c: Pair<SynInt, SynBool>,
             d: {fst: SynInt, snd: SynBool},
+            e: {snd: Bool, fst: Int},
         };
         type T_PairBoolBool = {
             a: Pair<Bool, Bool>,
@@ -69,7 +70,6 @@ fn all() {
         type T_PairIntY<Y> = { a: Pair<Int, Y> };
         type T_PairXY<X, Y> = { a: Pair<X, Y> };
         type T_PairYX<X, Y> = { a: Pair<Y, X> };
-        type T_RevPairIntBool = { a: {snd: Bool, fst: Int} };
 
         type T_OptionInt = {
             a: Option<Int>,
@@ -86,6 +86,7 @@ fn all() {
             b: [Left(Int) | Right(Bool)],
             c: Sum<SynInt, SynBool>,
             d: [Left(SynInt) | Right(SynBool)],
+            e: [Right(Bool) | Left(Int)],
         };
         type T_SumBoolBool = {
             a: Sum<Bool, Bool>,
@@ -96,7 +97,6 @@ fn all() {
             b: HomSum<Int>,
         };
         type T_SumBoolInt = { a: Sum<Bool, Int> };
-        type T_RevSumIntBool = { a: [Right(Bool) | Left(Int)] };
 
         type T_FunIntBoolToUnit = {
             a: (Int, Bool) -> Unit,

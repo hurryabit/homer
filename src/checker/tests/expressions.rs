@@ -1922,11 +1922,11 @@ fn rule_match_rank() {
             var: x @ 3:15-3:16
         branch: BRANCH
             pattern: PATTERN @ 4:13-4:14
-                constr: A/0
+                constr: A
             rhs: 0 @ 4:18-4:19
         branch: BRANCH
             pattern: PATTERN @ 5:13-5:17
-                constr: B/1
+                constr: B
                 binder: y @ 5:15-5:16
             rhs: VAR @ 5:21-5:22
                 var: y @ 5:21-5:22

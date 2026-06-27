@@ -81,7 +81,6 @@ pub struct Branch {
 #[derive(Clone, Eq, PartialEq)]
 pub struct Pattern {
     pub constr: ExprCon,
-    pub rank: Option<u32>,
     pub binder: Option<LExprVar>,
 }
 

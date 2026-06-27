@@ -257,7 +257,7 @@ impl<'a> Machine<'a> {
         debug_assert_eq!(header.tag, Tag::Variant);
         let Branch { pattern, rhs } = &branches[header.rank as usize];
         self.call(ctrl, binder, rhs);
-        let Pattern { rank: _, constr: _, binder } = pattern;
+        let Pattern { constr: _, binder } = pattern;
         match binder {
             None => {
                 debug_assert_eq!(header.size, 0);

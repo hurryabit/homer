@@ -475,16 +475,24 @@ impl<'a> EquivChecker<'a> {
                     && self.check_impl(result1, result2)
             }
             (Type::Record(fields1), Type::Record(fields2)) => {
+                let mut fields1 = fields1.clone();
+                let mut fields2 = fields2.clone();
+                fields1.sort_by_key(|(name, _)| name.as_str());
+                fields2.sort_by_key(|(name, _)| name.as_str());
                 fields1.len() == fields2.len()
-                    && equal_by(fields1, fields2, |(name1, _), (name2, _)| name1 == name2)
-                    && equal_by(fields1, fields2, |(_, typ1), (_, typ2)| {
+                    && equal_by(&fields1, &fields2, |(name1, _), (name2, _)| name1 == name2)
+                    && equal_by(&fields1, &fields2, |(_, typ1), (_, typ2)| {
                         self.check_impl(typ1, typ2)
                     })
             }
             (Type::Variant(constrs1), Type::Variant(constrs2)) => {
+                let mut constrs1 = constrs1.clone();
+                let mut constrs2 = constrs2.clone();
+                constrs1.sort_by_key(|(name, _)| name.as_str());
+                constrs2.sort_by_key(|(name, _)| name.as_str());
                 constrs1.len() == constrs2.len()
-                    && equal_by(constrs1, constrs2, |(name1, _), (name2, _)| name1 == name2)
-                    && equal_by(constrs1, constrs2, |(_, opt_typ1), (_, opt_typ2)| {
+                    && equal_by(&constrs1, &constrs2, |(name1, _), (name2, _)| name1 == name2)
+                    && equal_by(&constrs1, &constrs2, |(_, opt_typ1), (_, opt_typ2)| {
                         equal_by(opt_typ1, opt_typ2, |typ1, typ2| self.check_impl(typ1, typ2))
                     })
             }

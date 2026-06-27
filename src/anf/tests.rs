@@ -135,7 +135,7 @@ fn pattern_shadowing() {
                     scrut: x/1
                     branch: BRANCH
                         pattern: PATTERN
-                            constr: C/0
+                            constr: C
                             binder: $v1
                         rhs: EXPR
                             binder: $result
@@ -166,13 +166,13 @@ fn branch_sorting() {
                     scrut: x/1
                     branch: BRANCH
                         pattern: PATTERN
-                            constr: A/0
+                            constr: A
                         rhs: EXPR
                             binder: $result
                             bindee: 1
                     branch: BRANCH
                         pattern: PATTERN
-                            constr: B/1
+                            constr: B
                         rhs: EXPR
                             binder: $result
                             bindee: 0

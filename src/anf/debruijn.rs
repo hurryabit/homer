@@ -103,7 +103,7 @@ impl Atom {
 impl Branch {
     fn index(&mut self, env: &Env) {
         let Self { pattern, rhs } = self;
-        let Pattern { rank: _, constr: _, binder } = pattern;
+        let Pattern { constr: _, binder } = pattern;
         match binder {
             None => rhs.index(env),
             Some(binder) => rhs.index(&env.clone().intro_binder(*binder)),

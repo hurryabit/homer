@@ -81,7 +81,6 @@ pub struct Branch {
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Pattern {
-    pub rank: u32,
     pub constr: ExprCon,
     pub binder: Option<ExprVar>,
 }
@@ -182,13 +181,14 @@ impl Bindee {
                 (Self::If(cond, Box::new(then), Box::new(elze)), fvs)
             }
             syntax::Expr::Record(fields) => {
-                let (fields, fvss): (Vec<_>, Vec<_>) = fields
+                let (mut fields, fvss): (Vec<_>, Vec<_>) = fields
                     .iter()
                     .map(|(field, expr)| {
                         let (expr, fvs) = Atom::from_syntax(env, expr, bindings);
                         ((field.locatee, expr), fvs)
                     })
                     .unzip();
+                fields.sort_by_key(|(name, _)| name.as_str());
                 let (names, values) = fields.into_iter().unzip();
                 (Self::Record(names, values), FreeVars::unions(fvss))
             }
@@ -217,13 +217,7 @@ impl Bindee {
                     .iter()
                     .map(|branch| Branch::from_syntax(&mut env.clone(), branch))
                     .unzip();
-                branches.sort_by_key(|branch| branch.pattern.rank);
-                assert!(
-                    branches
-                        .iter()
-                        .enumerate()
-                        .all(|(rank, branch)| rank == branch.pattern.rank as usize)
-                );
+                branches.sort_by_key(|branch| branch.pattern.constr.as_str());
                 (Self::Match(scrut, branches), fvs0.union(FreeVars::unions(fvss)))
             }
         }
@@ -232,10 +226,9 @@ impl Bindee {
 
 impl Pattern {
     fn from_syntax(env: &mut Env, pattern: &syntax::LPattern) -> Self {
-        let syntax::Pattern { constr, rank, binder } = pattern.locatee;
-        let rank = rank.expect("Variant pattern without rank");
+        let syntax::Pattern { constr, binder } = pattern.locatee;
         let binder = binder.as_ref().map(|binder| env.intro_binder(binder));
-        Self { rank, constr, binder }
+        Self { constr, binder }
     }
 }
 
@@ -441,9 +434,9 @@ impl ast::Debug for Branch {
 
 impl ast::Debug for Pattern {
     fn write(&self, writer: &mut ast::DebugWriter) -> fmt::Result {
-        let Self { rank, constr, binder } = self;
+        let Self { constr, binder } = self;
         writer.node("PATTERN", |writer| {
-            writer.child("constr", &(*constr, *rank))?;
+            writer.child("constr", constr)?;
             writer.child_if_some("binder", binder)
         })
     }
@@ -494,8 +487,8 @@ impl fmt::Display for Bindee {
                 "match {} {{ {}, }}",
                 scrut,
                 ", ".join(branches.iter().map(|branch| {
-                    let Pattern { rank, constr, binder } = branch.pattern;
-                    lazy_format!("{}/{}{} => ...", constr, rank, in_parens_if_some(&binder))
+                    let Pattern { constr, binder } = branch.pattern;
+                    lazy_format!("{}{} => ...", constr, in_parens_if_some(&binder))
                 }))
             ),
         }

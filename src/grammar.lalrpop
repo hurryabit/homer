@@ -148,7 +148,7 @@ Branch: Branch = {
 }
 
 Pattern: Pattern = {
-    <constr: ExprCon> <binder: InParens<LExprVar>?> => Pattern { constr, rank: None, binder },
+    <constr: ExprCon> <binder: InParens<LExprVar>?> => Pattern { constr, binder },
 }
 
 TypeVar: TypeVar = {

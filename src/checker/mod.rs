@@ -438,6 +438,8 @@ impl Expr {
             Self::Variant(constr, rank, payload) => match expected.weak_normalize_env(env).as_ref()
             {
                 Type::Variant(constrs) => {
+                    let mut constrs = constrs.clone();
+                    constrs.sort_by_key(|(name, _)| name.as_str());
                     if let Some(constr_rank) = constrs.iter().position(|x| x.0 == *constr) {
                         *rank = Some(constr_rank as u32);
                         match (payload, &constrs[constr_rank].1) {
@@ -577,6 +579,8 @@ impl Expr {
                 let field = field.locatee;
                 match record_type.weak_normalize_env(env).as_ref() {
                     Type::Record(fields) => {
+                        let mut fields = fields.clone();
+                        fields.sort_by_key(|(name, _)| name.as_str());
                         if let Some(field_index) = fields.iter().position(|x| x.0 == field) {
                             *index = Some(field_index as u32);
                             Ok(fields[field_index].1.clone())
@@ -847,7 +851,7 @@ fn check_match_patterns<'a>(
                 let branches = branches
                     .iter_mut()
                     .map(|Branch { pattern, rhs }| {
-                        let Pattern { constr, rank, binder } = &mut pattern.locatee;
+                        let Pattern { constr, binder } = &mut pattern.locatee;
                         if let Some(constr_rank) = constrs.iter().position(|x| x.0 == *constr) {
                             if matched.contains(&constr_rank) {
                                 Err(Located::new(
@@ -856,7 +860,6 @@ fn check_match_patterns<'a>(
                                 ))
                             } else {
                                 matched.insert(constr_rank);
-                                *rank = Some(constr_rank as u32);
                                 match (binder, &constrs[constr_rank].1) {
                                     (None, None) => Ok((None, rhs)),
                                     (Some(binder), Some(typ)) => {
