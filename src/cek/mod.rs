@@ -1,4 +1,5 @@
 mod mem;
+mod tests;
 
 use self::mem::Addr;
 use self::mem::Data;

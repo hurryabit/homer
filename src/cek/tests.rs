@@ -1,3 +1,4 @@
+#![cfg(test)]
 use std::sync::Arc;
 
 use crate::build;

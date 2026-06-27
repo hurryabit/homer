@@ -23,12 +23,3 @@ lalrpop_mod!(
 );
 
 static INTERNER: LazyLock<lasso::ThreadedRodeo> = LazyLock::new(lasso::ThreadedRodeo::new);
-
-#[cfg(test)]
-mod tests {
-    mod anf;
-    mod build;
-    mod cek;
-    mod checker;
-    mod parser;
-}

@@ -1,4 +1,5 @@
 mod debruijn;
+mod tests;
 
 use std::fmt;
 

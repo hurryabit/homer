@@ -1,3 +1,4 @@
+#![cfg(test)]
 mod decls;
 mod expressions;
 mod func_resolution;

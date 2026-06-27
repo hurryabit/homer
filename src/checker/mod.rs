@@ -1,5 +1,6 @@
 mod error;
 mod info;
+mod tests;
 mod types;
 
 use std::cell::Cell;

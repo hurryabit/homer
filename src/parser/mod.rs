@@ -1,10 +1,11 @@
+mod humanizer;
+mod tests;
+
+pub(crate) use self::humanizer::Humanizer;
 use crate::diagnostic::*;
 use crate::grammar::*;
 use crate::location::SourceSpan;
 use crate::syntax::*;
-
-pub(crate) mod humanizer;
-pub(crate) use humanizer::Humanizer;
 
 impl Module {
     pub fn parse(input: &str) -> (Option<Self>, Vec<Diagnostic>) {
@@ -14,7 +15,7 @@ impl Module {
 
 type ParseError<'a> = lalrpop_util::ParseError<usize, Token<'a>, &'static str>;
 
-pub fn parse_impl<'a, T, F>(input: &str, f: F) -> (Option<T>, Vec<Diagnostic>)
+fn parse_impl<'a, T, F>(input: &str, f: F) -> (Option<T>, Vec<Diagnostic>)
 where
     F: FnOnce(&Humanizer, &mut Vec<ParseError<'a>>) -> Result<T, ParseError<'a>>,
 {
@@ -52,56 +53,6 @@ fn parse_error_to_diagnostic(error: ParseError, humanizer: &Humanizer) -> Diagno
         span,
         severity: Severity::Error,
         source: Source::Parser,
-        message: format!("{}", error),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    impl Module {
-        pub(crate) fn parse_test(input: &str) -> (Option<Self>, Vec<Diagnostic>) {
-            parse_test_impl(input, |humanizer, errors| {
-                ModuleParser::new().parse(humanizer, errors, input)
-            })
-        }
-    }
-
-    impl Decl {
-        pub(crate) fn parse_test(input: &str) -> (Option<Self>, Vec<Diagnostic>) {
-            parse_test_impl(input, |humanizer, errors| {
-                DeclParser::new().parse(humanizer, errors, input)
-            })
-        }
-    }
-
-    impl Type {
-        pub(crate) fn parse_test(input: &str) -> (Option<Self>, Vec<Diagnostic>) {
-            parse_test_impl(input, |humanizer, errors| {
-                TypeParser::new().parse(humanizer, errors, input)
-            })
-        }
-    }
-
-    impl Expr {
-        pub(crate) fn parse_test(input: &str) -> (Option<Self>, Vec<Diagnostic>) {
-            parse_test_impl(input, |humanizer, errors| {
-                ExprParser::new().parse(humanizer, errors, input)
-            })
-        }
-
-        pub(crate) fn parse_block_test(input: &str) -> (Option<Self>, Vec<Diagnostic>) {
-            parse_test_impl(input, |humanizer, errors| {
-                BlockExprParser::new().parse(humanizer, errors, input)
-            })
-        }
-    }
-
-    pub fn parse_test_impl<'a, T, F>(input: &str, f: F) -> (Option<T>, Vec<Diagnostic>)
-    where
-        F: FnOnce(&Humanizer, &mut Vec<ParseError<'a>>) -> Result<T, ParseError<'a>>,
-    {
-        parse_impl(input, f)
+        message: error.to_string(),
     }
 }

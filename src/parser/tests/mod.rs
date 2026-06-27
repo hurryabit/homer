@@ -1,11 +1,51 @@
+#![cfg(test)]
 mod decl;
 mod expr;
 mod type_;
 
 use std::fmt;
 
+use super::parse_impl;
 use crate::diagnostic::Diagnostic;
+use crate::grammar::BlockExprParser;
+use crate::grammar::DeclParser;
+use crate::grammar::ExprParser;
+use crate::grammar::ModuleParser;
+use crate::grammar::TypeParser;
+use crate::syntax::Decl;
+use crate::syntax::Expr;
 use crate::syntax::Module;
+use crate::syntax::Type;
+
+impl Module {
+    pub(crate) fn parse_test(input: &str) -> (Option<Self>, Vec<Diagnostic>) {
+        parse_impl(input, |humanizer, errors| ModuleParser::new().parse(humanizer, errors, input))
+    }
+}
+
+impl Decl {
+    pub(crate) fn parse_test(input: &str) -> (Option<Self>, Vec<Diagnostic>) {
+        parse_impl(input, |humanizer, errors| DeclParser::new().parse(humanizer, errors, input))
+    }
+}
+
+impl Type {
+    pub(crate) fn parse_test(input: &str) -> (Option<Self>, Vec<Diagnostic>) {
+        parse_impl(input, |humanizer, errors| TypeParser::new().parse(humanizer, errors, input))
+    }
+}
+
+impl Expr {
+    pub(crate) fn parse_test(input: &str) -> (Option<Self>, Vec<Diagnostic>) {
+        parse_impl(input, |humanizer, errors| ExprParser::new().parse(humanizer, errors, input))
+    }
+
+    pub(crate) fn parse_block_test(input: &str) -> (Option<Self>, Vec<Diagnostic>) {
+        parse_impl(input, |humanizer, errors| {
+            BlockExprParser::new().parse(humanizer, errors, input)
+        })
+    }
+}
 
 fn parse_output_impl<T, F>(f: F, input: &str) -> T
 where
