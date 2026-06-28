@@ -1,12 +1,12 @@
 #![allow(dead_code)]
 mod expr;
 
-use std::collections::HashMap;
-
 use wasm_encoder::ArrayType;
 use wasm_encoder::CodeSection;
 use wasm_encoder::CompositeInnerType;
 use wasm_encoder::CompositeType;
+use wasm_encoder::ElementSection;
+use wasm_encoder::Elements;
 use wasm_encoder::ExportKind;
 use wasm_encoder::ExportSection;
 use wasm_encoder::FieldType;
@@ -23,7 +23,7 @@ use wasm_encoder::TypeSection;
 use wasm_encoder::ValType;
 
 use crate::syntax;
-use crate::wasm::expr::FuncCompiler;
+use crate::wasm::expr::FuncManager;
 
 mod type_idx {
     pub const MAX_ARITY: usize = 5;
@@ -153,15 +153,16 @@ pub fn compile_module(module: &syntax::Module) -> Vec<u8> {
     let mut types = build_type_section();
     let mut funcs = FunctionSection::new();
     let mut codes = CodeSection::new();
-    let func_indices: HashMap<_, _> = module
-        .func_decls()
-        .enumerate()
-        .map(|(idx, func)| (func.name.locatee, idx as u32))
-        .collect();
-    for func in module.func_decls() {
-        funcs.function(type_idx::FUNC[func.expr_params.len()]);
-        codes.function(&FuncCompiler::new(func, &func_indices).compile());
+    let mut func_manager = FuncManager::new(module);
+    while let Some((func, type_idx)) = func_manager.compile_next() {
+        funcs.function(type_idx);
+        codes.function(&func);
     }
+
+    let mut elements = ElementSection::new();
+    let mut ref_func_targets: Vec<_> = func_manager.finish().into_iter().collect();
+    ref_func_targets.sort();
+    elements.declared(Elements::Functions(ref_func_targets.into()));
 
     fn wasm_type_info(typ: &syntax::Type) -> Option<(ValType, u32)> {
         match typ {
@@ -206,7 +207,7 @@ pub fn compile_module(module: &syntax::Module) -> Vec<u8> {
     }
 
     let mut module = Module::new();
-    module.section(&types).section(&funcs).section(&exports).section(&codes);
+    module.section(&types).section(&funcs).section(&exports).section(&elements).section(&codes);
     module.finish()
 }
 
@@ -239,6 +240,12 @@ mod tests {
                 y + z
             }
         }
+
+        fn g() -> Int {
+            let x = 1;
+            let f = fn(y: Int) { x + y };
+            f(2)
+        }
         "#;
 
         let db = &mut build::CompilerDB::new();
@@ -267,15 +274,17 @@ mod tests {
     }
 
     #[test]
-    fn bool_sum_or_product_executes_correctly() {
+    fn module_execution() {
         let engine = make_engine();
         let module = Module::from_binary(&engine, &make_module()).unwrap();
         let mut store = Store::new(&engine, ());
         let instance = Instance::new(&mut store, &module, &[]).unwrap();
 
         let f = instance.get_typed_func::<(i32, i64, i64), i64>(&mut store, "f").unwrap();
+        let g = instance.get_typed_func::<(), i64>(&mut store, "g").unwrap();
 
         assert_eq!(f.call(&mut store, (1, 4, 2)).unwrap(), 8);
         assert_eq!(f.call(&mut store, (0, 4, 2)).unwrap(), 6);
+        assert_eq!(g.call(&mut store, ()).unwrap(), 3);
     }
 }

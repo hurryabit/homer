@@ -33,7 +33,10 @@ expression: wat
   (type (;27;) (func (param (ref 0) (ref 0) (ref 0) (ref 0)) (result (ref 0))))
   (type (;28;) (func (param (ref 0) (ref 0) (ref 0) (ref 0) (ref 0)) (result (ref 0))))
   (type (;29;) (func (param i32 i64 i64) (result i64)))
-  (export "f" (func 1))
+  (type (;30;) (func (result i64)))
+  (export "f" (func 3))
+  (export "g" (func 4))
+  (elem (;0;) declare func 2)
   (func (;0;) (type 26) (param (ref 0) (ref 0) (ref 0)) (result (ref 0))
     local.get 0
     ref.cast (ref 2)
@@ -58,7 +61,42 @@ expression: wat
       struct.new 1
     end
   )
-  (func (;1;) (type 29) (param i32 i64 i64) (result i64)
+  (func (;1;) (type 23) (result (ref 0))
+    (local (ref 0) (ref 0))
+    i64.const 1
+    struct.new 1
+    local.set 0
+    local.get 0
+    array.new_fixed 3 1
+    ref.func 2
+    struct.new 11
+    local.set 1
+    local.get 1
+    ref.cast (ref 11)
+    struct.get 11 0
+    i64.const 2
+    struct.new 1
+    local.get 1
+    ref.cast (ref 11)
+    struct.get 11 1
+    call_ref 5
+  )
+  (func (;2;) (type 5) (param (ref 3) (ref 0)) (result (ref 0))
+    (local (ref 0))
+    local.get 0
+    i32.const 0
+    array.get 3
+    local.set 2
+    local.get 2
+    ref.cast (ref 1)
+    struct.get 1 0
+    local.get 1
+    ref.cast (ref 1)
+    struct.get 1 0
+    i64.add
+    struct.new 1
+  )
+  (func (;3;) (type 29) (param i32 i64 i64) (result i64)
     local.get 0
     struct.new 2
     local.get 1
@@ -66,6 +104,11 @@ expression: wat
     local.get 2
     struct.new 1
     call 0
+    ref.cast (ref 1)
+    struct.get 1 0
+  )
+  (func (;4;) (type 30) (result i64)
+    call 1
     ref.cast (ref 1)
     struct.get 1 0
   )
