@@ -1,5 +1,7 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use clap::Parser;
 use clap::Subcommand;
 use homer::build;
@@ -17,14 +19,15 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Command {
-    Check { file: String },
-    Run { file: String },
+    Check { file: PathBuf },
+    Run { file: PathBuf },
     Server,
 }
 
-fn check_and_run(file: String, run: bool) -> anyhow::Result<bool> {
+fn check_and_run(file: PathBuf, run: bool) -> anyhow::Result<bool> {
+    let uri =
+        build::Uri::new(file.to_str().ok_or_else(|| anyhow!("non-UTF-8 paths are not supported"))?);
     let db = &mut build::CompilerDB::new();
-    let uri = build::Uri::new(&file);
     let input = Arc::new(std::fs::read_to_string(&file)?);
     db.set_input(uri, Arc::clone(&input));
 
