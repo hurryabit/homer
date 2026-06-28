@@ -599,16 +599,16 @@ impl Expr {
                     .collect::<Result<_, _>>()?;
                 Ok(RcType::new(Type::Record(fields)))
             }
-            Self::Proj(record, field, index) => {
+            Self::Proj(record, field, index_size) => {
                 let record_type = record.infer(env)?;
                 let field = field.locatee;
                 match record_type.weak_normalize_env(env).as_ref() {
                     Type::Record(fields) => {
                         let mut fields = fields.clone();
                         fields.sort_by_key(|(name, _)| name.as_str());
-                        if let Some(field_index) = fields.iter().position(|x| x.0 == field) {
-                            *index = Some(field_index as u32);
-                            Ok(fields[field_index].1.clone())
+                        if let Some(index) = fields.iter().position(|x| x.0 == field) {
+                            *index_size = Some((index as u32, fields.len() as u32));
+                            Ok(fields[index].1.clone())
                         } else {
                             Err(Located::new(Error::BadRecordProj { record_type, field }, span))
                         }

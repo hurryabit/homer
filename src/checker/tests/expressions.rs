@@ -1580,7 +1580,8 @@ fn rule_proj_index() {
         bindee: PROJ @ 3:17-3:20
             record: VAR @ 3:17-3:18
                 var: r @ 3:17-3:18
-            field: a/0 @ 3:19-3:20
+            field: a @ 3:19-3:20
+            index: 0/2
         tail: LET @ 4:9-5:10
             binder: y @ 4:13-4:14
             type: INFERRED @ 4:13-4:14
@@ -1588,7 +1589,8 @@ fn rule_proj_index() {
             bindee: PROJ @ 4:17-4:20
                 record: VAR @ 4:17-4:18
                     var: r @ 4:17-4:18
-                field: b/1 @ 4:19-4:20
+                field: b @ 4:19-4:20
+                index: 1/2
             tail: 0 @ 5:9-5:10
     "#);
 }

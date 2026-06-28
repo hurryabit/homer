@@ -192,8 +192,8 @@ impl Bindee {
                 let (names, values) = fields.into_iter().unzip();
                 (Self::Record(names, values), FreeVars::unions(fvss))
             }
-            syntax::Expr::Proj(record, field, index) => {
-                let index = index.expect("Projection without index");
+            syntax::Expr::Proj(record, field, index_size) => {
+                let (index, _size) = index_size.expect("Projection without index");
                 let (record, fvs) = Atom::from_syntax(env, record, bindings);
                 (Self::Project(record, index, field.locatee), fvs)
             }

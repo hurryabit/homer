@@ -163,9 +163,13 @@ impl ast::Debug for Expr {
             Self::Record(fields) => {
                 writer.node("RECORD", |writer| writer.children_pair("field", "value", fields))
             }
-            Self::Proj(record, field, index) => writer.node("PROJ", |writer| {
+            Self::Proj(record, field, index_size) => writer.node("PROJ", |writer| {
                 writer.child("record", record)?;
-                writer.child("field", &field.map(|f| (f, *index)))
+                writer.child("field", field)?;
+                if let Some((index, size)) = index_size {
+                    writer.child("index", &format!("{}/{}", index, size))?;
+                }
+                Ok(())
             }),
             Self::Variant(constr, rank, payload) => writer.node("VARIANT", |writer| {
                 writer.child("constr", &(*constr, *rank))?;
