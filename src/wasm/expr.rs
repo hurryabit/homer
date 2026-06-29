@@ -234,14 +234,14 @@ impl<'a, 'm> ExprCompiler<'a, 'm> {
                 self.instructions().end();
             }
             Expr::Record(fields) => {
-                if fields.is_sorted_by_key(|(name, _)| name.locatee.as_str()) {
-                    for (_, expr) in fields {
-                        self.compile_expr(&expr.locatee);
-                    }
-                    self.instructions().struct_new(type_idx::RECORD[fields.len()]);
-                } else {
-                    todo!("large or unsorted records are not yet supported");
+                // TODO: Sorting the fields changes the evaluation order compared to the source.
+                // Let's avoid this.
+                let mut fields: Vec<&_> = fields.iter().collect();
+                fields.sort_by_key(|(name, _)| name.locatee.as_str());
+                for (_, expr) in &fields {
+                    self.compile_expr(&expr.locatee);
                 }
+                self.instructions().struct_new(type_idx::RECORD[fields.len()]);
             }
             Expr::Proj(record, _field, index_size) => {
                 let (index, size) = index_size.expect("projection without index");

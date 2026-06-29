@@ -577,8 +577,10 @@ impl Expr {
                 | OpCode::LessEq
                 | OpCode::Greater
                 | OpCode::GreaterEq => {
-                    let typ = lhs.infer(env)?;
-                    rhs.check(env, &typ)?;
+                    // TODO: Support polymorphic comparison.
+                    let int = RcType::new(Type::Int);
+                    lhs.check(env, &int)?;
+                    rhs.check(env, &int)?;
                     Ok(RcType::new(Type::Bool))
                 }
             },

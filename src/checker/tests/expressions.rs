@@ -189,6 +189,7 @@ fn rule_lam_infer_1() {
 }
 
 #[test]
+#[ignore = "We need support for polymorphic comparison first."]
 fn rule_lam_infer_2() {
     check_success(
         r#"
@@ -1107,7 +1108,7 @@ fn rule_binop_cmp_lhs_not_inferrable() {
     "#), @r#"
       3 |         InferMe < CheckMe
                   ~~~~~~~
-    Cannot infer the type of the expression. Further type annotations are required.
+    Expected an expression of type `Int` but found variant constructor `InferMe`.
     "#);
 }
 

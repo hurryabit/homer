@@ -82,7 +82,7 @@ The typing rules and the implementation of the type checker are bidirectional, a
   E |- {a1: t1, ..., an: tn}
 
 
-  n >= 1 (TODO)
+  n >= 1
   c1, ..., cn mutually distinct
   p1 = c1  \/  p1 = c1(t1)  /\  E |- t1
   ...
@@ -182,12 +182,13 @@ The typing rules and the implementation of the type checker are bidirectional, a
   E |- e1 § e2 => Int
 
 
-  § in {==, !=, <, <=, =>, >}
-  E |- e1 => t
-  E |- e2 <= t
+  § in {==, !=, <, <=, >=, >}
+  E |- e1 <= Int
+  E |- e2 <= Int
 -------------------------------------------------- BinOpCmp
   E |- e1 § e2 => Bool
 
+**TODO**: Support polymorphic comparison.
 
   E |- e1 => s
   E, x: s |- e2 => t
