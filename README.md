@@ -113,7 +113,7 @@ wasmtime -W gc,function-references --invoke sum_to examples/bench.wasm 5000
 ```
 
 (I start getting stack overflows starting from around 5400 on my setup. This is
-due to a tall of tail call optimization, which is on my TODO list.)
+due to a lack of tail call optimization, which is on my TODO list.)
 
 There is also a simple language server that can be started via
 
