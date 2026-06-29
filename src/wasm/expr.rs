@@ -138,7 +138,7 @@ impl<'a, 'm> ExprCompiler<'a, 'm> {
         wasm::InstructionSink::new(&mut self.bytes)
     }
 
-    fn intro_var(&mut self, var: ExprVar, f: impl FnOnce(&mut Self, u32)) {
+    fn intro_local(&mut self, var: ExprVar, f: impl FnOnce(&mut Self, u32)) {
         let index = self.local_vars.len() as u32;
         let old_index = self.var_indices.insert(var, index);
         self.local_vars.push(var);
@@ -155,8 +155,8 @@ impl<'a, 'm> ExprCompiler<'a, 'm> {
     fn compile_expr(&mut self, expr: &'m Expr) {
         match expr {
             Expr::Error => {
-                // TODO: Determine what we should throw here.
-                self.instructions().throw(0);
+                // TODO: Error compilation and hide the current behaviour behind a flag.
+                self.instructions().unreachable();
             }
             Expr::Var(var) => {
                 let index = self.var_indices[&var.locatee];
@@ -218,8 +218,8 @@ impl<'a, 'm> ExprCompiler<'a, 'm> {
             }
             Expr::Let(var, _typ, expr, tail) => {
                 self.compile_expr(&expr.locatee);
-                self.intro_var(var.locatee, |this, index| {
-                    this.instructions().local_set(index);
+                self.intro_local(var.locatee, |this, var_idx| {
+                    this.instructions().local_set(var_idx);
                     this.compile_expr(&tail.locatee);
                 });
             }
@@ -250,8 +250,52 @@ impl<'a, 'm> ExprCompiler<'a, 'm> {
                 self.instructions().ref_cast_non_null(wasm::HeapType::Concrete(record_type_idx));
                 self.instructions().struct_get(record_type_idx, index);
             }
-            Expr::Variant(..) => todo!(),
-            Expr::Match(..) => todo!(),
+            Expr::Variant(_constr, rank, payload) => {
+                let rank = rank.expect("ranks are inserted during type checking");
+                self.instructions().i32_const(rank as i32);
+                if let Some(payload) = payload {
+                    self.compile_expr(&payload.locatee);
+                } else {
+                    self.instructions().ref_null(wasm::HeapType::Concrete(type_idx::VALUE));
+                }
+                self.instructions().struct_new(type_idx::VARIANT);
+            }
+            Expr::Match(scrut, branches) => {
+                // TODO: We should store the rank in patterns during type checking.
+                let degree = branches.len() as u32;
+                let mut branches: Vec<&_> = branches.iter().collect();
+                branches.sort_by_key(|branch| branch.pattern.locatee.constr.as_str());
+                for _ in 0..degree + 2 {
+                    self.instructions()
+                        .block(wasm::BlockType::Result(super::ref_type(type_idx::VALUE)));
+                }
+                self.compile_expr(&scrut.locatee);
+                self.intro_local(ExprVar::new("$scrutinee"), |this, scrut_idx| {
+                    this.instructions().local_tee(scrut_idx).local_get(scrut_idx);
+                });
+                self.instructions()
+                    .ref_cast_non_null(wasm::HeapType::Concrete(type_idx::VARIANT))
+                    .struct_get(type_idx::VARIANT, 0)
+                    .br_table(0..degree, degree)
+                    .end();
+                for (rank, branch) in branches.iter().enumerate() {
+                    if let Some(binder) = branch.pattern.locatee.binder {
+                        self.instructions()
+                            .ref_cast_non_null(wasm::HeapType::Concrete(type_idx::VARIANT))
+                            .struct_get(type_idx::VARIANT, 1)
+                            .ref_as_non_null();
+                        self.intro_local(binder.locatee, |this, binder_idx| {
+                            this.instructions().local_set(binder_idx);
+                            this.compile_expr(&branch.rhs.locatee);
+                        });
+                    } else {
+                        self.instructions().drop();
+                        self.compile_expr(&branch.rhs.locatee);
+                    }
+                    self.instructions().br(degree - rank as u32).end();
+                }
+                self.instructions().unreachable().end();
+            }
         }
     }
 

@@ -246,6 +246,14 @@ mod tests {
             let f = fn(y: Int) { x + y };
             f(2)
         }
+
+        fn h() -> Int {
+            let scrut: [None | Some(Int)] = Some(5);
+            match scrut {
+                None => 0,
+                Some(x) => x,
+            }
+        }
         "#;
 
         let db = &mut build::CompilerDB::new();
