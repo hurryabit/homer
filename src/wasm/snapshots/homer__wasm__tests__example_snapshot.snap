@@ -1,6 +1,6 @@
 ---
 source: src/wasm/mod.rs
-expression: wat
+expression: pretty_print(&compile(EXAMPLE.to_string()))
 ---
 (module
   (type (;0;) (sub (struct)))

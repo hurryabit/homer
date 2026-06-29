@@ -6,7 +6,11 @@ language can get before it gets unbearable. In order to stay above my personal
 threshold for bearability, _Homer_ is statically typed, although structural, has
 sum types and pattern matching, and supports parametric polymorphism and
 _equi_-recursive types. These are the fanciest features the language offers.
-([Usage](#usage) instructions can be found toward the bottom of the file.)
+The implementation comes with a compiler to
+[WebAssembly](https://en.wikipedia.org/wiki/WebAssembly)
+and an interpreter (based on a
+[CEK machine](https://en.wikipedia.org/wiki/CEK_Machine)). ([Usage](#usage)
+instructions for those can be found toward the bottom of the file.)
 
 ![Homer - Boring note](https://i.pinimg.com/736x/fa/e1/fa/fae1fa90b9d47809257a9d9b7ad5bbe8.jpg)
 
@@ -89,8 +93,27 @@ you can run a simple example adding up the first 1000 numbers with the following
 command:
 
 ```sh
-cargo run -- run examples/bench.doh
+cargo run -- interpet examples/bench.doh
 ```
+
+If you're adventurous and want to use the compiler to WebAssembly, which is
+still in a _very_ early stage, you first need to
+[install `wasmtime`](https://github.com/bytecodealliance/wasmtime#installation).
+Then, you can compile and run the same example via:
+
+```sh
+cargo run -- compile examples/bench.doh
+wasmtime -W gc,function-references --invoke main examples/bench.wasm
+```
+
+If you want to sum to, say, 5000, replace the `wasmtime` command with
+
+```sh
+wasmtime -W gc,function-references --invoke sum_to examples/bench.wasm 5000
+```
+
+(I start getting stack overflows starting from around 5400 on my setup. This is
+due to a tall of tail call optimization, which is on my TODO list.)
 
 There is also a simple language server that can be started via
 

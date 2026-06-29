@@ -224,75 +224,108 @@ mod tests {
     use crate::build;
     use crate::build::Compiler as _;
 
-    fn make_engine() -> Engine {
-        let mut config = Config::new();
-        config.wasm_function_references(true);
-        config.wasm_gc(true);
-        Engine::new(&config).expect("failed to create engine")
+    const EXAMPLE: &str = r#"
+    fn f(x: Bool, y: Int, z: Int) -> Int {
+        if x {
+            y * z
+        } else {
+            y + z
+        }
     }
 
-    fn make_module() -> Arc<Vec<u8>> {
-        const INPUT: &str = r#"
-        fn f(x: Bool, y: Int, z: Int) -> Int {
-            if x {
-                y * z
-            } else {
-                y + z
-            }
-        }
+    fn g() -> Int {
+        let x = 1;
+        let f = fn(y: Int) { x + y };
+        f(2)
+    }
 
-        fn g() -> Int {
-            let x = 1;
-            let f = fn(y: Int) { x + y };
-            f(2)
+    fn h() -> Int {
+        let scrut: [None | Some(Int)] = Some(5);
+        match scrut {
+            None => 0,
+            Some(x) => x,
         }
+    }
+    "#;
 
-        fn h() -> Int {
-            let scrut: [None | Some(Int)] = Some(5);
-            match scrut {
-                None => 0,
-                Some(x) => x,
-            }
-        }
-        "#;
+    fn bench() -> String {
+        std::fs::read_to_string(std::path::Path::new("examples/bench.doh")).unwrap()
+    }
 
-        let db = &mut build::CompilerDB::new();
+    fn compile(input: String) -> Vec<u8> {
+        let mut db = build::CompilerDB::new();
         let uri = build::Uri::new("test.doh");
-        db.set_input(uri, Arc::new(INPUT.to_string()));
+        db.set_input(uri, Arc::new(input));
         db.with_diagnostics(uri, |diagnostics| {
             let diagnostics = diagnostics.cloned().collect::<Vec<_>>();
             assert!(diagnostics.is_empty(), "parser/checker failed: {diagnostics:?}");
         });
-        db.wasm_module(uri).expect("module could not be compiled")
+        let bytes = db.wasm_module(uri).expect("module could not be compiled");
+        drop(db);
+        Arc::into_inner(bytes).expect("all other references were in dropped DB")
     }
 
-    #[test]
-    fn module_is_valid() {
-        let bytes = make_module();
+    fn validate(bytes: &[u8]) {
         wasmparser::Validator::new_with_features(wasmparser::WasmFeatures::all())
-            .validate_all(&bytes)
+            .validate_all(bytes)
             .expect("emitted module should be valid Wasm");
     }
 
-    #[test]
-    fn module_snapshot() {
-        let bytes = make_module();
-        let wat = wasmprinter::print_bytes(&*bytes).expect("failed to print module as WAT");
-        insta::assert_snapshot!(wat);
+    fn pretty_print(bytes: &[u8]) -> String {
+        wasmprinter::print_bytes(bytes).expect("failed to print module as WAT")
+    }
+
+    fn with_instance(bytes: &[u8], f: impl FnOnce(Instance, Store<()>)) {
+        let mut config = Config::new();
+        config.wasm_function_references(true);
+        config.wasm_gc(true);
+        let engine = Engine::new(&config).expect("failed to create engine");
+        let module = Module::from_binary(&engine, bytes).unwrap();
+        let mut store = Store::new(&engine, ());
+        let instance = Instance::new(&mut store, &module, &[]).unwrap();
+        f(instance, store);
     }
 
     #[test]
-    fn module_execution() {
-        let engine = make_engine();
-        let module = Module::from_binary(&engine, &make_module()).unwrap();
-        let mut store = Store::new(&engine, ());
-        let instance = Instance::new(&mut store, &module, &[]).unwrap();
+    fn example_is_valid() {
+        validate(&compile(EXAMPLE.to_string()));
+    }
 
-        let f = instance.get_typed_func::<(i32, i64, i64), i64>(&mut store, "f").unwrap();
-        let g = instance.get_typed_func::<(), i64>(&mut store, "g").unwrap();
+    #[test]
+    fn example_snapshot() {
+        insta::assert_snapshot!(pretty_print(&compile(EXAMPLE.to_string())));
+    }
 
-        assert_eq!(f.call(&mut store, (1, 4, 2)).unwrap(), 8);
-        assert_eq!(f.call(&mut store, (0, 4, 2)).unwrap(), 6);
-        assert_eq!(g.call(&mut store, ()).unwrap(), 3);
+    #[test]
+    fn example_execution() {
+        with_instance(&compile(EXAMPLE.to_string()), |instance, mut store| {
+            let f = instance.get_typed_func::<(i32, i64, i64), i64>(&mut store, "f").unwrap();
+            let g = instance.get_typed_func::<(), i64>(&mut store, "g").unwrap();
+
+            assert_eq!(f.call(&mut store, (1, 4, 2)).unwrap(), 8);
+            assert_eq!(f.call(&mut store, (0, 4, 2)).unwrap(), 6);
+            assert_eq!(g.call(&mut store, ()).unwrap(), 3);
+        });
+    }
+
+    #[test]
+    fn bench_is_valid() {
+        validate(&compile(bench()));
+    }
+
+    #[test]
+    fn bench_snapshot() {
+        insta::assert_snapshot!(pretty_print(&compile(bench())));
+    }
+
+    #[test]
+    fn bench_execution() {
+        with_instance(&compile(bench()), |instance, mut store| {
+            let sum_to = instance.get_typed_func::<(i64,), i64>(&mut store, "sum_to").unwrap();
+
+            assert_eq!(sum_to.call(&mut store, (10,)).unwrap(), 55);
+            assert_eq!(sum_to.call(&mut store, (100,)).unwrap(), 5050);
+            assert_eq!(sum_to.call(&mut store, (1000,)).unwrap(), 500500);
+        });
     }
 }

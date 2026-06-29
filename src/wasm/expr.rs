@@ -206,6 +206,7 @@ impl<'a, 'm> ExprCompiler<'a, 'm> {
                 for arg in args {
                     self.compile_expr(&arg.locatee);
                 }
+                // TODO: Add support for TCO.
                 self.instructions().call(func_index);
             }
             Expr::BinOp(lhs, op, rhs) => {

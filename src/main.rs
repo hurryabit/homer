@@ -20,7 +20,7 @@ struct Args {
 #[derive(Subcommand)]
 enum Command {
     Check { file: PathBuf },
-    Run { file: PathBuf },
+    Interpret { file: PathBuf },
     Compile { file: PathBuf },
     Server,
 }
@@ -48,7 +48,11 @@ fn process_file(
     Ok(success)
 }
 
-fn run_file(_file: PathBuf, db: &mut build::CompilerDB, uri: build::Uri) -> anyhow::Result<bool> {
+fn interpret_file(
+    _file: PathBuf,
+    db: &mut build::CompilerDB,
+    uri: build::Uri,
+) -> anyhow::Result<bool> {
     let module = db.anf_module(uri).expect("conversion to ANF cannot fail when checks have passed");
     let main = syntax::ExprVar::new("main");
     if module.func_decls.iter().any(|decl| decl.name == main) {
@@ -98,7 +102,7 @@ async fn main() {
     let args = Args::parse();
     let result = match args.command {
         Command::Check { file } => process_file(file, |_, _, _| Ok(true)),
-        Command::Run { file } => process_file(file, run_file),
+        Command::Interpret { file } => process_file(file, interpret_file),
         Command::Compile { file } => process_file(file, compile_file),
         Command::Server => language_server().await,
     };

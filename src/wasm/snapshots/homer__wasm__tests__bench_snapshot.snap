@@ -1,0 +1,210 @@
+---
+source: src/wasm/mod.rs
+expression: pretty_print(&compile(bench()))
+---
+(module
+  (type (;0;) (sub (struct)))
+  (type (;1;) (sub final 0 (struct (field i64))))
+  (type (;2;) (sub final 0 (struct (field i32))))
+  (type (;3;) (array (ref 0)))
+  (type (;4;) (func (param (ref 3)) (result (ref 0))))
+  (type (;5;) (func (param (ref 3) (ref 0)) (result (ref 0))))
+  (type (;6;) (func (param (ref 3) (ref 0) (ref 0)) (result (ref 0))))
+  (type (;7;) (func (param (ref 3) (ref 0) (ref 0) (ref 0)) (result (ref 0))))
+  (type (;8;) (func (param (ref 3) (ref 0) (ref 0) (ref 0) (ref 0)) (result (ref 0))))
+  (type (;9;) (func (param (ref 3) (ref 0) (ref 0) (ref 0) (ref 0) (ref 0)) (result (ref 0))))
+  (type (;10;) (sub final 0 (struct (field (ref 3)) (field (ref 4)))))
+  (type (;11;) (sub final 0 (struct (field (ref 3)) (field (ref 5)))))
+  (type (;12;) (sub final 0 (struct (field (ref 3)) (field (ref 6)))))
+  (type (;13;) (sub final 0 (struct (field (ref 3)) (field (ref 7)))))
+  (type (;14;) (sub final 0 (struct (field (ref 3)) (field (ref 8)))))
+  (type (;15;) (sub final 0 (struct (field (ref 3)) (field (ref 9)))))
+  (type (;16;) (sub final 0 (struct)))
+  (type (;17;) (sub final 0 (struct (field (ref 0)))))
+  (type (;18;) (sub final 0 (struct (field (ref 0)) (field (ref 0)))))
+  (type (;19;) (sub final 0 (struct (field (ref 0)) (field (ref 0)) (field (ref 0)))))
+  (type (;20;) (sub final 0 (struct (field (ref 0)) (field (ref 0)) (field (ref 0)) (field (ref 0)))))
+  (type (;21;) (sub final 0 (struct (field (ref 0)) (field (ref 0)) (field (ref 0)) (field (ref 0)) (field (ref 0)))))
+  (type (;22;) (sub final 0 (struct (field i32) (field (ref null 0)))))
+  (type (;23;) (func (result (ref 0))))
+  (type (;24;) (func (param (ref 0)) (result (ref 0))))
+  (type (;25;) (func (param (ref 0) (ref 0)) (result (ref 0))))
+  (type (;26;) (func (param (ref 0) (ref 0) (ref 0)) (result (ref 0))))
+  (type (;27;) (func (param (ref 0) (ref 0) (ref 0) (ref 0)) (result (ref 0))))
+  (type (;28;) (func (param (ref 0) (ref 0) (ref 0) (ref 0) (ref 0)) (result (ref 0))))
+  (type (;29;) (func (param i64) (result i64)))
+  (type (;30;) (func (result i64)))
+  (export "sum_to" (func 7))
+  (export "main" (func 8))
+  (elem (;0;) declare func 5 6)
+  (func (;0;) (type 26) (param (ref 0) (ref 0) (ref 0)) (result (ref 0))
+    (local (ref 0))
+    block (result (ref 0)) ;; label = @1
+      block (result (ref 0)) ;; label = @2
+        block (result (ref 0)) ;; label = @3
+          block (result (ref 0)) ;; label = @4
+            local.get 0
+            local.tee 3
+            local.get 3
+            ref.cast (ref 22)
+            struct.get 22 0
+            br_table 0 (;@4;) 1 (;@3;) 2 (;@2;)
+          end
+          ref.cast (ref 22)
+          struct.get 22 1
+          ref.as_non_null
+          local.set 3
+          local.get 3
+          ref.cast (ref 18)
+          struct.get 18 1
+          local.get 2
+          ref.cast (ref 12)
+          struct.get 12 0
+          local.get 1
+          local.get 3
+          ref.cast (ref 18)
+          struct.get 18 0
+          local.get 2
+          ref.cast (ref 12)
+          struct.get 12 1
+          call_ref 6
+          local.get 2
+          call 0
+          br 2 (;@1;)
+        end
+        drop
+        local.get 1
+        br 1 (;@1;)
+      end
+      unreachable
+    end
+  )
+  (func (;1;) (type 25) (param (ref 0) (ref 0)) (result (ref 0))
+    (local (ref 0))
+    block (result (ref 0)) ;; label = @1
+      block (result (ref 0)) ;; label = @2
+        block (result (ref 0)) ;; label = @3
+          block (result (ref 0)) ;; label = @4
+            local.get 0
+            ref.cast (ref 11)
+            struct.get 11 0
+            local.get 1
+            local.get 0
+            ref.cast (ref 11)
+            struct.get 11 1
+            call_ref 5
+            local.tee 2
+            local.get 2
+            ref.cast (ref 22)
+            struct.get 22 0
+            br_table 0 (;@4;) 1 (;@3;) 2 (;@2;)
+          end
+          drop
+          i32.const 1
+          ref.null 0
+          struct.new 22
+          br 2 (;@1;)
+        end
+        ref.cast (ref 22)
+        struct.get 22 1
+        ref.as_non_null
+        local.set 2
+        i32.const 0
+        local.get 2
+        ref.cast (ref 18)
+        struct.get 18 1
+        local.get 0
+        local.get 2
+        ref.cast (ref 18)
+        struct.get 18 0
+        call 1
+        struct.new 18
+        struct.new 22
+        br 1 (;@1;)
+      end
+      unreachable
+    end
+  )
+  (func (;2;) (type 24) (param (ref 0)) (result (ref 0))
+    (local (ref 0))
+    array.new_fixed 3 0
+    ref.func 5
+    struct.new 11
+    local.set 1
+    local.get 1
+    local.get 0
+    call 1
+  )
+  (func (;3;) (type 24) (param (ref 0)) (result (ref 0))
+    (local (ref 0))
+    local.get 0
+    call 2
+    local.set 1
+    local.get 1
+    i64.const 0
+    struct.new 1
+    array.new_fixed 3 0
+    ref.func 6
+    struct.new 12
+    call 0
+  )
+  (func (;4;) (type 23) (result (ref 0))
+    i64.const 1000
+    struct.new 1
+    call 3
+  )
+  (func (;5;) (type 5) (param (ref 3) (ref 0)) (result (ref 0))
+    local.get 1
+    ref.cast (ref 1)
+    struct.get 1 0
+    i64.const 0
+    struct.new 1
+    ref.cast (ref 1)
+    struct.get 1 0
+    i64.ge_s
+    struct.new 2
+    ref.cast (ref 2)
+    struct.get 2 0
+    if (result (ref 0)) ;; label = @1
+      i32.const 1
+      local.get 1
+      ref.cast (ref 1)
+      struct.get 1 0
+      i64.const 1
+      struct.new 1
+      ref.cast (ref 1)
+      struct.get 1 0
+      i64.sub
+      struct.new 1
+      local.get 1
+      struct.new 18
+      struct.new 22
+    else
+      i32.const 0
+      ref.null 0
+      struct.new 22
+    end
+  )
+  (func (;6;) (type 6) (param (ref 3) (ref 0) (ref 0)) (result (ref 0))
+    local.get 1
+    ref.cast (ref 1)
+    struct.get 1 0
+    local.get 2
+    ref.cast (ref 1)
+    struct.get 1 0
+    i64.add
+    struct.new 1
+  )
+  (func (;7;) (type 29) (param i64) (result i64)
+    local.get 0
+    struct.new 1
+    call 3
+    ref.cast (ref 1)
+    struct.get 1 0
+  )
+  (func (;8;) (type 30) (result i64)
+    call 4
+    ref.cast (ref 1)
+    struct.get 1 0
+  )
+)

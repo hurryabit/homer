@@ -29,7 +29,11 @@ fn enumerate(n: Int) -> List<Int> {
     unfold_left(f, n)
 }
 
-fn main() -> Int {
-    let xs = enumerate(1000);
+fn sum_to(n: Int) -> Int {
+    let xs = enumerate(n);
     fold_left(xs, 0, fn (x, y) { x + y })
+}
+
+fn main() -> Int {
+    sum_to(1000)
 }
